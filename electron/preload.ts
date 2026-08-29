@@ -3,19 +3,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 const invoke = (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  auth: {
-    isFirstRun:  ()              => invoke('auth:isFirstRun'),
-    setPin:      (pin: string)   => invoke('auth:setPin', pin),
-    verifyPin:   (pin: string)   => invoke('auth:verifyPin', pin),
-  },
   clients: {
-    getAll:   (filters?: object)             => invoke('clients:getAll', filters),
-    getById:  (id: number)                   => invoke('clients:getById', id),
-    create:   (data: object)                 => invoke('clients:create', data),
-    update:   (id: number, data: object)     => invoke('clients:update', id, data),
-    archive:  (id: number)                   => invoke('clients:archive', id),
-    delete:   (id: number)                   => invoke('clients:delete', id),
-    search:   (query: string)                => invoke('clients:search', query),
+    getAll:  (filters?: object)              => invoke('clients:getAll', filters),
+    getById: (id: number)                    => invoke('clients:getById', id),
+    create:  (data: object)                  => invoke('clients:create', data),
+    update:  (id: number, data: object)      => invoke('clients:update', id, data),
+    archive: (id: number)                    => invoke('clients:archive', id),
+    delete:  (id: number)                    => invoke('clients:delete', id),
+    search:  (query: string)                 => invoke('clients:search', query),
   },
   orders: {
     getByClientId: (clientId: number)        => invoke('orders:getByClientId', clientId),
@@ -28,6 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create:        (data: object)            => invoke('contacts:create', data),
     delete:        (id: number)              => invoke('contacts:delete', id),
     setPrimary:    (clientId: number, contactId: number) => invoke('contacts:setPrimary', clientId, contactId),
+  },
+  consent: {
+    getByClientId: (clientId: number)                    => invoke('consent:getByClientId', clientId),
+    update:        (clientId: number, data: object)      => invoke('consent:update', clientId, data),
   },
   history: {
     getByClientId: (clientId: number)        => invoke('history:getByClientId', clientId),

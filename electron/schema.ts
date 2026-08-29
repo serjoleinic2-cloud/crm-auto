@@ -1,21 +1,8 @@
-// SQLite schema — used only as reference in TypeScript
-// Actual SQL is in electron/ipc/database.ts
-
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const CREATE_TABLES_SQL = `
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
-
-CREATE TABLE IF NOT EXISTS schema_version (
-  version INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  pin_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
 CREATE TABLE IF NOT EXISTS statuses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +31,17 @@ CREATE TABLE IF NOT EXISTS clients (
   next_action_date TEXT,
   is_archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS consent (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'not_requested'
+    CHECK(status IN ('not_requested','sent','received','verified')),
+  received_date TEXT,
+  scan_path TEXT,
+  comment TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -113,15 +111,16 @@ CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_orders_contract ON orders(contract_number);
 CREATE INDEX IF NOT EXISTS idx_contacts_client ON contacts(client_id);
 CREATE INDEX IF NOT EXISTS idx_history_client ON history(client_id);
+CREATE INDEX IF NOT EXISTS idx_consent_client ON consent(client_id);
 CREATE INDEX IF NOT EXISTS idx_cfv_field_entity ON custom_field_values(field_id, entity_id);
 `;
 
 export const DEFAULT_STATUSES = [
-  { name: 'Новый клиент',    color: '#3b82f6', category: 'pipeline', sort_order: 1 },
-  { name: 'В переговорах',   color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
-  { name: 'Договор подписан',color: '#f59e0b', category: 'pipeline', sort_order: 3 },
+  { name: 'Новый клиент',     color: '#3b82f6', category: 'pipeline', sort_order: 1 },
+  { name: 'В переговорах',    color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
+  { name: 'Договор подписан', color: '#f59e0b', category: 'pipeline', sort_order: 3 },
   { name: 'Автомобиль в пути',color: '#06b6d4', category: 'pipeline', sort_order: 4 },
-  { name: 'Готов к выдаче',  color: '#10b981', category: 'pipeline', sort_order: 5 },
-  { name: 'Завершён',        color: '#6b7280', category: 'done',     sort_order: 6 },
-  { name: 'Отказ',           color: '#ef4444', category: 'lost',     sort_order: 7 },
+  { name: 'Готов к выдаче',   color: '#10b981', category: 'pipeline', sort_order: 5 },
+  { name: 'Завершён',         color: '#6b7280', category: 'done',     sort_order: 6 },
+  { name: 'Отказ',            color: '#ef4444', category: 'lost',     sort_order: 7 },
 ];

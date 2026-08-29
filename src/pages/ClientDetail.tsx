@@ -8,6 +8,7 @@ import StatusBadge from '../components/StatusBadge';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star } from 'lucide-react';
 import type { Client, Status, Contact } from '../types';
+import ConsentCard from '../components/ConsentCard';
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -16,7 +17,7 @@ export default function ClientDetail() {
   
   const [client, setClient] = useState<Client | null>(null);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'history'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   
@@ -94,7 +95,7 @@ export default function ClientDetail() {
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200">
-        {(['main', 'contacts', 'orders', 'history'] as const).map(tab => (
+        {(['main', 'contacts', 'orders', 'documents', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -105,6 +106,7 @@ export default function ClientDetail() {
             {tab === 'main' && 'Основное'}
             {tab === 'contacts' && 'Контакты'}
             {tab === 'orders' && 'Заказы'}
+            {tab === 'documents' && 'Документы'}
             {tab === 'history' && 'История'}
           </button>
         ))}
@@ -231,6 +233,12 @@ export default function ClientDetail() {
             ))}
             {orders.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Заказы не добавлены</p>}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'documents' && (
+        <div className="space-y-4">
+          <ConsentCard clientId={clientId} />
         </div>
       )}
 

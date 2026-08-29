@@ -3,11 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const invoke = (channel, ...args) => electron_1.ipcRenderer.invoke(channel, ...args);
 electron_1.contextBridge.exposeInMainWorld('electronAPI', {
-    auth: {
-        isFirstRun: () => invoke('auth:isFirstRun'),
-        setPin: (pin) => invoke('auth:setPin', pin),
-        verifyPin: (pin) => invoke('auth:verifyPin', pin),
-    },
     clients: {
         getAll: (filters) => invoke('clients:getAll', filters),
         getById: (id) => invoke('clients:getById', id),
@@ -28,6 +23,10 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         create: (data) => invoke('contacts:create', data),
         delete: (id) => invoke('contacts:delete', id),
         setPrimary: (clientId, contactId) => invoke('contacts:setPrimary', clientId, contactId),
+    },
+    consent: {
+        getByClientId: (clientId) => invoke('consent:getByClientId', clientId),
+        update: (clientId, data) => invoke('consent:update', clientId, data),
     },
     history: {
         getByClientId: (clientId) => invoke('history:getByClientId', clientId),

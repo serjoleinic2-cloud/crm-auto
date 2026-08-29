@@ -1,6 +1,4 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
@@ -18,13 +16,13 @@ function Sidebar() {
   const location = useLocation();
 
   const links = [
-    { to: '/',          icon: Home,        label: 'Главная' },
-    { to: '/clients',   icon: Users,       label: 'Клиенты' },
-    { to: '/orders',    icon: Truck,       label: 'Заказы' },
-    { to: '/reminders', icon: Bell,        label: 'Задачи' },
-    { to: '/archive',   icon: ArchiveIcon, label: 'Архив' },
-    { to: '/statistics',icon: BarChart2,   label: 'Статистика' },
-    { to: '/settings',  icon: SettingsIcon,label: 'Настройки' },
+    { to: '/',           icon: Home,         label: 'Главная' },
+    { to: '/clients',    icon: Users,        label: 'Клиенты' },
+    { to: '/orders',     icon: Truck,        label: 'Заказы' },
+    { to: '/reminders',  icon: Bell,         label: 'Задачи' },
+    { to: '/archive',    icon: ArchiveIcon,  label: 'Архив' },
+    { to: '/statistics', icon: BarChart2,    label: 'Статистика' },
+    { to: '/settings',   icon: SettingsIcon, label: 'Настройки' },
   ];
 
   return (
@@ -49,20 +47,6 @@ function Sidebar() {
 }
 
 function App() {
-  const { isAuthenticated, isLoading, isFirstRun } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-400">Загрузка...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Login isFirstRun={isFirstRun === true} />;
-  }
-
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
       <Sidebar />

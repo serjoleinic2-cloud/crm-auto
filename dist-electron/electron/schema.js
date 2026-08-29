@@ -1,22 +1,10 @@
 "use strict";
-// SQLite schema — used only as reference in TypeScript
-// Actual SQL is in electron/ipc/database.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_STATUSES = exports.CREATE_TABLES_SQL = exports.SCHEMA_VERSION = void 0;
-exports.SCHEMA_VERSION = 1;
+exports.SCHEMA_VERSION = 2;
 exports.CREATE_TABLES_SQL = `
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
-
-CREATE TABLE IF NOT EXISTS schema_version (
-  version INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  pin_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
 CREATE TABLE IF NOT EXISTS statuses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +33,17 @@ CREATE TABLE IF NOT EXISTS clients (
   next_action_date TEXT,
   is_archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS consent (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'not_requested'
+    CHECK(status IN ('not_requested','sent','received','verified')),
+  received_date TEXT,
+  scan_path TEXT,
+  comment TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -114,6 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_orders_contract ON orders(contract_number);
 CREATE INDEX IF NOT EXISTS idx_contacts_client ON contacts(client_id);
 CREATE INDEX IF NOT EXISTS idx_history_client ON history(client_id);
+CREATE INDEX IF NOT EXISTS idx_consent_client ON consent(client_id);
 CREATE INDEX IF NOT EXISTS idx_cfv_field_entity ON custom_field_values(field_id, entity_id);
 `;
 exports.DEFAULT_STATUSES = [

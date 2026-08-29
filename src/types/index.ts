@@ -1,9 +1,3 @@
-export interface User {
-  id: number;
-  pin_hash: string;
-  created_at: string;
-}
-
 export interface Status {
   id: number;
   name: string;
@@ -26,11 +20,38 @@ export interface Client {
   is_archived: number;
   created_at: string;
   updated_at: string;
-  // joined fields
+  // joined
   status_name?: string;
   status_color?: string;
   contract_number?: string | null;
   car?: string | null;
+  consent_status?: ConsentStatus;
+}
+
+export type ConsentStatus = 'not_requested' | 'sent' | 'received' | 'verified';
+
+export const CONSENT_STATUS_LABELS: Record<ConsentStatus, string> = {
+  not_requested: 'Не запрашивалось',
+  sent:          'Отправлено клиенту',
+  received:      'Получено',
+  verified:      'Проверено',
+};
+
+export const CONSENT_STATUS_COLORS: Record<ConsentStatus, string> = {
+  not_requested: '#9ca3af',
+  sent:          '#f59e0b',
+  received:      '#3b82f6',
+  verified:      '#10b981',
+};
+
+export interface Consent {
+  id: number;
+  client_id: number;
+  status: ConsentStatus;
+  received_date: string | null;
+  scan_path: string | null;
+  comment: string | null;
+  updated_at: string;
 }
 
 export interface Order {
@@ -78,6 +99,7 @@ export interface DashboardStats {
   todayTasks: number;
   carsInTransit: number;
   newClientsThisWeek: number;
+  pendingConsent: number;
 }
 
 export interface CarBrand {
@@ -106,7 +128,6 @@ export interface CustomFieldValue {
   updated_at: string;
 }
 
-// Extend window with electronAPI
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
@@ -114,15 +135,10 @@ declare global {
 }
 
 export interface ElectronAPI {
-  auth: {
-    isFirstRun: () => Promise<boolean>;
-    setPin:     (pin: string) => Promise<boolean>;
-    verifyPin:  (pin: string) => Promise<boolean>;
-  };
   clients: {
     getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean }) => Promise<Client[]>;
     getById: (id: number) => Promise<Client | undefined>;
-    create:  (data: Omit<Client, 'id'|'created_at'|'updated_at'|'is_archived'|'status_name'|'status_color'|'contract_number'|'car'>) => Promise<number>;
+    create:  (data: Omit<Client, 'id'|'created_at'|'updated_at'|'status_name'|'status_color'|'contract_number'|'car'|'consent_status'>) => Promise<number>;
     update:  (id: number, data: Partial<Client>) => Promise<boolean>;
     archive: (id: number) => Promise<boolean>;
     delete:  (id: number) => Promise<boolean>;
@@ -139,6 +155,10 @@ export interface ElectronAPI {
     create:        (data: Omit<Contact, 'id'|'created_at'>) => Promise<number>;
     delete:        (id: number) => Promise<boolean>;
     setPrimary:    (clientId: number, contactId: number) => Promise<boolean>;
+  };
+  consent: {
+    getByClientId: (clientId: number) => Promise<Consent | undefined>;
+    update:        (clientId: number, data: Partial<Consent>) => Promise<boolean>;
   };
   history: {
     getByClientId: (clientId: number) => Promise<HistoryEntry[]>;
