@@ -31,6 +31,7 @@ export default function QuickAdd() {
       status_id: 1, // "Новый клиент"
       next_action: form.next_action || null,
       next_action_date: form.next_action_date || null,
+      is_archived: 0,
     });
 
     if (clientId) {

@@ -35,7 +35,7 @@ export default function ClientDetail() {
 
   const loadClient = async () => {
     const data = await ipcService.clients.getById(clientId);
-    setClient(data);
+    setClient(data ?? null);
     if (data) setEditData(data);
   };
 
