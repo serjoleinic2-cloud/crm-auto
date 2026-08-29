@@ -1,0 +1,63 @@
+{
+  "name": "crm-auto",
+  "version": "1.0.0",
+  "description": "Локальная CRM для менеджера по продаже автомобилей под заказ",
+  "main": "dist-electron/main.js",
+  "author": "CRM Auto",
+  "license": "MIT",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently \"vite\" \"wait-on dist-electron/main.js && electron .\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:electron && vite build",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "wait-on": "^8.0.3"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^11.9.1",
+    "kysely": "^0.27.6",
+    "lucide-react": "^0.477.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.crmauto.app",
+    "productName": "CRM Auto",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "templates/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "templates",
+        "to": "templates"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    }
+  }
+}
