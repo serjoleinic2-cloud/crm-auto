@@ -62,6 +62,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [passportSaved, setPassportSaved] = useState(false);
   const [passportLoading, setPassportLoading] = useState(true);
   const [passportOpen, setPassportOpen] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedOrderId, setSelectedOrderId] = useState<number>(orders[0]?.id ?? 0);
   const [carOpen, setCarOpen] = useState(true);
@@ -81,12 +82,28 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
   // Load passport data and next contract number
   useEffect(() => {
+    let cancelled = false;
     setPassportLoading(true);
-    ipcService.contracts.getPassportData(client.id).then(data => {
-      if (data) setPassport({ ...data, client_id: client.id });
-      setPassportLoading(false);
-    });
-    ipcService.contracts.getNextNumber().then(n => setContractNumber(n));
+    setLoadError(null);
+
+    async function load() {
+      try {
+        const [data, nextNumber] = await Promise.all([
+          ipcService.contracts.getPassportData(client.id),
+          ipcService.contracts.getNextNumber(),
+        ]);
+        if (cancelled) return;
+        if (data) setPassport({ ...data, client_id: client.id });
+        setContractNumber(nextNumber);
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setPassportLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
   }, [client.id]);
 
   // Sync car form when order changes
@@ -109,10 +126,15 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
   const savePassport = useCallback(async () => {
     setSavingPassport(true);
-    await ipcService.contracts.savePassportData(client.id, passport);
-    setPassportSaved(true);
-    setSavingPassport(false);
-    setTimeout(() => setPassportSaved(false), 2500);
+    try {
+      await ipcService.contracts.savePassportData(client.id, passport);
+      setPassportSaved(true);
+      setTimeout(() => setPassportSaved(false), 2500);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingPassport(false);
+    }
   }, [client.id, passport]);
 
   // ── car form save ──────────────────────────────────────────────────────────
@@ -120,8 +142,13 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const saveCar = useCallback(async () => {
     if (!selectedOrderId) return;
     setSavingCar(true);
-    await ipcService.orders.update(selectedOrderId, carForm);
-    setSavingCar(false);
+    try {
+      await ipcService.orders.update(selectedOrderId, carForm);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingCar(false);
+    }
   }, [selectedOrderId, carForm]);
 
   // ── validation ─────────────────────────────────────────────────────────────
@@ -158,26 +185,34 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     setGenerating(true);
     setErrorMsg('');
 
-    // Save car form first
-    if (selectedOrderId) {
-      await ipcService.orders.update(selectedOrderId, {
-        ...carForm,
-        deal_amount: dealAmount,
-        contract_number: contractNumber,
-        contract_date: contractDate,
-      });
+    let res: Awaited<ReturnType<typeof ipcService.contracts.generate>>;
+    try {
+      // Save car form first
+      if (selectedOrderId) {
+        await ipcService.orders.update(selectedOrderId, {
+          ...carForm,
+          deal_amount: dealAmount,
+          contract_number: contractNumber,
+          contract_date: contractDate,
+        });
+      }
+
+      const data: ContractGenerateData = {
+        clientId: client.id,
+        orderId: selectedOrderId,
+        contractNumber,
+        contractDate,
+        dealAmount,
+        agentFee,
+      };
+
+      res = await ipcService.contracts.generate(data);
+    } catch (e) {
+      setGenerating(false);
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+      return;
     }
 
-    const data: ContractGenerateData = {
-      clientId: client.id,
-      orderId: selectedOrderId,
-      contractNumber,
-      contractDate,
-      dealAmount,
-      agentFee,
-    };
-
-    const res = await ipcService.contracts.generate(data);
     setGenerating(false);
 
     if ('error' in res) {
@@ -193,6 +228,18 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
   const missing = getMissing();
   const selectedOrder = orders.find(o => o.id === selectedOrderId);
+
+  if (loadError) {
+    return (
+      <div className="card border border-red-300 bg-red-50 text-red-800 text-sm flex items-start gap-2">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+        <div>
+          <p className="font-medium mb-1">Не удалось загрузить данные для договора</p>
+          <p className="text-xs text-red-700">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (passportLoading) {
     return <div className="text-sm text-gray-500 p-4">Загрузка данных...</div>;

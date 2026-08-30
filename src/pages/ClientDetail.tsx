@@ -11,6 +11,7 @@ import DocumentsPanel from '../components/DocumentsPanel';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck, Phone, ClipboardCheck } from 'lucide-react';
 import ContractTab from '../components/ContractTab';
+import ErrorBoundary from '../components/ErrorBoundary';
 import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
 
@@ -594,12 +595,14 @@ export default function ClientDetail() {
       )}
 
       {activeTab === 'contract' && client && (
-        <ContractTab
-          client={client}
-          orders={orders}
-          onHistoryRefresh={() => fetchHistory(clientId)}
-          onDocumentsRefresh={() => fetchDocuments(clientId)}
-        />
+        <ErrorBoundary label="Договор">
+          <ContractTab
+            client={client}
+            orders={orders}
+            onHistoryRefresh={() => fetchHistory(clientId)}
+            onDocumentsRefresh={() => fetchDocuments(clientId)}
+          />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'history' && (
