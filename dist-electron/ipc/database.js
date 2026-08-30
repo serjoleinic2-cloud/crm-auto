@@ -15,7 +15,6 @@ const fs_1 = __importDefault(require("fs"));
 const schema_1 = require("../schema");
 let db;
 function getDb() { return db; }
-// ── SETTINGS (generic key/value) ─────────────────────────────────────────────
 function getSetting(key) {
     const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key);
     return row ? row.value : null;
@@ -26,6 +25,18 @@ function setSetting(key, value) {
     ON CONFLICT(key) DO UPDATE SET value=excluded.value
   `).run(key, value);
 }
+function safeAlter(table, col, def) {
+    const cols = db.pragma(`table_info(${table})`).map(c => c.name);
+    if (!cols.includes(col)) {
+        try {
+            db.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`).run();
+            console.log(`[migrate] Added ${table}.${col}`);
+        }
+        catch (e) {
+            console.error(`[migrate] Failed to add ${table}.${col}:`, e);
+        }
+    }
+}
 function initDatabase() {
     const userDataPath = electron_1.app.getPath('userData');
     const dbPath = path_1.default.join(userDataPath, 'crm-auto.db');
@@ -33,51 +44,36 @@ function initDatabase() {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.exec(schema_1.CREATE_TABLES_SQL);
-    // Migration: add is_deleted / deleted_at if missing (for existing DBs)
-    const clientCols = db.pragma('table_info(clients)').map(c => c.name);
-    if (!clientCols.includes('is_deleted')) {
-        db.prepare('ALTER TABLE clients ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0').run();
+    // ── Migrations (safe, idempotent) ─────────────────────────────────────────
+    safeAlter('clients', 'is_deleted', 'INTEGER NOT NULL DEFAULT 0');
+    safeAlter('clients', 'deleted_at', 'TEXT');
+    // Orders new fields (no REFERENCES in ALTER TABLE)
+    safeAlter('orders', 'order_status_id', 'INTEGER');
+    safeAlter('orders', 'broker_name', 'TEXT');
+    safeAlter('orders', 'broker_phone', 'TEXT');
+    safeAlter('orders', 'broker_comment', 'TEXT');
+    safeAlter('orders', 'broker_date', 'TEXT');
+    safeAlter('orders', 'inspection_done', 'INTEGER NOT NULL DEFAULT 0');
+    safeAlter('orders', 'inspection_comment', 'TEXT');
+    safeAlter('orders', 'issue_date', 'TEXT');
+    // Create missing index for order_status_id
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status_id)').run();
     }
-    if (!clientCols.includes('deleted_at')) {
-        db.prepare('ALTER TABLE clients ADD COLUMN deleted_at TEXT').run();
-    }
-    // Migration: orders new fields
-    const orderCols = db.pragma('table_info(orders)').map(c => c.name);
-    const orderMigrations = [
-        { col: 'order_status_id', sql: 'ALTER TABLE orders ADD COLUMN order_status_id INTEGER REFERENCES order_statuses(id) ON DELETE SET NULL' },
-        { col: 'broker_name', sql: 'ALTER TABLE orders ADD COLUMN broker_name TEXT' },
-        { col: 'broker_phone', sql: 'ALTER TABLE orders ADD COLUMN broker_phone TEXT' },
-        { col: 'broker_comment', sql: 'ALTER TABLE orders ADD COLUMN broker_comment TEXT' },
-        { col: 'broker_date', sql: 'ALTER TABLE orders ADD COLUMN broker_date TEXT' },
-        { col: 'inspection_done', sql: 'ALTER TABLE orders ADD COLUMN inspection_done INTEGER NOT NULL DEFAULT 0' },
-        { col: 'inspection_comment', sql: 'ALTER TABLE orders ADD COLUMN inspection_comment TEXT' },
-        { col: 'issue_date', sql: 'ALTER TABLE orders ADD COLUMN issue_date TEXT' },
-    ];
-    for (const m of orderMigrations) {
-        if (!orderCols.includes(m.col)) {
-            try {
-                db.prepare(m.sql).run();
-            }
-            catch (e) {
-                console.error('Migration error:', e);
-            }
-        }
-    }
-    // Seed statuses
+    catch (e) { /* ignore */ }
+    // ── Seed data ──────────────────────────────────────────────────────────────
     const statusCount = db.prepare('SELECT COUNT(*) as c FROM statuses').get().c;
     if (statusCount === 0) {
         const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
         for (const s of schema_1.DEFAULT_STATUSES)
             ins.run(s.name, s.color, s.category, s.sort_order);
     }
-    // Seed order statuses
     const orderStatusCount = db.prepare('SELECT COUNT(*) as c FROM order_statuses').get().c;
     if (orderStatusCount === 0) {
         const ins = db.prepare('INSERT INTO order_statuses (name,color,sort_order) VALUES (?,?,?)');
         for (const s of schema_1.DEFAULT_ORDER_STATUSES)
             ins.run(s.name, s.color, s.sort_order);
     }
-    // Seed car brands
     const brandCount = db.prepare('SELECT COUNT(*) as c FROM car_brands').get().c;
     if (brandCount === 0) {
         const brandsFile = path_1.default.join(electron_1.app.getAppPath(), 'car_brands.txt');
@@ -87,14 +83,12 @@ function initDatabase() {
             lines.forEach((name, i) => ins.run(name, i));
         }
     }
-    // Seed document types
     const docTypeCount = db.prepare('SELECT COUNT(*) as c FROM document_types').get().c;
     if (docTypeCount === 0) {
         const ins = db.prepare('INSERT INTO document_types (code,name,folder_name,sort_order,is_system) VALUES (@code,@name,@folder_name,@sort_order,@is_system)');
         for (const t of schema_1.DEFAULT_DOCUMENT_TYPES)
             ins.run({ ...t, is_system: t.is_system });
     }
-    // Seed default base data path (Documents/CRM-Auto Data)
     if (getSetting('base_data_path') === null) {
         setSetting('base_data_path', path_1.default.join(electron_1.app.getPath('documents'), 'CRM-Auto Data'));
     }
@@ -241,19 +235,16 @@ function registerHandlers() {
         _writeHistory(id, 'archive', 'Клиент перемещён в архив');
         return true;
     });
-    // Soft delete — move to trash
     electron_1.ipcMain.handle('clients:trash', (_e, id) => {
         db.prepare("UPDATE clients SET is_deleted=1, deleted_at=datetime('now'), updated_at=datetime('now') WHERE id=?").run(id);
         _writeHistory(id, 'trash', 'Клиент перемещён в корзину');
         return true;
     });
-    // Restore from trash
     electron_1.ipcMain.handle('clients:restore', (_e, id) => {
         db.prepare("UPDATE clients SET is_deleted=0, deleted_at=NULL, updated_at=datetime('now') WHERE id=?").run(id);
         _writeHistory(id, 'restore', 'Клиент восстановлен из корзины');
         return true;
     });
-    // Hard delete from trash only
     electron_1.ipcMain.handle('clients:deleteForever', (_e, id) => {
         db.prepare('DELETE FROM clients WHERE id=? AND is_deleted=1').run(id);
         return true;
@@ -275,7 +266,6 @@ function registerHandlers() {
       ORDER BY c.updated_at DESC LIMIT 50
     `).all(like, like, like, like, like, like, like);
     });
-    // Live search — returns as user types (same logic, lower limit)
     electron_1.ipcMain.handle('clients:suggest', (_e, q) => {
         if (!q || q.trim().length < 1)
             return [];
@@ -341,25 +331,20 @@ function registerHandlers() {
         db.prepare(`UPDATE orders SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...data, __id: id });
         if (old) {
             const clientId = old.client_id;
-            // Contract number changed
             if ('contract_number' in data && old.contract_number !== data.contract_number) {
                 _writeHistory(clientId, 'contract_change', 'Номер договора изменён', String(old.contract_number ?? ''), String(data.contract_number ?? ''));
             }
-            // Price changed
             if ('price' in data && old.price !== data.price) {
                 _writeHistory(clientId, 'price_change', 'Цена изменена', String(old.price ?? ''), String(data.price ?? ''));
             }
-            // Payment status changed
             if ('payment_status' in data && old.payment_status !== data.payment_status) {
                 const labels = { not_paid: 'Не оплачено', pending: 'Ожидается оплата', paid: 'Оплачено', partial: 'Частично оплачено', cancelled: 'Отменено' };
                 _writeHistory(clientId, 'payment_status', `Статус оплаты: ${labels[old.payment_status] ?? old.payment_status} → ${labels[data.payment_status] ?? data.payment_status}`);
             }
-            // Order status changed
             if ('order_status_id' in data && old.order_status_id !== data.order_status_id) {
                 const oldStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(old.order_status_id);
                 const newStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(data.order_status_id);
                 _writeHistory(clientId, 'order_status', `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
-                // Auto-reminders based on status
                 if (newStatus?.name === 'На таможне') {
                     db.prepare(`INSERT INTO reminders (client_id, title, description, auto_created) VALUES (?, ?, ?, 1)`)
                         .run(clientId, 'Доверенность брокеру', `Для клиента нужна доверенность брокеру`);
@@ -369,11 +354,9 @@ function registerHandlers() {
                         .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля');
                 }
             }
-            // Delivery actual date
             if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
                 _writeHistory(clientId, 'arrival', 'Автомобиль прибыл в офис');
             }
-            // Issue date
             if ('issue_date' in data && !old.issue_date && data.issue_date) {
                 _writeHistory(clientId, 'issue', 'Автомобиль выдан клиенту');
             }
