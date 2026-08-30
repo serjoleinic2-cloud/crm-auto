@@ -68,10 +68,20 @@ export interface Order {
   id: number;
   client_id: number;
   contract_number: string | null;
+  contract_date: string | null;
+  deal_amount: string | null;
   brand: string | null;
   model: string | null;
   year: number | null;
+  body_type: string | null;
+  engine: string | null;
+  engine_type: string | null;
+  drive: string | null;
+  transmission: string | null;
   configuration: string | null;
+  color: string | null;
+  mileage: string | null;
+  car_other: string | null;
   description: string | null;
   price: number | null;
   comment: string | null;
@@ -92,6 +102,28 @@ export interface Order {
   // joined
   order_status_name?: string;
   order_status_color?: string;
+}
+
+export interface ClientPassportData {
+  id?: number;
+  client_id: number;
+  birth_date: string | null;
+  inn: string | null;
+  passport_number: string | null;
+  passport_issued_by: string | null;
+  passport_issue_date: string | null;
+  passport_code: string | null;
+  registration_address: string | null;
+  updated_at?: string;
+}
+
+export interface ContractGenerateData {
+  clientId: number;
+  orderId: number;
+  contractNumber: string;
+  contractDate: string;
+  dealAmount: string;
+  agentFee: string;
 }
 
 export interface Contact {
@@ -313,5 +345,12 @@ export interface ElectronAPI {
     getAll:    (entityType: string) => Promise<CustomField[]>;
     getValues: (fieldIds: number[], entityId: number) => Promise<CustomFieldValue[]>;
     setValue:  (fieldId: number, entityId: number, value: string) => Promise<boolean>;
+  };
+  contracts: {
+    getNextNumber:    () => Promise<string>;
+    getPassportData:  (clientId: number) => Promise<ClientPassportData | null>;
+    savePassportData: (clientId: number, data: Partial<ClientPassportData>) => Promise<boolean>;
+    generate:         (data: ContractGenerateData) => Promise<{ success: true; filePath: string; fileName: string } | { error: string }>;
+    openFile:         (filePath: string) => Promise<true | { error: string }>;
   };
 }

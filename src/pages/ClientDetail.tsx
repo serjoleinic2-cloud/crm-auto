@@ -10,6 +10,7 @@ import StatusBadge from '../components/StatusBadge';
 import DocumentsPanel from '../components/DocumentsPanel';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck, Phone, ClipboardCheck } from 'lucide-react';
+import ContractTab from '../components/ContractTab';
 import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
 
@@ -33,7 +34,7 @@ export default function ClientDetail() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
-  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);
@@ -245,7 +246,7 @@ export default function ClientDetail() {
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200">
-        {(['main', 'contacts', 'orders', 'documents', 'history'] as const).map(tab => (
+        {(['main', 'contacts', 'orders', 'documents', 'contract', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -257,6 +258,7 @@ export default function ClientDetail() {
             {tab === 'contacts' && 'Контакты'}
             {tab === 'orders' && 'Заказы'}
             {tab === 'documents' && 'Документы'}
+            {tab === 'contract' && '📄 Договор'}
             {tab === 'history' && 'История'}
           </button>
         ))}
@@ -589,6 +591,15 @@ export default function ClientDetail() {
         <div className="space-y-4">
           <DocumentsPanel clientId={clientId} />
         </div>
+      )}
+
+      {activeTab === 'contract' && client && (
+        <ContractTab
+          client={client}
+          orders={orders}
+          onHistoryRefresh={() => fetchHistory(clientId)}
+          onDocumentsRefresh={() => fetchDocuments(clientId)}
+        />
       )}
 
       {activeTab === 'history' && (

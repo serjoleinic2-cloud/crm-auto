@@ -79,4 +79,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getValues: (fieldIds: number[], entityId: number)       => invoke('customFields:getValues', fieldIds, entityId),
     setValue:  (fieldId: number, entityId: number, v: string) => invoke('customFields:setValue', fieldId, entityId, v),
   },
+  contracts: {
+    getNextNumber:    ()                                          => invoke('contracts:getNextNumber'),
+    getPassportData:  (clientId: number)                          => invoke('contracts:getPassportData', clientId),
+    savePassportData: (clientId: number, data: object)            => invoke('contracts:savePassportData', clientId, data),
+    generate:         (data: object)                              => invoke('contracts:generate', data),
+    openFile:         (filePath: string)                          => invoke('contracts:openFile', filePath),
+  },
 });

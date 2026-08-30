@@ -77,4 +77,13 @@ export const ipcService = {
     getValues: (fids: number[], eid: number) => api().customFields.getValues(fids, eid),
     setValue:  (fid: number, eid: number, v: string) => api().customFields.setValue(fid, eid, v),
   },
+  contracts: {
+    getNextNumber:    () => api().contracts.getNextNumber(),
+    getPassportData:  (clientId: number) => api().contracts.getPassportData(clientId),
+    savePassportData: (clientId: number, data: Parameters<Window['electronAPI']['contracts']['savePassportData']>[1]) =>
+      api().contracts.savePassportData(clientId, data),
+    generate: (data: Parameters<Window['electronAPI']['contracts']['generate']>[0]) =>
+      api().contracts.generate(data),
+    openFile: (filePath: string) => api().contracts.openFile(filePath),
+  },
 };

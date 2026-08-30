@@ -55,6 +55,35 @@ export function initDatabase(): void {
   safeAlter('orders', 'inspection_comment',   'TEXT');
   safeAlter('orders', 'issue_date',           'TEXT');
 
+  // Contract & car detail fields
+  safeAlter('orders', 'contract_date',    'TEXT');
+  safeAlter('orders', 'deal_amount',      'TEXT');
+  safeAlter('orders', 'body_type',        'TEXT');
+  safeAlter('orders', 'engine',           'TEXT');
+  safeAlter('orders', 'engine_type',      'TEXT');
+  safeAlter('orders', 'drive',            'TEXT');
+  safeAlter('orders', 'transmission',     'TEXT');
+  safeAlter('orders', 'color',            'TEXT');
+  safeAlter('orders', 'mileage',          'TEXT');
+  safeAlter('orders', 'car_other',        'TEXT');
+
+  // Client passport data (separate table, safe to create)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS client_passport_data (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+      birth_date TEXT,
+      inn TEXT,
+      passport_number TEXT,
+      passport_issued_by TEXT,
+      passport_issue_date TEXT,
+      passport_code TEXT,
+      registration_address TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_passport_client ON client_passport_data(client_id);
+  `);
+
   // Create missing index for order_status_id
   try { db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status_id)').run(); } catch (e) { /* ignore */ }
 
