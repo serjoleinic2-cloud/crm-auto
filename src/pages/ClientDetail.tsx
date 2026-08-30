@@ -8,7 +8,7 @@ import StatusBadge from '../components/StatusBadge';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle } from 'lucide-react';
 import type { Client, Status, Contact } from '../types';
-import ConsentCard from '../components/ConsentCard';
+import DocumentsPanel from '../components/DocumentsPanel';
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -246,7 +246,7 @@ export default function ClientDetail() {
 
       {activeTab === 'documents' && (
         <div className="space-y-4">
-          <ConsentCard clientId={clientId} />
+          <DocumentsPanel clientId={clientId} />
         </div>
       )}
 
