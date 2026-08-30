@@ -5,13 +5,16 @@ function api() {
 
 export const ipcService = {
   clients: {
-    getAll:  (f?: Parameters<Window['electronAPI']['clients']['getAll']>[0]) => api().clients.getAll(f),
-    getById: (id: number) => api().clients.getById(id),
-    create:  (d: Parameters<Window['electronAPI']['clients']['create']>[0]) => api().clients.create(d),
-    update:  (id: number, d: Parameters<Window['electronAPI']['clients']['update']>[1]) => api().clients.update(id, d),
-    archive: (id: number) => api().clients.archive(id),
-    delete:  (id: number) => api().clients.delete(id),
-    search:  (q: string) => api().clients.search(q),
+    getAll:         (f?: Parameters<Window['electronAPI']['clients']['getAll']>[0]) => api().clients.getAll(f),
+    getById:        (id: number) => api().clients.getById(id),
+    create:         (d: Parameters<Window['electronAPI']['clients']['create']>[0]) => api().clients.create(d),
+    update:         (id: number, d: Parameters<Window['electronAPI']['clients']['update']>[1]) => api().clients.update(id, d),
+    archive:        (id: number) => api().clients.archive(id),
+    trash:          (id: number) => api().clients.trash(id),
+    restore:        (id: number) => api().clients.restore(id),
+    deleteForever:  (id: number) => api().clients.deleteForever(id),
+    search:         (q: string) => api().clients.search(q),
+    suggest:        (q: string) => api().clients.suggest(q),
   },
   orders: {
     getByClientId: (id: number) => api().orders.getByClientId(id),

@@ -9,8 +9,11 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         create: (data) => invoke('clients:create', data),
         update: (id, data) => invoke('clients:update', id, data),
         archive: (id) => invoke('clients:archive', id),
-        delete: (id) => invoke('clients:delete', id),
+        trash: (id) => invoke('clients:trash', id),
+        restore: (id) => invoke('clients:restore', id),
+        deleteForever: (id) => invoke('clients:deleteForever', id),
         search: (query) => invoke('clients:search', query),
+        suggest: (query) => invoke('clients:suggest', query),
     },
     orders: {
         getByClientId: (clientId) => invoke('orders:getByClientId', clientId),
@@ -31,18 +34,12 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     history: {
         getByClientId: (clientId) => invoke('history:getByClientId', clientId),
     },
-    statuses: {
-        getAll: () => invoke('statuses:getAll'),
-    },
-    dashboard: {
-        getStats: () => invoke('dashboard:getStats'),
-    },
-    carBrands: {
-        getAll: () => invoke('carBrands:getAll'),
-    },
+    statuses: { getAll: () => invoke('statuses:getAll') },
+    dashboard: { getStats: () => invoke('dashboard:getStats') },
+    carBrands: { getAll: () => invoke('carBrands:getAll') },
     customFields: {
         getAll: (entityType) => invoke('customFields:getAll', entityType),
         getValues: (fieldIds, entityId) => invoke('customFields:getValues', fieldIds, entityId),
-        setValue: (fieldId, entityId, value) => invoke('customFields:setValue', fieldId, entityId, value),
+        setValue: (fieldId, entityId, v) => invoke('customFields:setValue', fieldId, entityId, v),
     },
 });

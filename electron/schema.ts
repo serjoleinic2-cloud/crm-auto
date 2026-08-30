@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS clients (
   next_action TEXT,
   next_action_date TEXT,
   is_archived INTEGER NOT NULL DEFAULT 0,
+  is_deleted INTEGER NOT NULL DEFAULT 0,
+  deleted_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -106,6 +108,7 @@ CREATE TABLE IF NOT EXISTS custom_field_values (
 
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status_id);
 CREATE INDEX IF NOT EXISTS idx_clients_archived ON clients(is_archived);
+CREATE INDEX IF NOT EXISTS idx_clients_deleted ON clients(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_clients_next_action_date ON clients(next_action_date);
 CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 CREATE INDEX IF NOT EXISTS idx_orders_contract ON orders(contract_number);

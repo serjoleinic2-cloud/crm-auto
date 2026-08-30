@@ -55,5 +55,17 @@ export function useClients() {
     }
   }, [fetchClients]);
 
-  return { clients, loading, error, fetchClients, createClient, updateClient, searchClients };
+  const trashClient = useCallback(async (id: number) => {
+    try { return await ipcService.clients.trash(id); } catch { return false; }
+  }, []);
+
+  const restoreClient = useCallback(async (id: number) => {
+    try { return await ipcService.clients.restore(id); } catch { return false; }
+  }, []);
+
+  const deleteForeverClient = useCallback(async (id: number) => {
+    try { return await ipcService.clients.deleteForever(id); } catch { return false; }
+  }, []);
+
+  return { clients, loading, error, fetchClients, createClient, updateClient, searchClients, trashClient, restoreClient, deleteForeverClient };
 }

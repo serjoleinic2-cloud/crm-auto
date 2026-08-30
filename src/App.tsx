@@ -9,7 +9,8 @@ import Documents from './pages/Documents';
 import Reminders from './pages/Reminders';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
-import { Home, Users, Truck, Archive as ArchiveIcon, Bell, BarChart2, Settings as SettingsIcon } from 'lucide-react';
+import Trash from './pages/Trash';
+import { Home, Users, Truck, Archive as ArchiveIcon, Bell, BarChart2, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 
 function Sidebar() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ function Sidebar() {
     { to: '/orders',     icon: Truck,        label: 'Заказы' },
     { to: '/reminders',  icon: Bell,         label: 'Задачи' },
     { to: '/archive',    icon: ArchiveIcon,  label: 'Архив' },
+    { to: '/trash',      icon: Trash2,       label: 'Корзина' },
     { to: '/statistics', icon: BarChart2,    label: 'Статистика' },
     { to: '/settings',   icon: SettingsIcon, label: 'Настройки' },
   ];
@@ -58,6 +60,7 @@ function App() {
           <Route path="/quick-add"     element={<QuickAdd />} />
           <Route path="/orders"        element={<Orders />} />
           <Route path="/archive"       element={<Archive />} />
+          <Route path="/trash"         element={<Trash />} />
           <Route path="/documents"     element={<Documents />} />
           <Route path="/reminders"     element={<Reminders />} />
           <Route path="/statistics"    element={<Statistics />} />

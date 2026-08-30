@@ -18,6 +18,8 @@ export interface Client {
   next_action: string | null;
   next_action_date: string | null;
   is_archived: number;
+  is_deleted: number;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   // joined
@@ -100,6 +102,7 @@ export interface DashboardStats {
   carsInTransit: number;
   newClientsThisWeek: number;
   pendingConsent: number;
+  trashCount: number;
 }
 
 export interface CarBrand {
@@ -136,11 +139,15 @@ declare global {
 
 export interface ElectronAPI {
   clients: {
-    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean }) => Promise<Client[]>;
+    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean }) => Promise<Client[]>;
     getById: (id: number) => Promise<Client | undefined>;
     create:  (data: Omit<Client, 'id'|'created_at'|'updated_at'|'status_name'|'status_color'|'contract_number'|'car'|'consent_status'>) => Promise<number>;
     update:  (id: number, data: Partial<Client>) => Promise<boolean>;
-    archive: (id: number) => Promise<boolean>;
+    archive:       (id: number) => Promise<boolean>;
+    trash:         (id: number) => Promise<boolean>;
+    restore:       (id: number) => Promise<boolean>;
+    deleteForever: (id: number) => Promise<boolean>;
+    suggest:       (query: string) => Promise<Client[]>;
     delete:  (id: number) => Promise<boolean>;
     search:  (query: string) => Promise<Client[]>;
   };
@@ -178,3 +185,6 @@ export interface ElectronAPI {
     setValue:  (fieldId: number, entityId: number, value: string) => Promise<boolean>;
   };
 }
+
+// Extend Client with trash fields
+// (added via migration, already reflected below in ElectronAPI)

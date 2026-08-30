@@ -11,9 +11,7 @@ const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const schema_1 = require("../schema");
 let db;
-function getDb() {
-    return db;
-}
+function getDb() { return db; }
 function initDatabase() {
     const userDataPath = electron_1.app.getPath('userData');
     const dbPath = path_1.default.join(userDataPath, 'crm-auto.db');
@@ -21,20 +19,29 @@ function initDatabase() {
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.exec(schema_1.CREATE_TABLES_SQL);
-    // Seed statuses if empty
+    // Migration: add is_deleted / deleted_at if missing (for existing DBs)
+    try {
+        db.exec("ALTER TABLE clients ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0");
+    }
+    catch { /* already exists */ }
+    try {
+        db.exec("ALTER TABLE clients ADD COLUMN deleted_at TEXT");
+    }
+    catch { /* already exists */ }
+    // Seed statuses
     const statusCount = db.prepare('SELECT COUNT(*) as c FROM statuses').get().c;
     if (statusCount === 0) {
-        const ins = db.prepare('INSERT INTO statuses (name, color, category, sort_order) VALUES (?, ?, ?, ?)');
+        const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
         for (const s of schema_1.DEFAULT_STATUSES)
             ins.run(s.name, s.color, s.category, s.sort_order);
     }
-    // Seed car brands from car_brands.txt
+    // Seed car brands
     const brandCount = db.prepare('SELECT COUNT(*) as c FROM car_brands').get().c;
     if (brandCount === 0) {
         const brandsFile = path_1.default.join(electron_1.app.getAppPath(), 'car_brands.txt');
         if (fs_1.default.existsSync(brandsFile)) {
             const lines = fs_1.default.readFileSync(brandsFile, 'utf-8').split('\n').map(l => l.trim()).filter(Boolean);
-            const ins = db.prepare('INSERT OR IGNORE INTO car_brands (name, sort_order) VALUES (?, ?)');
+            const ins = db.prepare('INSERT OR IGNORE INTO car_brands (name,sort_order) VALUES (?,?)');
             lines.forEach((name, i) => ins.run(name, i));
         }
     }
@@ -50,7 +57,7 @@ function registerHandlers() {
              s.name  AS status_name,
              s.color AS status_color,
              (SELECT o.contract_number FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS contract_number,
-             (SELECT o.brand||' '||IFNULL(o.model,'') FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
+             (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
              IFNULL(cn.status,'not_requested') AS consent_status
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id
@@ -58,16 +65,22 @@ function registerHandlers() {
       WHERE 1=1
     `;
         const params = [];
-        if (filters.archived !== undefined) {
-            sql += ' AND c.is_archived=?';
-            params.push(filters.archived ? 1 : 0);
+        if (filters.trash) {
+            sql += ' AND c.is_deleted=1';
         }
-        if (filters.statusId !== undefined) {
-            sql += ' AND c.status_id=?';
-            params.push(filters.statusId);
-        }
-        if (filters.overdue) {
-            sql += " AND c.next_action_date IS NOT NULL AND c.next_action_date < date('now') AND c.is_archived=0";
+        else {
+            sql += ' AND c.is_deleted=0';
+            if (filters.archived !== undefined) {
+                sql += ' AND c.is_archived=?';
+                params.push(filters.archived ? 1 : 0);
+            }
+            if (filters.statusId !== undefined) {
+                sql += ' AND c.status_id=?';
+                params.push(filters.statusId);
+            }
+            if (filters.overdue) {
+                sql += " AND c.next_action_date IS NOT NULL AND c.next_action_date < date('now') AND c.is_archived=0";
+            }
         }
         sql += ' ORDER BY c.updated_at DESC';
         return db.prepare(sql).all(...params);
@@ -82,27 +95,23 @@ function registerHandlers() {
     `).get(id));
     electron_1.ipcMain.handle('clients:create', (_e, data) => {
         const result = db.prepare(`
-      INSERT INTO clients (full_name,phone,email,source,comment,status_id,next_action,next_action_date,is_archived)
-      VALUES (@full_name,@phone,@email,@source,@comment,@status_id,@next_action,@next_action_date,0)
+      INSERT INTO clients (full_name,phone,email,source,comment,status_id,next_action,next_action_date,is_archived,is_deleted)
+      VALUES (@full_name,@phone,@email,@source,@comment,@status_id,@next_action,@next_action_date,0,0)
     `).run({
             full_name: data.full_name ?? '',
-            phone: data.phone ?? null,
-            email: data.email ?? null,
-            source: data.source ?? null,
-            comment: data.comment ?? null,
+            phone: data.phone ?? null, email: data.email ?? null,
+            source: data.source ?? null, comment: data.comment ?? null,
             status_id: data.status_id ?? 1,
-            next_action: data.next_action ?? null,
-            next_action_date: data.next_action_date ?? null,
+            next_action: data.next_action ?? null, next_action_date: data.next_action_date ?? null,
         });
         const clientId = result.lastInsertRowid;
-        // Auto-create consent record with default status
-        db.prepare("INSERT INTO consent (client_id, status) VALUES (?, 'not_requested')").run(clientId);
+        db.prepare("INSERT OR IGNORE INTO consent (client_id, status) VALUES (?, 'not_requested')").run(clientId);
         _writeHistory(clientId, 'create', 'Клиент создан');
         return clientId;
     });
     electron_1.ipcMain.handle('clients:update', (_e, id, data) => {
         const old = db.prepare('SELECT * FROM clients WHERE id=?').get(id);
-        const skip = ['id', 'created_at', 'updated_at', 'status_name', 'status_color', 'contract_number', 'car', 'consent_status'];
+        const skip = ['id', 'created_at', 'updated_at', 'status_name', 'status_color', 'contract_number', 'car', 'consent_status', 'is_deleted', 'deleted_at'];
         const fields = Object.keys(data).filter(k => !skip.includes(k));
         if (!fields.length)
             return false;
@@ -110,7 +119,7 @@ function registerHandlers() {
         db.prepare(`UPDATE clients SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...data, __id: id });
         for (const f of fields) {
             if (old && String(old[f]) !== String(data[f])) {
-                _writeHistory(id, 'update', `Изменено поле «${f}»`, String(old[f] ?? ''), String(data[f] ?? ''));
+                _writeHistory(id, 'update', `Изменено «${f}»`, String(old[f] ?? ''), String(data[f] ?? ''));
             }
         }
         return true;
@@ -120,8 +129,21 @@ function registerHandlers() {
         _writeHistory(id, 'archive', 'Клиент перемещён в архив');
         return true;
     });
-    electron_1.ipcMain.handle('clients:delete', (_e, id) => {
-        db.prepare('DELETE FROM clients WHERE id=?').run(id);
+    // Soft delete — move to trash
+    electron_1.ipcMain.handle('clients:trash', (_e, id) => {
+        db.prepare("UPDATE clients SET is_deleted=1, deleted_at=datetime('now'), updated_at=datetime('now') WHERE id=?").run(id);
+        _writeHistory(id, 'trash', 'Клиент перемещён в корзину');
+        return true;
+    });
+    // Restore from trash
+    electron_1.ipcMain.handle('clients:restore', (_e, id) => {
+        db.prepare("UPDATE clients SET is_deleted=0, deleted_at=NULL, updated_at=datetime('now') WHERE id=?").run(id);
+        _writeHistory(id, 'restore', 'Клиент восстановлен из корзины');
+        return true;
+    });
+    // Hard delete from trash only
+    electron_1.ipcMain.handle('clients:deleteForever', (_e, id) => {
+        db.prepare('DELETE FROM clients WHERE id=? AND is_deleted=1').run(id);
         return true;
     });
     electron_1.ipcMain.handle('clients:search', (_e, q) => {
@@ -134,11 +156,32 @@ function registerHandlers() {
       LEFT JOIN orders o ON o.client_id=c.id
       LEFT JOIN contacts ct ON ct.client_id=c.id
       LEFT JOIN consent cn ON cn.client_id=c.id
-      WHERE c.is_archived=0
+      WHERE c.is_deleted=0
         AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?
              OR o.contract_number LIKE ? OR o.brand LIKE ? OR o.model LIKE ?
              OR ct.value LIKE ?)
-      ORDER BY c.updated_at DESC LIMIT 100
+      ORDER BY c.updated_at DESC LIMIT 50
+    `).all(like, like, like, like, like, like, like);
+    });
+    // Live search — returns as user types (same logic, lower limit)
+    electron_1.ipcMain.handle('clients:suggest', (_e, q) => {
+        if (!q || q.trim().length < 1)
+            return [];
+        const like = `%${q}%`;
+        return db.prepare(`
+      SELECT DISTINCT c.id, c.full_name, c.phone,
+             s.name AS status_name, s.color AS status_color,
+             trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) AS car,
+             o.contract_number
+      FROM clients c
+      LEFT JOIN statuses s ON s.id=c.status_id
+      LEFT JOIN orders o ON o.client_id=c.id
+      LEFT JOIN contacts ct ON ct.client_id=c.id
+      WHERE c.is_deleted=0
+        AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?
+             OR o.contract_number LIKE ? OR o.brand LIKE ? OR o.model LIKE ?
+             OR ct.value LIKE ?)
+      ORDER BY c.updated_at DESC LIMIT 8
     `).all(like, like, like, like, like, like, like);
     });
     // ── ORDERS ────────────────────────────────────────────────────────────────
@@ -152,11 +195,10 @@ function registerHandlers() {
             brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
             configuration: data.configuration ?? null, description: data.description ?? null,
             price: data.price ?? null, comment: data.comment ?? null,
-            delivery_date_est: data.delivery_date_est ?? null,
-            delivery_date_actual: data.delivery_date_actual ?? null,
+            delivery_date_est: data.delivery_date_est ?? null, delivery_date_actual: data.delivery_date_actual ?? null,
             payment_date: data.payment_date ?? null, payment_status: data.payment_status ?? null,
         });
-        _writeHistory(data.client_id, 'order_create', `Добавлен заказ: ${data.brand ?? ''} ${data.model ?? ''}`.trim());
+        _writeHistory(data.client_id, 'order_create', `Добавлен заказ: ${[data.brand, data.model].filter(Boolean).join(' ')}`);
         return result.lastInsertRowid;
     });
     electron_1.ipcMain.handle('orders:update', (_e, id, data) => {
@@ -175,7 +217,7 @@ function registerHandlers() {
         const order = db.prepare('SELECT * FROM orders WHERE id=?').get(id);
         db.prepare('DELETE FROM orders WHERE id=?').run(id);
         if (order)
-            _writeHistory(order.client_id, 'order_delete', `Заказ удалён: ${order.brand ?? ''} ${order.model ?? ''}`);
+            _writeHistory(order.client_id, 'order_delete', `Заказ удалён: ${[order.brand, order.model].filter(Boolean).join(' ')}`);
         return true;
     });
     // ── CONTACTS ──────────────────────────────────────────────────────────────
@@ -200,20 +242,32 @@ function registerHandlers() {
     // ── CONSENT ───────────────────────────────────────────────────────────────
     electron_1.ipcMain.handle('consent:getByClientId', (_e, clientId) => db.prepare('SELECT * FROM consent WHERE client_id=?').get(clientId));
     electron_1.ipcMain.handle('consent:update', (_e, clientId, data) => {
-        const old = db.prepare('SELECT * FROM consent WHERE client_id=?').get(clientId);
-        if (!old) {
+        const existing = db.prepare('SELECT * FROM consent WHERE client_id=?').get(clientId);
+        if (!existing) {
             db.prepare("INSERT INTO consent (client_id,status,received_date,scan_path,comment) VALUES (?,?,?,?,?)")
                 .run(clientId, data.status ?? 'not_requested', data.received_date ?? null, data.scan_path ?? null, data.comment ?? null);
         }
         else {
-            db.prepare("UPDATE consent SET status=@status, received_date=@received_date, scan_path=@scan_path, comment=@comment, updated_at=datetime('now') WHERE client_id=@client_id")
-                .run({ client_id: clientId, status: data.status ?? old.status, received_date: data.received_date ?? old.received_date ?? null, scan_path: data.scan_path ?? old.scan_path ?? null, comment: data.comment ?? old.comment ?? null });
+            // Only update fields present in data — don't overwrite others with nulls
+            const fields = [];
+            const vals = { __id: clientId };
+            const allowed = ['status', 'received_date', 'scan_path', 'comment'];
+            for (const f of allowed) {
+                if (f in data) {
+                    fields.push(`${f}=@${f}`);
+                    vals[f] = data[f];
+                }
+            }
+            if (fields.length) {
+                db.prepare(`UPDATE consent SET ${fields.join(',')}, updated_at=datetime('now') WHERE client_id=@__id`).run(vals);
+            }
         }
         const statusLabels = {
-            not_requested: 'Не запрашивалось', sent: 'Отправлено клиенту',
-            received: 'Получено', verified: 'Проверено',
+            not_requested: 'Не запрашивалось', sent: 'Отправлено клиенту', received: 'Получено', verified: 'Проверено',
         };
-        _writeHistory(clientId, 'consent_update', `Согласие на обработку ПД: ${statusLabels[data.status] ?? data.status}`);
+        if ('status' in data) {
+            _writeHistory(clientId, 'consent_update', `Согласие на ПД: ${statusLabels[data.status] ?? data.status}`);
+        }
         return true;
     });
     // ── HISTORY ───────────────────────────────────────────────────────────────
@@ -223,12 +277,13 @@ function registerHandlers() {
         const now = new Date().toISOString().split('T')[0];
         const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
         return {
-            activeClients: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0").get().c,
-            needsAttention: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND next_action_date IS NOT NULL AND next_action_date < ?").get(now).c,
-            todayTasks: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND next_action_date=?").get(now).c,
-            carsInTransit: db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.status_id=(SELECT id FROM statuses WHERE name='Автомобиль в пути' LIMIT 1)").get().c,
-            newClientsThisWeek: db.prepare("SELECT COUNT(*) as c FROM clients WHERE date(created_at)>=?").get(weekAgo).c,
+            activeClients: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get().c,
+            needsAttention: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date IS NOT NULL AND next_action_date < ?").get(now).c,
+            todayTasks: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date=?").get(now).c,
+            carsInTransit: db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND c.status_id=(SELECT id FROM statuses WHERE name='Автомобиль в пути' LIMIT 1)").get().c,
+            newClientsThisWeek: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo).c,
             pendingConsent: db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get().c,
+            trashCount: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get().c,
         };
     });
     // ── CAR BRANDS ────────────────────────────────────────────────────────────
@@ -253,6 +308,9 @@ function registerHandlers() {
     });
 }
 function _writeHistory(clientId, action, description, oldValue, newValue) {
-    db.prepare('INSERT INTO history (client_id,action,description,old_value,new_value) VALUES (?,?,?,?,?)')
-        .run(clientId, action, description, oldValue ?? null, newValue ?? null);
+    try {
+        db.prepare('INSERT INTO history (client_id,action,description,old_value,new_value) VALUES (?,?,?,?,?)')
+            .run(clientId, action, description, oldValue ?? null, newValue ?? null);
+    }
+    catch { /* ignore history errors */ }
 }

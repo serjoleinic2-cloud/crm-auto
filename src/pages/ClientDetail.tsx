@@ -6,7 +6,7 @@ import { useContacts } from '../hooks/useContacts';
 import { useHistory } from '../hooks/useHistory';
 import StatusBadge from '../components/StatusBadge';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
-import { ArrowLeft, ExternalLink, Plus, Trash2, Star } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle } from 'lucide-react';
 import type { Client, Status, Contact } from '../types';
 import ConsentCard from '../components/ConsentCard';
 
@@ -20,6 +20,7 @@ export default function ClientDetail() {
   const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
+  const [trashConfirm, setTrashConfirm] = useState(false);
   
   const { orders, fetchOrders, createOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -88,9 +89,16 @@ export default function ClientDetail() {
               </div>
             )}
           </div>
-          <button onClick={() => setIsEditing(!isEditing)} className="btn-secondary text-sm">
-            {isEditing ? 'Отмена' : 'Редактировать'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setTrashConfirm(true)}
+              title="В корзину"
+              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+              <Trash2 size={16} />
+            </button>
+            <button onClick={() => setIsEditing(!isEditing)} className="btn-secondary text-sm">
+              {isEditing ? 'Отмена' : 'Редактировать'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -253,6 +261,37 @@ export default function ClientDetail() {
               </div>
             ))}
             {entries.length === 0 && <p className="text-sm text-gray-500 text-center py-4">История пуста</p>}
+          </div>
+        </div>
+      )}
+
+      {trashConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900">Переместить в корзину?</div>
+                <div className="text-sm text-gray-500 mt-0.5">{client?.full_name}</div>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              Клиент исчезнет из основного списка. Все данные сохранятся — его можно восстановить из корзины.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  await ipcService.clients.trash(clientId);
+                  setTrashConfirm(false);
+                  navigate('/clients');
+                }}
+                className="flex-1 btn-danger font-semibold">
+                В корзину
+              </button>
+              <button onClick={() => setTrashConfirm(false)} className="flex-1 btn-secondary">Отмена</button>
+            </div>
           </div>
         </div>
       )}
