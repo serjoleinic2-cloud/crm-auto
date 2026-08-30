@@ -3,19 +3,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const invoke = (channel, ...args) => electron_1.ipcRenderer.invoke(channel, ...args);
 electron_1.contextBridge.exposeInMainWorld('electronAPI', {
-    auth: {
-        isFirstRun: () => invoke('auth:isFirstRun'),
-        setPin: (pin) => invoke('auth:setPin', pin),
-        verifyPin: (pin) => invoke('auth:verifyPin', pin),
-    },
     clients: {
         getAll: (filters) => invoke('clients:getAll', filters),
         getById: (id) => invoke('clients:getById', id),
         create: (data) => invoke('clients:create', data),
         update: (id, data) => invoke('clients:update', id, data),
         archive: (id) => invoke('clients:archive', id),
-        delete: (id) => invoke('clients:delete', id),
+        trash: (id) => invoke('clients:trash', id),
+        restore: (id) => invoke('clients:restore', id),
+        deleteForever: (id) => invoke('clients:deleteForever', id),
         search: (query) => invoke('clients:search', query),
+        suggest: (query) => invoke('clients:suggest', query),
     },
     orders: {
         getByClientId: (clientId) => invoke('orders:getByClientId', clientId),
@@ -29,21 +27,19 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         delete: (id) => invoke('contacts:delete', id),
         setPrimary: (clientId, contactId) => invoke('contacts:setPrimary', clientId, contactId),
     },
+    consent: {
+        getByClientId: (clientId) => invoke('consent:getByClientId', clientId),
+        update: (clientId, data) => invoke('consent:update', clientId, data),
+    },
     history: {
         getByClientId: (clientId) => invoke('history:getByClientId', clientId),
     },
-    statuses: {
-        getAll: () => invoke('statuses:getAll'),
-    },
-    dashboard: {
-        getStats: () => invoke('dashboard:getStats'),
-    },
-    carBrands: {
-        getAll: () => invoke('carBrands:getAll'),
-    },
+    statuses: { getAll: () => invoke('statuses:getAll') },
+    dashboard: { getStats: () => invoke('dashboard:getStats') },
+    carBrands: { getAll: () => invoke('carBrands:getAll') },
     customFields: {
         getAll: (entityType) => invoke('customFields:getAll', entityType),
         getValues: (fieldIds, entityId) => invoke('customFields:getValues', fieldIds, entityId),
-        setValue: (fieldId, entityId, value) => invoke('customFields:setValue', fieldId, entityId, value),
+        setValue: (fieldId, entityId, v) => invoke('customFields:setValue', fieldId, entityId, v),
     },
 });

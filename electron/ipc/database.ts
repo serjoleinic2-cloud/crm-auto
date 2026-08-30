@@ -17,12 +17,13 @@ export function initDatabase(): void {
   db.exec(CREATE_TABLES_SQL);
 
   // Migration: add is_deleted / deleted_at if missing (for existing DBs)
-  try {
-    db.exec("ALTER TABLE clients ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0");
-  } catch { /* already exists */ }
-  try {
-    db.exec("ALTER TABLE clients ADD COLUMN deleted_at TEXT");
-  } catch { /* already exists */ }
+  const cols = (db.pragma('table_info(clients)') as { name: string }[]).map(c => c.name);
+  if (!cols.includes('is_deleted')) {
+    db.prepare('ALTER TABLE clients ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0').run();
+  }
+  if (!cols.includes('deleted_at')) {
+    db.prepare('ALTER TABLE clients ADD COLUMN deleted_at TEXT').run();
+  }
 
   // Seed statuses
   const statusCount = (db.prepare('SELECT COUNT(*) as c FROM statuses').get() as { c: number }).c;
