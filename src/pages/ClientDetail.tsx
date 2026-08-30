@@ -39,6 +39,7 @@ export default function ClientDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);
+  const [contactModal, setContactModal] = useState<{ type: Contact['type']; value: string } | null>(null);
 
   // Order editing
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -77,11 +78,20 @@ export default function ClientDetail() {
     }
   };
 
-  const handleAddContact = async () => {
-    const type = prompt('Тип (phone/telegram/max/whatsapp/other):', 'phone') as Contact['type'];
-    const value = prompt('Значение:');
-    if (!type || !value) return;
-    await createContact({ client_id: clientId, type, value, label: null, is_primary: contacts.length === 0 ? 1 : 0 });
+  const handleAddContact = () => {
+    setContactModal({ type: 'phone', value: '' });
+  };
+
+  const handleSaveContact = async () => {
+    if (!contactModal || !contactModal.value.trim()) return;
+    await createContact({
+      client_id: clientId,
+      type: contactModal.type,
+      value: contactModal.value.trim(),
+      label: null,
+      is_primary: contacts.length === 0 ? 1 : 0,
+    });
+    setContactModal(null);
     fetchContacts(clientId);
   };
 
@@ -646,6 +656,56 @@ export default function ClientDetail() {
                 В корзину
               </button>
               <button onClick={() => setTrashConfirm(false)} className="flex-1 btn-secondary">Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {contactModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-900">Добавить контакт</h2>
+              <button onClick={() => setContactModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="label">Тип</label>
+                <select
+                  className="input"
+                  value={contactModal.type}
+                  onChange={e => setContactModal(m => m && { ...m, type: e.target.value as Contact['type'] })}
+                >
+                  <option value="phone">Телефон</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="max">MAX</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">Email</option>
+                  <option value="other">Другое</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Значение</label>
+                <input
+                  className="input"
+                  autoFocus
+                  value={contactModal.value}
+                  onChange={e => setContactModal(m => m && { ...m, value: e.target.value })}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveContact()}
+                  placeholder="+7 900 000-00-00"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={handleSaveContact}
+                disabled={!contactModal.value.trim()}
+                className="flex-1 btn-primary font-semibold disabled:opacity-50"
+              >
+                Добавить
+              </button>
+              <button onClick={() => setContactModal(null)} className="flex-1 btn-secondary">Отмена</button>
             </div>
           </div>
         </div>
