@@ -37,6 +37,31 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     statuses: { getAll: () => invoke('statuses:getAll') },
     dashboard: { getStats: () => invoke('dashboard:getStats') },
     carBrands: { getAll: () => invoke('carBrands:getAll') },
+    settings: {
+        get: (key) => invoke('settings:get', key),
+        set: (key, value) => invoke('settings:set', key, value),
+    },
+    files: {
+        openClientFolder: (clientId, clientName) => invoke('files:openClientFolder', clientId, clientName),
+        openFile: (filePath) => invoke('files:openFile', filePath),
+        pickFiles: (opts) => invoke('files:pickFiles', opts),
+        pickFolder: () => invoke('files:pickFolder'),
+        getBasePath: () => invoke('files:getBasePath'),
+        setBasePath: (newPath) => invoke('files:setBasePath', newPath),
+    },
+    documentTypes: {
+        getAll: () => invoke('documentTypes:getAll'),
+        create: (data) => invoke('documentTypes:create', data),
+    },
+    documents: {
+        getByClientId: (clientId) => invoke('documents:getByClientId', clientId),
+        updateStatus: (clientId, documentTypeId, status) => invoke('documents:updateStatus', clientId, documentTypeId, status),
+        updateComment: (clientId, documentTypeId, comment) => invoke('documents:updateComment', clientId, documentTypeId, comment),
+        addFiles: (clientId, documentTypeId, filePaths, orderId) => invoke('documents:addFiles', clientId, documentTypeId, filePaths, orderId),
+        addFilesBulk: (clientId, entries) => invoke('documents:addFilesBulk', clientId, entries),
+        deleteFile: (fileId) => invoke('documents:deleteFile', fileId),
+        generate: () => invoke('documents:generate'),
+    },
     customFields: {
         getAll: (entityType) => invoke('customFields:getAll', entityType),
         getValues: (fieldIds, entityId) => invoke('customFields:getValues', fieldIds, entityId),

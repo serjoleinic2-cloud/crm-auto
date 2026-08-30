@@ -37,6 +37,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   statuses: { getAll: () => invoke('statuses:getAll') },
   dashboard: { getStats: () => invoke('dashboard:getStats') },
   carBrands: { getAll: () => invoke('carBrands:getAll') },
+  settings: {
+    get: (key: string)                => invoke('settings:get', key),
+    set: (key: string, value: string) => invoke('settings:set', key, value),
+  },
+  files: {
+    openClientFolder: (clientId: number, clientName: string) => invoke('files:openClientFolder', clientId, clientName),
+    openFile:         (filePath: string)                      => invoke('files:openFile', filePath),
+    pickFiles:        (opts?: { multi?: boolean })             => invoke('files:pickFiles', opts),
+    pickFolder:       ()                                       => invoke('files:pickFolder'),
+    getBasePath:      ()                                       => invoke('files:getBasePath'),
+    setBasePath:      (newPath: string)                        => invoke('files:setBasePath', newPath),
+  },
+  documentTypes: {
+    getAll:  ()                                            => invoke('documentTypes:getAll'),
+    create:  (data: { name: string; folder_name?: string }) => invoke('documentTypes:create', data),
+  },
+  documents: {
+    getByClientId:  (clientId: number)                                                 => invoke('documents:getByClientId', clientId),
+    updateStatus:   (clientId: number, documentTypeId: number, status: string)          => invoke('documents:updateStatus', clientId, documentTypeId, status),
+    updateComment:  (clientId: number, documentTypeId: number, comment: string)         => invoke('documents:updateComment', clientId, documentTypeId, comment),
+    addFiles:       (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
+      invoke('documents:addFiles', clientId, documentTypeId, filePaths, orderId),
+    addFilesBulk:   (clientId: number, entries: { documentTypeId: number; filePaths: string[] }[]) =>
+      invoke('documents:addFilesBulk', clientId, entries),
+    deleteFile:     (fileId: number)                                                    => invoke('documents:deleteFile', fileId),
+    generate:       ()                                                                  => invoke('documents:generate'),
+  },
   customFields: {
     getAll:    (entityType: string)                         => invoke('customFields:getAll', entityType),
     getValues: (fieldIds: number[], entityId: number)       => invoke('customFields:getValues', fieldIds, entityId),

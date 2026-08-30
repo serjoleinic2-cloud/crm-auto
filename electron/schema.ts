@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const CREATE_TABLES_SQL = `
 PRAGMA journal_mode=WAL;
@@ -106,6 +106,51 @@ CREATE TABLE IF NOT EXISTS custom_field_values (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS document_types (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  folder_name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_system INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  document_type_id INTEGER NOT NULL REFERENCES document_types(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'not_requested'
+    CHECK(status IN ('not_required','not_requested','requested','sent','received','verified')),
+  requested_date TEXT,
+  received_date TEXT,
+  comment TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(client_id, document_type_id)
+);
+
+CREATE TABLE IF NOT EXISTS document_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  size INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id);
+CREATE INDEX IF NOT EXISTS idx_documents_order ON documents(order_id);
+CREATE INDEX IF NOT EXISTS idx_document_files_document ON document_files(document_id);
+
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status_id);
 CREATE INDEX IF NOT EXISTS idx_clients_archived ON clients(is_archived);
 CREATE INDEX IF NOT EXISTS idx_clients_deleted ON clients(is_deleted);
@@ -117,6 +162,27 @@ CREATE INDEX IF NOT EXISTS idx_history_client ON history(client_id);
 CREATE INDEX IF NOT EXISTS idx_consent_client ON consent(client_id);
 CREATE INDEX IF NOT EXISTS idx_cfv_field_entity ON custom_field_values(field_id, entity_id);
 `;
+
+export const DEFAULT_DOCUMENT_TYPES = [
+  { code: 'consent',        name: 'Согласие на обработку ПД',  folder_name: 'Согласие',           sort_order: 1, is_system: 1 },
+  { code: 'passport',       name: 'Паспорт',                    folder_name: 'Паспорт',             sort_order: 2, is_system: 1 },
+  { code: 'snils',          name: 'СНИЛС',                      folder_name: 'СНИЛС',               sort_order: 3, is_system: 1 },
+  { code: 'inn',            name: 'ИНН',                        folder_name: 'ИНН',                 sort_order: 4, is_system: 1 },
+  { code: 'contract',       name: 'Договор',                    folder_name: 'Договор',              sort_order: 5, is_system: 1 },
+  { code: 'contract_signed',name: 'Подписанный договор',        folder_name: 'Договор',              sort_order: 6, is_system: 1 },
+  { code: 'payment_proof',  name: 'Документ/чек об оплате',     folder_name: 'Оплата',               sort_order: 7, is_system: 1 },
+  { code: 'broker_poa',     name: 'Доверенность брокеру',       folder_name: 'Доверенность',         sort_order: 8, is_system: 1 },
+  { code: 'other',          name: 'Другой документ',            folder_name: 'Прочее',               sort_order: 9, is_system: 1 },
+];
+
+export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  not_required:  'Не требуется',
+  not_requested: 'Не запрошен',
+  requested:     'Запрошен',
+  sent:          'Отправлен клиенту',
+  received:      'Получен',
+  verified:      'Проверен',
+};
 
 export const DEFAULT_STATUSES = [
   { name: 'Новый клиент',     color: '#3b82f6', category: 'pipeline', sort_order: 1 },

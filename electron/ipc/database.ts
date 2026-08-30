@@ -2,11 +2,25 @@ import Database from 'better-sqlite3';
 import { ipcMain, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { CREATE_TABLES_SQL, DEFAULT_STATUSES } from '../schema';
+import { CREATE_TABLES_SQL, DEFAULT_STATUSES, DEFAULT_DOCUMENT_TYPES } from '../schema';
 
 let db: Database.Database;
 
 export function getDb(): Database.Database { return db; }
+
+// ── SETTINGS (generic key/value) ─────────────────────────────────────────────
+
+export function getSetting(key: string): string | null {
+  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key) as { value: string } | undefined;
+  return row ? row.value : null;
+}
+
+export function setSetting(key: string, value: string): void {
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+  `).run(key, value);
+}
 
 export function initDatabase(): void {
   const userDataPath = app.getPath('userData');
@@ -41,6 +55,20 @@ export function initDatabase(): void {
       const ins = db.prepare('INSERT OR IGNORE INTO car_brands (name,sort_order) VALUES (?,?)');
       lines.forEach((name, i) => ins.run(name, i));
     }
+  }
+
+  // Seed document types
+  const docTypeCount = (db.prepare('SELECT COUNT(*) as c FROM document_types').get() as { c: number }).c;
+  if (docTypeCount === 0) {
+    const ins = db.prepare(
+      'INSERT INTO document_types (code,name,folder_name,sort_order,is_system) VALUES (@code,@name,@folder_name,@sort_order,@is_system)'
+    );
+    for (const t of DEFAULT_DOCUMENT_TYPES) ins.run({ ...t, is_system: t.is_system });
+  }
+
+  // Seed default base data path (Documents/CRM-Auto Data)
+  if (getSetting('base_data_path') === null) {
+    setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
   }
 
   registerHandlers();
@@ -326,6 +354,11 @@ function registerHandlers(): void {
     db.prepare('SELECT * FROM car_brands ORDER BY sort_order, name').all()
   );
 
+  // ── SETTINGS ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle('settings:get', (_e, key: string) => getSetting(key));
+  ipcMain.handle('settings:set', (_e, key: string, value: string) => { setSetting(key, value); return true; });
+
   // ── CUSTOM FIELDS ─────────────────────────────────────────────────────────
 
   ipcMain.handle('customFields:getAll', (_e, entityType: string) =>
@@ -347,6 +380,10 @@ function registerHandlers(): void {
     }
     return true;
   });
+}
+
+export function writeHistory(clientId: number, action: string, description: string, oldValue?: string, newValue?: string) {
+  _writeHistory(clientId, action, description, oldValue, newValue);
 }
 
 function _writeHistory(clientId: number, action: string, description: string, oldValue?: string, newValue?: string) {

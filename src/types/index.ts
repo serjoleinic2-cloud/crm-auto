@@ -131,6 +131,53 @@ export interface CustomFieldValue {
   updated_at: string;
 }
 
+export type DocumentStatus = 'not_required' | 'not_requested' | 'requested' | 'sent' | 'received' | 'verified';
+
+export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
+  not_required:  'Не требуется',
+  not_requested: 'Не запрошен',
+  requested:     'Запрошен',
+  sent:          'Отправлен клиенту',
+  received:      'Получен',
+  verified:      'Проверен',
+};
+
+export interface DocumentType {
+  id: number;
+  code: string;
+  name: string;
+  folder_name: string;
+  sort_order: number;
+  is_system: number;
+  is_active: number;
+  created_at: string;
+}
+
+export interface DocumentFile {
+  id: number;
+  document_id: number;
+  file_path: string;
+  file_name: string;
+  original_name: string;
+  size: number | null;
+  created_at: string;
+}
+
+export interface ClientDocument {
+  document_type_id: number;
+  code: string;
+  name: string;
+  folder_name: string;
+  sort_order: number;
+  document_id: number | null;
+  status: DocumentStatus;
+  requested_date: string | null;
+  received_date: string | null;
+  comment: string | null;
+  order_id: number | null;
+  files: DocumentFile[];
+}
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
@@ -178,6 +225,33 @@ export interface ElectronAPI {
   };
   carBrands: {
     getAll: () => Promise<CarBrand[]>;
+  };
+  settings: {
+    get: (key: string) => Promise<string | null>;
+    set: (key: string, value: string) => Promise<boolean>;
+  };
+  files: {
+    openClientFolder: (clientId: number, clientName: string) => Promise<string>;
+    openFile:         (filePath: string) => Promise<true | { error: string }>;
+    pickFiles:        (opts?: { multi?: boolean }) => Promise<string[]>;
+    pickFolder:       () => Promise<string | null>;
+    getBasePath:      () => Promise<string>;
+    setBasePath:      (newPath: string) => Promise<boolean>;
+  };
+  documentTypes: {
+    getAll: () => Promise<DocumentType[]>;
+    create: (data: { name: string; folder_name?: string }) => Promise<number | { error: string }>;
+  };
+  documents: {
+    getByClientId: (clientId: number) => Promise<ClientDocument[]>;
+    updateStatus:  (clientId: number, documentTypeId: number, status: DocumentStatus) => Promise<boolean>;
+    updateComment: (clientId: number, documentTypeId: number, comment: string) => Promise<boolean>;
+    addFiles:      (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
+      Promise<{ document_id: number; files: DocumentFile[] } | { error: string }>;
+    addFilesBulk:  (clientId: number, entries: { documentTypeId: number; filePaths: string[] }[]) =>
+      Promise<{ document_type_id: number; document_id: number; files: DocumentFile[] }[]>;
+    deleteFile:    (fileId: number) => Promise<true | { error: string }>;
+    generate:      () => Promise<{ error: string }>;
   };
   customFields: {
     getAll:    (entityType: string) => Promise<CustomField[]>;

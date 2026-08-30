@@ -36,6 +36,32 @@ export const ipcService = {
   statuses:     { getAll: () => api().statuses.getAll() },
   dashboard:    { getStats: () => api().dashboard.getStats() },
   carBrands:    { getAll: () => api().carBrands.getAll() },
+  settings: {
+    get: (key: string) => api().settings.get(key),
+    set: (key: string, value: string) => api().settings.set(key, value),
+  },
+  files: {
+    openClientFolder: (clientId: number, clientName: string) => api().files.openClientFolder(clientId, clientName),
+    openFile:         (filePath: string) => api().files.openFile(filePath),
+    pickFiles:        (opts?: { multi?: boolean }) => api().files.pickFiles(opts),
+    pickFolder:       () => api().files.pickFolder(),
+    getBasePath:      () => api().files.getBasePath(),
+    setBasePath:      (newPath: string) => api().files.setBasePath(newPath),
+  },
+  documentTypes: {
+    getAll: () => api().documentTypes.getAll(),
+    create: (d: Parameters<Window['electronAPI']['documentTypes']['create']>[0]) => api().documentTypes.create(d),
+  },
+  documents: {
+    getByClientId: (clientId: number) => api().documents.getByClientId(clientId),
+    updateStatus:  (clientId: number, documentTypeId: number, status: Parameters<Window['electronAPI']['documents']['updateStatus']>[2]) =>
+      api().documents.updateStatus(clientId, documentTypeId, status),
+    updateComment: (clientId: number, documentTypeId: number, comment: string) => api().documents.updateComment(clientId, documentTypeId, comment),
+    addFiles:      (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
+      api().documents.addFiles(clientId, documentTypeId, filePaths, orderId),
+    addFilesBulk:  (clientId: number, entries: { documentTypeId: number; filePaths: string[] }[]) => api().documents.addFilesBulk(clientId, entries),
+    deleteFile:    (fileId: number) => api().documents.deleteFile(fileId),
+  },
   customFields: {
     getAll:    (t: string) => api().customFields.getAll(t),
     getValues: (fids: number[], eid: number) => api().customFields.getValues(fids, eid),

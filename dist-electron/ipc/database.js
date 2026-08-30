@@ -4,7 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDb = getDb;
+exports.getSetting = getSetting;
+exports.setSetting = setSetting;
 exports.initDatabase = initDatabase;
+exports.writeHistory = writeHistory;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
@@ -12,6 +15,17 @@ const fs_1 = __importDefault(require("fs"));
 const schema_1 = require("../schema");
 let db;
 function getDb() { return db; }
+// ── SETTINGS (generic key/value) ─────────────────────────────────────────────
+function getSetting(key) {
+    const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key);
+    return row ? row.value : null;
+}
+function setSetting(key, value) {
+    db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+  `).run(key, value);
+}
 function initDatabase() {
     const userDataPath = electron_1.app.getPath('userData');
     const dbPath = path_1.default.join(userDataPath, 'crm-auto.db');
@@ -43,6 +57,17 @@ function initDatabase() {
             const ins = db.prepare('INSERT OR IGNORE INTO car_brands (name,sort_order) VALUES (?,?)');
             lines.forEach((name, i) => ins.run(name, i));
         }
+    }
+    // Seed document types
+    const docTypeCount = db.prepare('SELECT COUNT(*) as c FROM document_types').get().c;
+    if (docTypeCount === 0) {
+        const ins = db.prepare('INSERT INTO document_types (code,name,folder_name,sort_order,is_system) VALUES (@code,@name,@folder_name,@sort_order,@is_system)');
+        for (const t of schema_1.DEFAULT_DOCUMENT_TYPES)
+            ins.run({ ...t, is_system: t.is_system });
+    }
+    // Seed default base data path (Documents/CRM-Auto Data)
+    if (getSetting('base_data_path') === null) {
+        setSetting('base_data_path', path_1.default.join(electron_1.app.getPath('documents'), 'CRM-Auto Data'));
     }
     registerHandlers();
 }
@@ -287,6 +312,9 @@ function registerHandlers() {
     });
     // ── CAR BRANDS ────────────────────────────────────────────────────────────
     electron_1.ipcMain.handle('carBrands:getAll', () => db.prepare('SELECT * FROM car_brands ORDER BY sort_order, name').all());
+    // ── SETTINGS ──────────────────────────────────────────────────────────────
+    electron_1.ipcMain.handle('settings:get', (_e, key) => getSetting(key));
+    electron_1.ipcMain.handle('settings:set', (_e, key, value) => { setSetting(key, value); return true; });
     // ── CUSTOM FIELDS ─────────────────────────────────────────────────────────
     electron_1.ipcMain.handle('customFields:getAll', (_e, entityType) => db.prepare('SELECT * FROM custom_fields WHERE entity_type=? AND is_active=1 ORDER BY sort_order').all(entityType));
     electron_1.ipcMain.handle('customFields:getValues', (_e, fieldIds, entityId) => {
@@ -305,6 +333,9 @@ function registerHandlers() {
         }
         return true;
     });
+}
+function writeHistory(clientId, action, description, oldValue, newValue) {
+    _writeHistory(clientId, action, description, oldValue, newValue);
 }
 function _writeHistory(clientId, action, description, oldValue, newValue) {
     try {
