@@ -34,12 +34,34 @@ function initDatabase() {
     db.pragma('foreign_keys = ON');
     db.exec(schema_1.CREATE_TABLES_SQL);
     // Migration: add is_deleted / deleted_at if missing (for existing DBs)
-    const cols = db.pragma('table_info(clients)').map(c => c.name);
-    if (!cols.includes('is_deleted')) {
+    const clientCols = db.pragma('table_info(clients)').map(c => c.name);
+    if (!clientCols.includes('is_deleted')) {
         db.prepare('ALTER TABLE clients ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0').run();
     }
-    if (!cols.includes('deleted_at')) {
+    if (!clientCols.includes('deleted_at')) {
         db.prepare('ALTER TABLE clients ADD COLUMN deleted_at TEXT').run();
+    }
+    // Migration: orders new fields
+    const orderCols = db.pragma('table_info(orders)').map(c => c.name);
+    const orderMigrations = [
+        { col: 'order_status_id', sql: 'ALTER TABLE orders ADD COLUMN order_status_id INTEGER REFERENCES order_statuses(id) ON DELETE SET NULL' },
+        { col: 'broker_name', sql: 'ALTER TABLE orders ADD COLUMN broker_name TEXT' },
+        { col: 'broker_phone', sql: 'ALTER TABLE orders ADD COLUMN broker_phone TEXT' },
+        { col: 'broker_comment', sql: 'ALTER TABLE orders ADD COLUMN broker_comment TEXT' },
+        { col: 'broker_date', sql: 'ALTER TABLE orders ADD COLUMN broker_date TEXT' },
+        { col: 'inspection_done', sql: 'ALTER TABLE orders ADD COLUMN inspection_done INTEGER NOT NULL DEFAULT 0' },
+        { col: 'inspection_comment', sql: 'ALTER TABLE orders ADD COLUMN inspection_comment TEXT' },
+        { col: 'issue_date', sql: 'ALTER TABLE orders ADD COLUMN issue_date TEXT' },
+    ];
+    for (const m of orderMigrations) {
+        if (!orderCols.includes(m.col)) {
+            try {
+                db.prepare(m.sql).run();
+            }
+            catch (e) {
+                console.error('Migration error:', e);
+            }
+        }
     }
     // Seed statuses
     const statusCount = db.prepare('SELECT COUNT(*) as c FROM statuses').get().c;
@@ -47,6 +69,13 @@ function initDatabase() {
         const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
         for (const s of schema_1.DEFAULT_STATUSES)
             ins.run(s.name, s.color, s.category, s.sort_order);
+    }
+    // Seed order statuses
+    const orderStatusCount = db.prepare('SELECT COUNT(*) as c FROM order_statuses').get().c;
+    if (orderStatusCount === 0) {
+        const ins = db.prepare('INSERT INTO order_statuses (name,color,sort_order) VALUES (?,?,?)');
+        for (const s of schema_1.DEFAULT_ORDER_STATUSES)
+            ins.run(s.name, s.color, s.sort_order);
     }
     // Seed car brands
     const brandCount = db.prepare('SELECT COUNT(*) as c FROM car_brands').get().c;
@@ -74,6 +103,65 @@ function initDatabase() {
 function registerHandlers() {
     // ── STATUSES ──────────────────────────────────────────────────────────────
     electron_1.ipcMain.handle('statuses:getAll', () => db.prepare('SELECT * FROM statuses WHERE is_active=1 ORDER BY sort_order').all());
+    // ── ORDER STATUSES ─────────────────────────────────────────────────────────
+    electron_1.ipcMain.handle('orderStatuses:getAll', () => db.prepare('SELECT * FROM order_statuses WHERE is_active=1 ORDER BY sort_order').all());
+    // ── REMINDERS ──────────────────────────────────────────────────────────────
+    electron_1.ipcMain.handle('reminders:getAll', (_e, filters) => {
+        let sql = 'SELECT r.*, c.full_name as client_name FROM reminders r JOIN clients c ON c.id=r.client_id WHERE 1=1';
+        const params = [];
+        if (filters?.clientId !== undefined) {
+            sql += ' AND r.client_id=?';
+            params.push(filters.clientId);
+        }
+        if (filters?.overdue) {
+            sql += " AND r.is_completed=0 AND r.due_date < date('now')";
+        }
+        if (filters?.today) {
+            sql += " AND r.is_completed=0 AND r.due_date=date('now')";
+        }
+        if (filters?.upcoming) {
+            sql += " AND r.is_completed=0 AND r.due_date > date('now')";
+        }
+        sql += ' ORDER BY r.due_date IS NULL, r.due_date, r.created_at DESC';
+        return db.prepare(sql).all(...params);
+    });
+    electron_1.ipcMain.handle('reminders:getById', (_e, id) => db.prepare('SELECT * FROM reminders WHERE id=?').get(id));
+    electron_1.ipcMain.handle('reminders:create', (_e, data) => {
+        const result = db.prepare(`
+      INSERT INTO reminders (client_id, title, description, due_date, auto_created)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(data.client_id, data.title, data.description ?? null, data.due_date ?? null, data.auto_created ?? 0);
+        return result.lastInsertRowid;
+    });
+    electron_1.ipcMain.handle('reminders:update', (_e, id, data) => {
+        const fields = Object.keys(data).filter(k => ['title', 'description', 'due_date', 'is_completed'].includes(k));
+        if (!fields.length)
+            return false;
+        const set = fields.map(f => `${f}=@${f}`).join(', ');
+        const vals = { __id: id };
+        for (const f of fields)
+            vals[f] = data[f];
+        if ('is_completed' in data && data.is_completed === 1) {
+            vals['completed_at'] = new Date().toISOString();
+            db.prepare(`UPDATE reminders SET ${set}, completed_at=@completed_at WHERE id=@__id`).run(vals);
+        }
+        else {
+            db.prepare(`UPDATE reminders SET ${set} WHERE id=@__id`).run(vals);
+        }
+        return true;
+    });
+    electron_1.ipcMain.handle('reminders:delete', (_e, id) => {
+        db.prepare('DELETE FROM reminders WHERE id=?').run(id);
+        return true;
+    });
+    electron_1.ipcMain.handle('reminders:getStats', () => {
+        const now = new Date().toISOString().split('T')[0];
+        return {
+            overdue: db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now).c,
+            today: db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now).c,
+            total: db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0").get().c,
+        };
+    });
     // ── CLIENTS ───────────────────────────────────────────────────────────────
     electron_1.ipcMain.handle('clients:getAll', (_e, filters = {}) => {
         let sql = `
@@ -209,11 +297,23 @@ function registerHandlers() {
     `).all(like, like, like, like, like, like, like);
     });
     // ── ORDERS ────────────────────────────────────────────────────────────────
-    electron_1.ipcMain.handle('orders:getByClientId', (_e, clientId) => db.prepare('SELECT * FROM orders WHERE client_id=? ORDER BY id').all(clientId));
+    electron_1.ipcMain.handle('orders:getByClientId', (_e, clientId) => db.prepare(`
+      SELECT o.*, os.name as order_status_name, os.color as order_status_color
+      FROM orders o
+      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      WHERE o.client_id=?
+      ORDER BY o.id
+    `).all(clientId));
+    electron_1.ipcMain.handle('orders:getById', (_e, id) => db.prepare(`
+      SELECT o.*, os.name as order_status_name, os.color as order_status_color
+      FROM orders o
+      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      WHERE o.id=?
+    `).get(id));
     electron_1.ipcMain.handle('orders:create', (_e, data) => {
         const result = db.prepare(`
-      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status)
-      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status)
+      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date)
+      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date)
     `).run({
             client_id: data.client_id, contract_number: data.contract_number ?? null,
             brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
@@ -221,19 +321,62 @@ function registerHandlers() {
             price: data.price ?? null, comment: data.comment ?? null,
             delivery_date_est: data.delivery_date_est ?? null, delivery_date_actual: data.delivery_date_actual ?? null,
             payment_date: data.payment_date ?? null, payment_status: data.payment_status ?? null,
+            order_status_id: data.order_status_id ?? null,
+            broker_name: data.broker_name ?? null, broker_phone: data.broker_phone ?? null,
+            broker_comment: data.broker_comment ?? null, broker_date: data.broker_date ?? null,
+            inspection_done: data.inspection_done ?? 0, inspection_comment: data.inspection_comment ?? null,
+            issue_date: data.issue_date ?? null,
         });
-        _writeHistory(data.client_id, 'order_create', `Добавлен заказ: ${[data.brand, data.model].filter(Boolean).join(' ')}`);
-        return result.lastInsertRowid;
+        const orderId = result.lastInsertRowid;
+        _writeHistory(data.client_id, 'order_create', `Создан заказ: ${[data.brand, data.model].filter(Boolean).join(' ')}`);
+        return orderId;
     });
     electron_1.ipcMain.handle('orders:update', (_e, id, data) => {
         const old = db.prepare('SELECT * FROM orders WHERE id=?').get(id);
-        const fields = Object.keys(data).filter(k => !['id', 'created_at', 'updated_at', 'client_id'].includes(k));
+        const skip = ['id', 'created_at', 'updated_at', 'client_id', 'order_status_name', 'order_status_color'];
+        const fields = Object.keys(data).filter(k => !skip.includes(k));
         if (!fields.length)
             return false;
         const set = fields.map(f => `${f}=@${f}`).join(', ');
         db.prepare(`UPDATE orders SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...data, __id: id });
-        if (old && data.contract_number !== undefined && old.contract_number !== data.contract_number) {
-            _writeHistory(old.client_id, 'contract_change', 'Номер договора изменён', String(old.contract_number ?? ''), String(data.contract_number ?? ''));
+        if (old) {
+            const clientId = old.client_id;
+            // Contract number changed
+            if ('contract_number' in data && old.contract_number !== data.contract_number) {
+                _writeHistory(clientId, 'contract_change', 'Номер договора изменён', String(old.contract_number ?? ''), String(data.contract_number ?? ''));
+            }
+            // Price changed
+            if ('price' in data && old.price !== data.price) {
+                _writeHistory(clientId, 'price_change', 'Цена изменена', String(old.price ?? ''), String(data.price ?? ''));
+            }
+            // Payment status changed
+            if ('payment_status' in data && old.payment_status !== data.payment_status) {
+                const labels = { not_paid: 'Не оплачено', pending: 'Ожидается оплата', paid: 'Оплачено', partial: 'Частично оплачено', cancelled: 'Отменено' };
+                _writeHistory(clientId, 'payment_status', `Статус оплаты: ${labels[old.payment_status] ?? old.payment_status} → ${labels[data.payment_status] ?? data.payment_status}`);
+            }
+            // Order status changed
+            if ('order_status_id' in data && old.order_status_id !== data.order_status_id) {
+                const oldStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(old.order_status_id);
+                const newStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(data.order_status_id);
+                _writeHistory(clientId, 'order_status', `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
+                // Auto-reminders based on status
+                if (newStatus?.name === 'На таможне') {
+                    db.prepare(`INSERT INTO reminders (client_id, title, description, auto_created) VALUES (?, ?, ?, 1)`)
+                        .run(clientId, 'Доверенность брокеру', `Для клиента нужна доверенность брокеру`);
+                }
+                if (newStatus?.name === 'Прибыл в офис') {
+                    db.prepare(`INSERT INTO reminders (client_id, title, description, auto_created) VALUES (?, ?, ?, 1)`)
+                        .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля');
+                }
+            }
+            // Delivery actual date
+            if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
+                _writeHistory(clientId, 'arrival', 'Автомобиль прибыл в офис');
+            }
+            // Issue date
+            if ('issue_date' in data && !old.issue_date && data.issue_date) {
+                _writeHistory(clientId, 'issue', 'Автомобиль выдан клиенту');
+            }
         }
         return true;
     });
@@ -272,7 +415,6 @@ function registerHandlers() {
                 .run(clientId, data.status ?? 'not_requested', data.received_date ?? null, data.scan_path ?? null, data.comment ?? null);
         }
         else {
-            // Only update fields present in data — don't overwrite others with nulls
             const fields = [];
             const vals = { __id: clientId };
             const allowed = ['status', 'received_date', 'scan_path', 'comment'];
@@ -304,10 +446,14 @@ function registerHandlers() {
             activeClients: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get().c,
             needsAttention: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date IS NOT NULL AND next_action_date < ?").get(now).c,
             todayTasks: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date=?").get(now).c,
-            carsInTransit: db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND c.status_id=(SELECT id FROM statuses WHERE name='Автомобиль в пути' LIMIT 1)").get().c,
+            carsInTransit: db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Автомобиль в пути' LIMIT 1)").get().c,
             newClientsThisWeek: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo).c,
             pendingConsent: db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get().c,
             trashCount: db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get().c,
+            overdueReminders: db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now).c,
+            pendingPayment: db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_status='pending'").get().c,
+            atCustoms: db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='На таможне' LIMIT 1)").get().c,
+            inOffice: db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Прибыл в офис' LIMIT 1)").get().c,
         };
     });
     // ── CAR BRANDS ────────────────────────────────────────────────────────────

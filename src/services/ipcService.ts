@@ -18,6 +18,7 @@ export const ipcService = {
   },
   orders: {
     getByClientId: (id: number) => api().orders.getByClientId(id),
+    getById:       (id: number) => api().orders.getById(id),
     create:        (d: Parameters<Window['electronAPI']['orders']['create']>[0]) => api().orders.create(d),
     update:        (id: number, d: Parameters<Window['electronAPI']['orders']['update']>[1]) => api().orders.update(id, d),
     delete:        (id: number) => api().orders.delete(id),
@@ -34,6 +35,7 @@ export const ipcService = {
   },
   history:      { getByClientId: (id: number) => api().history.getByClientId(id) },
   statuses:     { getAll: () => api().statuses.getAll() },
+  orderStatuses:{ getAll: () => api().orderStatuses.getAll() },
   dashboard:    { getStats: () => api().dashboard.getStats() },
   carBrands:    { getAll: () => api().carBrands.getAll() },
   settings: {
@@ -61,6 +63,14 @@ export const ipcService = {
       api().documents.addFiles(clientId, documentTypeId, filePaths, orderId),
     addFilesBulk:  (clientId: number, entries: { documentTypeId: number; filePaths: string[] }[]) => api().documents.addFilesBulk(clientId, entries),
     deleteFile:    (fileId: number) => api().documents.deleteFile(fileId),
+  },
+  reminders: {
+    getAll:   (f?: Parameters<Window['electronAPI']['reminders']['getAll']>[0]) => api().reminders.getAll(f),
+    getById:  (id: number) => api().reminders.getById(id),
+    create:   (d: Parameters<Window['electronAPI']['reminders']['create']>[0]) => api().reminders.create(d),
+    update:   (id: number, d: Parameters<Window['electronAPI']['reminders']['update']>[1]) => api().reminders.update(id, d),
+    delete:   (id: number) => api().reminders.delete(id),
+    getStats: () => api().reminders.getStats(),
   },
   customFields: {
     getAll:    (t: string) => api().customFields.getAll(t),

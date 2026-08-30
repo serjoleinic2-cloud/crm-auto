@@ -16,7 +16,7 @@ export function useOrders() {
     }
   }, []);
 
-  const createOrder = useCallback(async (data: Omit<Order, 'id' | 'created_at' | 'updated_at'>) => {
+  const createOrder = useCallback(async (data: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'order_status_name' | 'order_status_color'>) => {
     try {
       const id = await ipcService.orders.create(data);
       return id;
@@ -33,5 +33,13 @@ export function useOrders() {
     }
   }, []);
 
-  return { orders, loading, fetchOrders, createOrder, updateOrder };
+  const deleteOrder = useCallback(async (id: number) => {
+    try {
+      return await ipcService.orders.delete(id);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  return { orders, loading, fetchOrders, createOrder, updateOrder, deleteOrder };
 }

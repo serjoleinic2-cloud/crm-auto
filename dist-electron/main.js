@@ -10,6 +10,8 @@ const messaging_1 = require("./ipc/messaging");
 const files_1 = require("./ipc/files");
 const documents_1 = require("./ipc/documents");
 const backup_1 = require("./ipc/backup");
+const orderStatuses_1 = require("./ipc/orderStatuses");
+const reminders_1 = require("./ipc/reminders");
 const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
 function createWindow() {
     const win = new electron_1.BrowserWindow({
@@ -48,6 +50,8 @@ electron_1.app.whenReady().then(() => {
     (0, files_1.registerFilesHandlers)();
     (0, documents_1.registerDocumentsHandlers)();
     (0, backup_1.registerBackupHandlers)();
+    (0, orderStatuses_1.registerOrderStatusesHandlers)();
+    (0, reminders_1.registerRemindersHandlers)();
     createWindow();
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0)

@@ -1,38 +1,64 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import { useOrders } from '../hooks/useOrders';
 import { useContacts } from '../hooks/useContacts';
 import { useHistory } from '../hooks/useHistory';
+import { useReminders } from '../hooks/useReminders';
+import { useDocuments } from '../hooks/useDocuments';
 import StatusBadge from '../components/StatusBadge';
-import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
-import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle } from 'lucide-react';
-import type { Client, Status, Contact } from '../types';
 import DocumentsPanel from '../components/DocumentsPanel';
+import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
+import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck, Phone, ClipboardCheck } from 'lucide-react';
+import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder } from '../types';
+import { PAYMENT_STATUS_LABELS } from '../types';
+
+const INSPECTION_ITEMS = [
+  { key: 'body', label: 'Кузов' },
+  { key: 'glass', label: 'Стёкла' },
+  { key: 'lights', label: 'Фары' },
+  { key: 'wheels', label: 'Колёса' },
+  { key: 'interior', label: 'Салон' },
+  { key: 'equipment', label: 'Комплектация' },
+  { key: 'documents', label: 'Документы' },
+  { key: 'defects', label: 'Другие дефекты' },
+];
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const clientId = parseInt(id || '0');
-  
+
   const [client, setClient] = useState<Client | null>(null);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
+  const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
   const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);
-  
-  const { orders, fetchOrders, createOrder } = useOrders();
+
+  // Order editing
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [orderForm, setOrderForm] = useState<Partial<Order>>({});
+  const [nextContractNum, setNextContractNum] = useState('');
+
+  const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
   const { entries, fetchHistory } = useHistory();
+  const { reminders, fetchReminders, createReminder } = useReminders();
+  const { fetchDocuments } = useDocuments();
 
   useEffect(() => {
     if (!clientId) return;
     loadClient();
     ipcService.statuses.getAll().then(setStatuses);
+    ipcService.orderStatuses.getAll().then(setOrderStatuses);
+    ipcService.carBrands.getAll().then(setCarBrands);
     fetchOrders(clientId);
     fetchContacts(clientId);
     fetchHistory(clientId);
+    fetchReminders({ clientId });
   }, [clientId]);
 
   const loadClient = async () => {
@@ -57,12 +83,123 @@ export default function ClientDetail() {
     fetchContacts(clientId);
   };
 
-  const handleAddOrder = async () => {
-    const brand = prompt('Марка:') || '';
-    const model = prompt('Модель:') || '';
-    const contract = prompt('Номер договора:') || '';
-    await createOrder({ client_id: clientId, brand, model, contract_number: contract, year: null, configuration: null, description: null, price: null, comment: null, delivery_date_est: null, delivery_date_actual: null, payment_date: null, payment_status: null });
+  // ── Orders ───────────────────────────────────────────────────────────────
+
+  const getNextContractNumber = useCallback(async () => {
+    const allClients = await ipcService.clients.getAll();
+    let max = 0;
+    for (const c of allClients) {
+      const clientOrders = await ipcService.orders.getByClientId(c.id);
+      for (const o of clientOrders) {
+        if (o.contract_number) {
+          const num = parseInt(o.contract_number.replace(/\D/g, ''), 10);
+          if (!isNaN(num) && num > max) max = num;
+        }
+      }
+    }
+    setNextContractNum(String(max + 1));
+  }, []);
+
+  const startNewOrder = async () => {
+    await getNextContractNumber();
+    const pendingStatus = orderStatuses.find(s => s.name === 'Ожидает оплату');
+    setOrderForm({
+      client_id: clientId,
+      contract_number: String(parseInt(nextContractNum || '1')),
+      brand: '',
+      model: '',
+      year: null,
+      configuration: '',
+      description: '',
+      price: null,
+      comment: '',
+      payment_status: 'not_paid',
+      payment_date: null,
+      delivery_date_est: null,
+      delivery_date_actual: null,
+      order_status_id: pendingStatus?.id ?? null,
+      broker_name: '',
+      broker_phone: '',
+      broker_comment: '',
+      broker_date: null,
+      inspection_done: 0,
+      inspection_comment: '',
+      issue_date: null,
+    });
+    setEditingOrder({ id: 0 } as Order);
+  };
+
+  const startEditOrder = (order: Order) => {
+    setOrderForm({ ...order });
+    setEditingOrder(order);
+  };
+
+  const saveOrder = async () => {
+    if (!orderForm.brand && !orderForm.model) {
+      alert('Укажите марку или модель');
+      return;
+    }
+
+    // Auto-set payment date when status becomes paid
+    if (orderForm.payment_status === 'paid' && !orderForm.payment_date) {
+      orderForm.payment_date = new Date().toISOString().split('T')[0];
+    }
+
+    if (editingOrder && editingOrder.id > 0) {
+      await updateOrder(editingOrder.id, orderForm);
+    } else {
+      const newId = await createOrder(orderForm as Omit<Order, 'id'|'created_at'|'updated_at'|'order_status_name'|'order_status_color'>);
+      if (newId && orderForm.payment_status === 'pending') {
+        // Auto-reminder: check payment in 3 days
+        const due = new Date();
+        due.setDate(due.getDate() + 3);
+        await createReminder({
+          client_id: clientId,
+          title: `Проверить оплату — ${client?.full_name || 'Клиент'}`,
+          description: `Заказ: ${orderForm.brand} ${orderForm.model}`,
+          due_date: due.toISOString().split('T')[0],
+          auto_created: 1,
+        });
+      }
+    }
+
+    setEditingOrder(null);
+    setOrderForm({});
     fetchOrders(clientId);
+    fetchReminders({ clientId });
+  };
+
+  const handleDeleteOrder = async (orderId: number) => {
+    if (!confirm('Удалить заказ?')) return;
+    await deleteOrder(orderId);
+    fetchOrders(clientId);
+  };
+
+  const setDeliveryTerm = (months: number) => {
+    const baseDate = orderForm.payment_date || new Date().toISOString().split('T')[0];
+    const d = new Date(baseDate);
+    d.setMonth(d.getMonth() + months);
+    setOrderForm(prev => ({ ...prev, delivery_date_est: d.toISOString().split('T')[0] }));
+  };
+
+  const daysUntil = (dateStr: string | null): number | null => {
+    if (!dateStr) return null;
+    const diff = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const showBrokerBlock = (statusName?: string) => {
+    const brokerStatuses = ['На таможне', 'Ожидает доверенность', 'Таможенное оформление', 'Едет по РФ', 'Прибыл в офис', 'Готов к выдаче', 'Выдан клиенту'];
+    return brokerStatuses.includes(statusName || '');
+  };
+
+  const showInspectionBlock = (statusName?: string) => {
+    const inspectionStatuses = ['Прибыл в офис', 'Готов к выдаче', 'Выдан клиенту'];
+    return inspectionStatuses.includes(statusName || '');
+  };
+
+  const showIssueDate = (statusName?: string) => {
+    return statusName === 'Выдан клиенту';
   };
 
   if (!client) return <div className="p-4">Загрузка...</div>;
@@ -90,6 +227,11 @@ export default function ClientDetail() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => ipcService.files.openClientFolder(clientId, client.full_name)}
+              title="Открыть папку клиента"
+              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+              <FolderOpen size={16} />
+            </button>
             <button onClick={() => setTrashConfirm(true)}
               title="В корзину"
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -220,26 +362,225 @@ export default function ClientDetail() {
       )}
 
       {activeTab === 'orders' && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Заказы</h3>
-            <button onClick={handleAddOrder} className="btn-primary text-sm flex items-center gap-1">
-              <Plus size={16} /> Добавить заказ
-            </button>
-          </div>
-          <div className="space-y-3">
-            {orders.map(order => (
-              <div key={order.id} className="p-3 bg-gray-50 rounded-md">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium text-sm">{order.brand} {order.model}</div>
-                  {order.contract_number && <div className="text-xs text-gray-500">№ {order.contract_number}</div>}
+        <div className="space-y-4">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Заказы</h3>
+              <button onClick={startNewOrder} className="btn-primary text-sm flex items-center gap-1">
+                <Plus size={16} /> Добавить заказ
+              </button>
+            </div>
+
+            {editingOrder && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+                <h4 className="font-semibold text-sm">{editingOrder.id > 0 ? 'Редактирование заказа' : 'Новый заказ'}</h4>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Номер договора</label>
+                    <input className="input text-sm" value={orderForm.contract_number || ''} onChange={e => setOrderForm({...orderForm, contract_number: e.target.value})} placeholder={nextContractNum} />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Марка</label>
+                    <select className="input text-sm" value={orderForm.brand || ''} onChange={e => setOrderForm({...orderForm, brand: e.target.value || null})}>
+                      <option value="">—</option>
+                      {carBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-xs">Модель</label>
+                    <input className="input text-sm" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Год</label>
+                    <input type="number" className="input text-sm" value={orderForm.year || ''} onChange={e => setOrderForm({...orderForm, year: e.target.value ? parseInt(e.target.value) : null})} />
+                  </div>
                 </div>
-                {order.year && <div className="text-xs text-gray-500 mt-1">{order.year} г.</div>}
-                {order.price && <div className="text-sm font-medium text-primary-600 mt-1">{formatPrice(order.price)}</div>}
-                {order.comment && <div className="text-xs text-gray-600 mt-1">{order.comment}</div>}
+
+                <div>
+                  <label className="label text-xs">Комплектация</label>
+                  <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
+                </div>
+                <div>
+                  <label className="label text-xs">Описание</label>
+                  <textarea className="input text-sm" rows={2} value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Цена</label>
+                    <input type="number" className="input text-sm" value={orderForm.price || ''} onChange={e => setOrderForm({...orderForm, price: e.target.value ? parseFloat(e.target.value) : null})} />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Комментарий</label>
+                    <input className="input text-sm" value={orderForm.comment || ''} onChange={e => setOrderForm({...orderForm, comment: e.target.value || null})} />
+                  </div>
+                </div>
+
+                {/* Payment block */}
+                <div className="border-t border-gray-200 pt-3">
+                  <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><FileText size={12}/> Оплата</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label text-xs">Статус оплаты</label>
+                      <select className="input text-sm" value={orderForm.payment_status || 'not_paid'} onChange={e => {
+                        const status = e.target.value;
+                        setOrderForm(prev => ({
+                          ...prev,
+                          payment_status: status,
+                          payment_date: status === 'paid' && !prev.payment_date ? new Date().toISOString().split('T')[0] : prev.payment_date,
+                        }));
+                      }}>
+                        {Object.entries(PAYMENT_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-xs">Дата оплаты</label>
+                      <input type="date" className="input text-sm" value={orderForm.payment_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, payment_date: e.target.value || null})} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery block */}
+                <div className="border-t border-gray-200 pt-3">
+                  <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Truck size={12}/> Срок доставки</h5>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button onClick={() => setDeliveryTerm(3)} className="btn-secondary text-xs">3 месяца</button>
+                    <button onClick={() => setDeliveryTerm(5)} className="btn-secondary text-xs">5 месяцев</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label text-xs">Плановая дата прибытия</label>
+                      <input type="date" className="input text-sm" value={orderForm.delivery_date_est?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, delivery_date_est: e.target.value || null})} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Фактическая дата прибытия</label>
+                      <input type="date" className="input text-sm" value={orderForm.delivery_date_actual?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, delivery_date_actual: e.target.value || null})} />
+                    </div>
+                  </div>
+                  {orderForm.delivery_date_est && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      До прибытия: {daysUntil(orderForm.delivery_date_est) ?? '—'} дней
+                    </div>
+                  )}
+                </div>
+
+                {/* Order status */}
+                <div className="border-t border-gray-200 pt-3">
+                  <label className="label text-xs">Статус заказа</label>
+                  <select className="input text-sm" value={orderForm.order_status_id || ''} onChange={e => setOrderForm({...orderForm, order_status_id: e.target.value ? parseInt(e.target.value) : null})}>
+                    <option value="">—</option>
+                    {orderStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                {/* Broker block */}
+                {showBrokerBlock(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Phone size={12}/> Брокер</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label text-xs">ФИО / название</label>
+                        <input className="input text-sm" value={orderForm.broker_name || ''} onChange={e => setOrderForm({...orderForm, broker_name: e.target.value || null})} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">Телефон</label>
+                        <input className="input text-sm" value={orderForm.broker_phone || ''} onChange={e => setOrderForm({...orderForm, broker_phone: e.target.value || null})} />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <label className="label text-xs">Комментарий</label>
+                      <textarea className="input text-sm" rows={2} value={orderForm.broker_comment || ''} onChange={e => setOrderForm({...orderForm, broker_comment: e.target.value || null})} />
+                    </div>
+                    <div className="mt-2">
+                      <label className="label text-xs">Дата передачи брокеру</label>
+                      <input type="date" className="input text-sm" value={orderForm.broker_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, broker_date: e.target.value || null})} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Inspection block */}
+                {showInspectionBlock(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><ClipboardCheck size={12}/> Осмотр автомобиля</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                      {INSPECTION_ITEMS.map(item => (
+                        <label key={item.key} className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input type="checkbox" className="w-3.5 h-3.5 rounded accent-primary-600" />
+                          <span>{item.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-2">
+                      <label className="label text-xs">Комментарий / дефекты</label>
+                      <textarea className="input text-sm" rows={2} value={orderForm.inspection_comment || ''} onChange={e => setOrderForm({...orderForm, inspection_comment: e.target.value || null})} />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs mt-2 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 rounded accent-primary-600" checked={!!orderForm.inspection_done} onChange={e => setOrderForm({...orderForm, inspection_done: e.target.checked ? 1 : 0})} />
+                      <span className="font-medium">Осмотр завершён</span>
+                      {orderForm.inspection_done ? <Check size={14} className="text-green-600"/> : null}
+                    </label>
+                  </div>
+                )}
+
+                {/* Issue date */}
+                {showIssueDate(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <label className="label text-xs">Дата выдачи клиенту</label>
+                    <input type="date" className="input text-sm" value={orderForm.issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, issue_date: e.target.value || null})} />
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button onClick={saveOrder} className="btn-primary text-sm">Сохранить</button>
+                  <button onClick={() => { setEditingOrder(null); setOrderForm({}); }} className="btn-secondary text-sm">Отмена</button>
+                </div>
               </div>
-            ))}
-            {orders.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Заказы не добавлены</p>}
+            )}
+
+            <div className="space-y-3">
+              {orders.map(order => {
+                const os = orderStatuses.find(s => s.id === order.order_status_id);
+                const days = daysUntil(order.delivery_date_est);
+                return (
+                  <div key={order.id} className="p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => startEditOrder(order)}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{order.brand} {order.model}</span>
+                          {os && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: os.color + '20', color: os.color }}>{os.name}</span>}
+                        </div>
+                        {order.contract_number && <div className="text-xs text-gray-500 mt-0.5">№ {order.contract_number}</div>}
+                        {order.year && <div className="text-xs text-gray-500 mt-0.5">{order.year} г.</div>}
+                      </div>
+                      <div className="text-right">
+                        {order.price && <div className="font-semibold text-primary-600 text-sm">{formatPrice(order.price)}</div>}
+                        {order.payment_status && (
+                          <div className="text-xs mt-0.5" style={{ color: order.payment_status === 'paid' ? '#10b981' : order.payment_status === 'pending' ? '#f59e0b' : '#6b7280' }}>
+                            {PAYMENT_STATUS_LABELS[order.payment_status]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {order.delivery_date_est && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <Calendar size={11}/> Прибытие: {formatDate(order.delivery_date_est)}
+                        {days !== null && days > 0 && <span className="text-primary-600">({days} дн.)</span>}
+                        {days !== null && days <= 0 && <span className="text-red-500">(просрочено)</span>}
+                      </div>
+                    )}
+                    {order.delivery_date_actual && (
+                      <div className="text-xs text-green-600 mt-0.5">Прибыл: {formatDate(order.delivery_date_actual)}</div>
+                    )}
+                    {order.comment && <div className="text-xs text-gray-600 mt-1">{order.comment}</div>}
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={e => { e.stopPropagation(); startEditOrder(order); }} className="text-xs text-primary-600 hover:underline">Редактировать</button>
+                      <button onClick={e => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="text-xs text-red-500 hover:underline">Удалить</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {orders.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Заказы не добавлены</p>}
+            </div>
           </div>
         </div>
       )}

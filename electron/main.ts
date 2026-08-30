@@ -5,6 +5,8 @@ import { registerMessagingHandlers } from './ipc/messaging';
 import { registerFilesHandlers } from './ipc/files';
 import { registerDocumentsHandlers } from './ipc/documents';
 import { registerBackupHandlers } from './ipc/backup';
+import { registerOrderStatusesHandlers } from './ipc/orderStatuses';
+import { registerRemindersHandlers } from './ipc/reminders';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -49,6 +51,8 @@ app.whenReady().then(() => {
   registerFilesHandlers();
   registerDocumentsHandlers();
   registerBackupHandlers();
+  registerOrderStatusesHandlers();
+  registerRemindersHandlers();
   createWindow();
 
   app.on('activate', () => {

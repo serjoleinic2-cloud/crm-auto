@@ -7,6 +7,14 @@ export interface Status {
   is_active: number;
 }
 
+export interface OrderStatus {
+  id: number;
+  name: string;
+  color: string;
+  sort_order: number;
+  is_active: number;
+}
+
 export interface Client {
   id: number;
   full_name: string;
@@ -71,8 +79,19 @@ export interface Order {
   delivery_date_actual: string | null;
   payment_date: string | null;
   payment_status: string | null;
+  order_status_id: number | null;
+  broker_name: string | null;
+  broker_phone: string | null;
+  broker_comment: string | null;
+  broker_date: string | null;
+  inspection_done: number;
+  inspection_comment: string | null;
+  issue_date: string | null;
   created_at: string;
   updated_at: string;
+  // joined
+  order_status_name?: string;
+  order_status_color?: string;
 }
 
 export interface Contact {
@@ -95,6 +114,19 @@ export interface HistoryEntry {
   created_at: string;
 }
 
+export interface Reminder {
+  id: number;
+  client_id: number;
+  client_name?: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: number;
+  completed_at: string | null;
+  auto_created: number;
+  created_at: string;
+}
+
 export interface DashboardStats {
   activeClients: number;
   needsAttention: number;
@@ -103,6 +135,10 @@ export interface DashboardStats {
   newClientsThisWeek: number;
   pendingConsent: number;
   trashCount: number;
+  overdueReminders: number;
+  pendingPayment: number;
+  atCustoms: number;
+  inOffice: number;
 }
 
 export interface CarBrand {
@@ -178,6 +214,14 @@ export interface ClientDocument {
   files: DocumentFile[];
 }
 
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  not_paid:  'Не оплачено',
+  pending:   'Ожидается оплата',
+  paid:      'Оплачено',
+  partial:   'Частично оплачено',
+  cancelled: 'Отменено',
+};
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
@@ -200,7 +244,8 @@ export interface ElectronAPI {
   };
   orders: {
     getByClientId: (clientId: number) => Promise<Order[]>;
-    create:        (data: Omit<Order, 'id'|'created_at'|'updated_at'>) => Promise<number>;
+    getById:       (id: number) => Promise<Order | undefined>;
+    create:        (data: Omit<Order, 'id'|'created_at'|'updated_at'|'order_status_name'|'order_status_color'>) => Promise<number>;
     update:        (id: number, data: Partial<Order>) => Promise<boolean>;
     delete:        (id: number) => Promise<boolean>;
   };
@@ -219,6 +264,9 @@ export interface ElectronAPI {
   };
   statuses: {
     getAll: () => Promise<Status[]>;
+  };
+  orderStatuses: {
+    getAll: () => Promise<OrderStatus[]>;
   };
   dashboard: {
     getStats: () => Promise<DashboardStats>;
@@ -253,12 +301,17 @@ export interface ElectronAPI {
     deleteFile:    (fileId: number) => Promise<true | { error: string }>;
     generate:      () => Promise<{ error: string }>;
   };
+  reminders: {
+    getAll:   (filters?: { clientId?: number; overdue?: boolean; today?: boolean; upcoming?: boolean }) => Promise<Reminder[]>;
+    getById:  (id: number) => Promise<Reminder | undefined>;
+    create:   (data: { client_id: number; title: string; description?: string; due_date?: string; auto_created?: number }) => Promise<number>;
+    update:   (id: number, data: Partial<Reminder>) => Promise<boolean>;
+    delete:   (id: number) => Promise<boolean>;
+    getStats: () => Promise<{ overdue: number; today: number; total: number }>;
+  };
   customFields: {
     getAll:    (entityType: string) => Promise<CustomField[]>;
     getValues: (fieldIds: number[], entityId: number) => Promise<CustomFieldValue[]>;
     setValue:  (fieldId: number, entityId: number, value: string) => Promise<boolean>;
   };
 }
-
-// Extend Client with trash fields
-// (added via migration, already reflected below in ElectronAPI)

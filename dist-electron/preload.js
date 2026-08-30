@@ -17,6 +17,7 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     },
     orders: {
         getByClientId: (clientId) => invoke('orders:getByClientId', clientId),
+        getById: (id) => invoke('orders:getById', id),
         create: (data) => invoke('orders:create', data),
         update: (id, data) => invoke('orders:update', id, data),
         delete: (id) => invoke('orders:delete', id),
@@ -35,6 +36,7 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         getByClientId: (clientId) => invoke('history:getByClientId', clientId),
     },
     statuses: { getAll: () => invoke('statuses:getAll') },
+    orderStatuses: { getAll: () => invoke('orderStatuses:getAll') },
     dashboard: { getStats: () => invoke('dashboard:getStats') },
     carBrands: { getAll: () => invoke('carBrands:getAll') },
     settings: {
@@ -61,6 +63,14 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         addFilesBulk: (clientId, entries) => invoke('documents:addFilesBulk', clientId, entries),
         deleteFile: (fileId) => invoke('documents:deleteFile', fileId),
         generate: () => invoke('documents:generate'),
+    },
+    reminders: {
+        getAll: (filters) => invoke('reminders:getAll', filters),
+        getById: (id) => invoke('reminders:getById', id),
+        create: (data) => invoke('reminders:create', data),
+        update: (id, data) => invoke('reminders:update', id, data),
+        delete: (id) => invoke('reminders:delete', id),
+        getStats: () => invoke('reminders:getStats'),
     },
     customFields: {
         getAll: (entityType) => invoke('customFields:getAll', entityType),

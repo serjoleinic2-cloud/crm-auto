@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const CREATE_TABLES_SQL = `
 PRAGMA journal_mode=WAL;
@@ -47,6 +47,14 @@ CREATE TABLE IF NOT EXISTS consent (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS order_statuses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#6b7280',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -62,6 +70,14 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery_date_actual TEXT,
   payment_date TEXT,
   payment_status TEXT,
+  order_status_id INTEGER,
+  broker_name TEXT,
+  broker_phone TEXT,
+  broker_comment TEXT,
+  broker_date TEXT,
+  inspection_done INTEGER NOT NULL DEFAULT 0,
+  inspection_comment TEXT,
+  issue_date TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -147,6 +163,18 @@ CREATE TABLE IF NOT EXISTS document_files (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date TEXT,
+  is_completed INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT,
+  auto_created INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id);
 CREATE INDEX IF NOT EXISTS idx_documents_order ON documents(order_id);
 CREATE INDEX IF NOT EXISTS idx_document_files_document ON document_files(document_id);
@@ -161,6 +189,9 @@ CREATE INDEX IF NOT EXISTS idx_contacts_client ON contacts(client_id);
 CREATE INDEX IF NOT EXISTS idx_history_client ON history(client_id);
 CREATE INDEX IF NOT EXISTS idx_consent_client ON consent(client_id);
 CREATE INDEX IF NOT EXISTS idx_cfv_field_entity ON custom_field_values(field_id, entity_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_client ON reminders(client_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
+CREATE INDEX IF NOT EXISTS idx_reminders_completed ON reminders(is_completed);
 `;
 
 export const DEFAULT_DOCUMENT_TYPES = [
@@ -182,6 +213,30 @@ export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
   sent:          'Отправлен клиенту',
   received:      'Получен',
   verified:      'Проверен',
+};
+
+export const DEFAULT_ORDER_STATUSES = [
+  { name: 'Новый заказ',              color: '#6b7280', sort_order: 1 },
+  { name: 'Ожидает оплату',           color: '#f59e0b', sort_order: 2 },
+  { name: 'Оплачен',                  color: '#3b82f6', sort_order: 3 },
+  { name: 'Автомобиль заказан',       color: '#8b5cf6', sort_order: 4 },
+  { name: 'Автомобиль в пути',        color: '#06b6d4', sort_order: 5 },
+  { name: 'На таможне',               color: '#d946ef', sort_order: 6 },
+  { name: 'Ожидает доверенность',     color: '#f97316', sort_order: 7 },
+  { name: 'Таможенное оформление',    color: '#ec4899', sort_order: 8 },
+  { name: 'Едет по РФ',               color: '#14b8a6', sort_order: 9 },
+  { name: 'Прибыл в офис',            color: '#22c55e', sort_order: 10 },
+  { name: 'Готов к выдаче',           color: '#10b981', sort_order: 11 },
+  { name: 'Выдан клиенту',            color: '#059669', sort_order: 12 },
+  { name: 'Отменён',                  color: '#ef4444', sort_order: 13 },
+];
+
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  not_paid:  'Не оплачено',
+  pending:   'Ожидается оплата',
+  paid:      'Оплачено',
+  partial:   'Частично оплачено',
+  cancelled: 'Отменено',
 };
 
 export const DEFAULT_STATUSES = [
