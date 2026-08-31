@@ -152,6 +152,9 @@ export interface Reminder {
   id: number;
   client_id: number;
   client_name?: string;
+  client_phone?: string | null;
+  contract_number?: string | null;
+  car?: string | null;
   title: string;
   description: string | null;
   due_date: string | null;

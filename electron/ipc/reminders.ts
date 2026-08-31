@@ -3,7 +3,15 @@ import { getDb } from './database';
 
 export function registerRemindersHandlers(): void {
   ipcMain.handle('reminders:getAll', (_e, filters?: { clientId?: number; overdue?: boolean; today?: boolean; upcoming?: boolean }) => {
-    let sql = 'SELECT r.*, c.full_name as client_name FROM reminders r JOIN clients c ON c.id=r.client_id WHERE 1=1';
+    let sql = `
+      SELECT r.*,
+        c.full_name as client_name,
+        c.phone as client_phone,
+        (SELECT contract_number FROM orders WHERE client_id=r.client_id AND contract_number IS NOT NULL ORDER BY id DESC LIMIT 1) as contract_number,
+        (SELECT TRIM(COALESCE(brand,'')||' '||COALESCE(model,'')) FROM orders WHERE client_id=r.client_id ORDER BY id DESC LIMIT 1) as car
+      FROM reminders r
+      JOIN clients c ON c.id=r.client_id
+      WHERE 1=1`;
     const params: unknown[] = [];
     if (filters?.clientId !== undefined) { sql += ' AND r.client_id=?'; params.push(filters.clientId); }
     if (filters?.overdue) { sql += " AND r.is_completed=0 AND r.due_date < date('now')"; }

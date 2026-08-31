@@ -279,6 +279,17 @@ function ReminderCard({ r, onToggle, onDelete, onClientClick }: ReminderCardProp
               <ChevronRight size={10}/>
             </button>
           )}
+          {r.client_phone && (
+            <span className="flex items-center gap-1 text-gray-500">
+              <Phone size={11}/> {r.client_phone}
+            </span>
+          )}
+          {r.contract_number && (
+            <span className="text-gray-400">№ {r.contract_number}</span>
+          )}
+          {r.car && r.car.trim() && (
+            <span className="text-gray-400">{r.car.trim()}</span>
+          )}
           {r.due_date && (
             <span className={`flex items-center gap-1 ${overdue ? 'text-red-500 font-medium' : ''}`}>
               {r.due_time ? <Clock size={11}/> : <Calendar size={11}/>}
