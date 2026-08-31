@@ -43,6 +43,16 @@ export function registerDocumentsHandlers(): void {
     getDb().prepare('SELECT * FROM document_types WHERE is_active=1 ORDER BY sort_order, id').all()
   );
 
+  ipcMain.handle('documentTypes:delete', (_e, id: number) => {
+    const db = getDb();
+    const type = db.prepare('SELECT * FROM document_types WHERE id=?').get(id) as
+      { id: number; name: string; is_system: number; is_active: number } | undefined;
+    if (!type) return { error: 'Тип документа не найден' };
+    if (type.is_system) return { error: 'Системные типы документов нельзя удалить' };
+    db.prepare(`UPDATE document_types SET is_active=0 WHERE id=?`).run(id);
+    return true;
+  });
+
   ipcMain.handle('documentTypes:create', (_e, data: { name: string; folder_name?: string }) => {
     const db = getDb();
     const name = (data.name ?? '').trim();
@@ -68,7 +78,7 @@ export function registerDocumentsHandlers(): void {
   ipcMain.handle('documents:getByClientId', (_e, clientId: number) => {
     const db = getDb();
     const types = db.prepare('SELECT * FROM document_types WHERE is_active=1 ORDER BY sort_order, id').all() as
-      { id: number; code: string; name: string; folder_name: string; sort_order: number }[];
+      { id: number; code: string; name: string; folder_name: string; sort_order: number; is_system: number }[];
     const docs = db.prepare('SELECT * FROM documents WHERE client_id=?').all(clientId) as
       { id: number; document_type_id: number; status: string; requested_date: string | null; received_date: string | null; comment: string | null; order_id: number | null }[];
     const docByType = new Map(docs.map(d => [d.document_type_id, d]));
@@ -93,6 +103,7 @@ export function registerDocumentsHandlers(): void {
         name: t.name,
         folder_name: t.folder_name,
         sort_order: t.sort_order,
+        is_system: t.is_system ?? 0,
         document_id: d?.id ?? null,
         status: d?.status ?? 'not_requested',
         requested_date: d?.requested_date ?? null,

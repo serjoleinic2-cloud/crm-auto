@@ -64,6 +64,13 @@ export default function QuickAdd() {
           comment: null,
           delivery_date_est: null, delivery_date_actual: null,
           payment_date: null, payment_status: null,
+          order_status_id: null,
+          broker_name: null, broker_phone: null, broker_comment: null, broker_date: null,
+          inspection_done: 0, inspection_comment: null, issue_date: null,
+          contract_date: null, deal_amount: null,
+          body_type: null, engine: null, engine_type: null,
+          drive: null, transmission: null, color: null, mileage: null, car_other: null,
+          delivery_term: null, delivery_term_unit: null,
         });
       }
       navigate(`/clients/${clientId}`);

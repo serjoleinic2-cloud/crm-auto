@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   documentTypes: {
     getAll:  ()                                            => invoke('documentTypes:getAll'),
     create:  (data: { name: string; folder_name?: string }) => invoke('documentTypes:create', data),
+    delete:  (id: number)                                  => invoke('documentTypes:delete', id),
   },
   documents: {
     getByClientId:  (clientId: number)                                                 => invoke('documents:getByClientId', clientId),

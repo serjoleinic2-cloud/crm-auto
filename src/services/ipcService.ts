@@ -53,6 +53,7 @@ export const ipcService = {
   documentTypes: {
     getAll: () => api().documentTypes.getAll(),
     create: (d: Parameters<Window['electronAPI']['documentTypes']['create']>[0]) => api().documentTypes.create(d),
+    delete: (id: number) => api().documentTypes.delete(id),
   },
   documents: {
     getByClientId: (clientId: number) => api().documents.getByClientId(clientId),

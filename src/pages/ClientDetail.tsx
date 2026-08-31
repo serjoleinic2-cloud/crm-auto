@@ -137,6 +137,8 @@ export default function ClientDetail() {
       inspection_done: 0,
       inspection_comment: '',
       issue_date: null,
+      delivery_term: 2,
+      delivery_term_unit: 'weeks',
     });
     setEditingOrder({ id: 0 } as Order);
   };
@@ -187,12 +189,37 @@ export default function ClientDetail() {
     fetchOrders(clientId);
   };
 
-  const setDeliveryTerm = (months: number) => {
-    const baseDate = orderForm.payment_date || new Date().toISOString().split('T')[0];
-    const d = new Date(baseDate);
-    d.setMonth(d.getMonth() + months);
-    setOrderForm(prev => ({ ...prev, delivery_date_est: d.toISOString().split('T')[0] }));
+  const calcDeliveryDate = (
+    paymentDate: string | null,
+    term: number | null,
+    unit: 'days' | 'weeks' | 'months' | null
+  ): string | null => {
+    if (!term || !unit) return null;
+    const base = paymentDate || new Date().toISOString().split('T')[0];
+    const d = new Date(base);
+    if (unit === 'days')   d.setDate(d.getDate() + term);
+    if (unit === 'weeks')  d.setDate(d.getDate() + term * 7);
+    if (unit === 'months') d.setMonth(d.getMonth() + term);
+    return d.toISOString().split('T')[0];
   };
+
+  const applyDeliveryTerm = (
+    term: number | null,
+    unit: 'days' | 'weeks' | 'months' | null,
+    paymentDate?: string | null
+  ) => {
+    const pd = paymentDate !== undefined ? paymentDate : orderForm.payment_date;
+    const newDate = calcDeliveryDate(pd ?? null, term, unit);
+    setOrderForm(prev => ({
+      ...prev,
+      delivery_term: term,
+      delivery_term_unit: unit,
+      delivery_date_est: newDate ?? prev.delivery_date_est,
+    }));
+  };
+
+  // Default: 2 weeks
+  const applyDefaultTerm = () => applyDeliveryTerm(2, 'weeks');
 
   const daysUntil = (dateStr: string | null): number | null => {
     if (!dateStr) return null;
@@ -448,7 +475,13 @@ export default function ClientDetail() {
                     </div>
                     <div>
                       <label className="label text-xs">Дата оплаты</label>
-                      <input type="date" className="input text-sm" value={orderForm.payment_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, payment_date: e.target.value || null})} />
+                      <input type="date" className="input text-sm" value={orderForm.payment_date?.split('T')[0] || ''} onChange={e => {
+                        const pd = e.target.value || null;
+                        const newEst = orderForm.delivery_term
+                          ? calcDeliveryDate(pd, orderForm.delivery_term, orderForm.delivery_term_unit ?? 'days')
+                          : orderForm.delivery_date_est;
+                        setOrderForm(prev => ({ ...prev, payment_date: pd, delivery_date_est: newEst ?? prev.delivery_date_est }));
+                      }} />
                     </div>
                   </div>
                 </div>
@@ -456,25 +489,66 @@ export default function ClientDetail() {
                 {/* Delivery block */}
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Truck size={12}/> Срок доставки</h5>
-                  <div className="flex items-center gap-2 mb-2">
-                    <button onClick={() => setDeliveryTerm(3)} className="btn-secondary text-xs">3 месяца</button>
-                    <button onClick={() => setDeliveryTerm(5)} className="btn-secondary text-xs">5 месяцев</button>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <button
+                      onClick={applyDefaultTerm}
+                      className="btn-secondary text-xs"
+                    >
+                      Стандарт (2 недели)
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={999}
+                        className="input text-xs w-16"
+                        placeholder="14"
+                        value={orderForm.delivery_term ?? ''}
+                        onChange={e => {
+                          const val = e.target.value ? parseInt(e.target.value) : null;
+                          applyDeliveryTerm(val, orderForm.delivery_term_unit ?? 'days');
+                        }}
+                      />
+                      <select
+                        className="input text-xs"
+                        value={orderForm.delivery_term_unit ?? 'days'}
+                        onChange={e => {
+                          const unit = e.target.value as 'days' | 'weeks' | 'months';
+                          applyDeliveryTerm(orderForm.delivery_term ?? null, unit);
+                        }}
+                      >
+                        <option value="days">дней</option>
+                        <option value="weeks">недель</option>
+                        <option value="months">месяцев</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="label text-xs">Плановая дата прибытия</label>
-                      <input type="date" className="input text-sm" value={orderForm.delivery_date_est?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, delivery_date_est: e.target.value || null})} />
+                      <label className="label text-xs">Ориентировочная дата прибытия</label>
+                      <input
+                        type="date"
+                        className="input text-sm"
+                        value={orderForm.delivery_date_est?.split('T')[0] || ''}
+                        onChange={e => setOrderForm({...orderForm, delivery_date_est: e.target.value || null})}
+                      />
                     </div>
                     <div>
                       <label className="label text-xs">Фактическая дата прибытия</label>
                       <input type="date" className="input text-sm" value={orderForm.delivery_date_actual?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, delivery_date_actual: e.target.value || null})} />
                     </div>
                   </div>
-                  {orderForm.delivery_date_est && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      До прибытия: {daysUntil(orderForm.delivery_date_est) ?? '—'} дней
-                    </div>
-                  )}
+                  {orderForm.delivery_date_est && (() => {
+                    const days = daysUntil(orderForm.delivery_date_est);
+                    const overdue = days !== null && days < 0;
+                    return (
+                      <div className={`text-xs mt-1 ${overdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                        {overdue
+                          ? `⚠ Просрочено на ${Math.abs(days!)} дн.`
+                          : `До прибытия: ${days ?? '—'} дней`}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Order status */}
@@ -574,11 +648,22 @@ export default function ClientDetail() {
                         )}
                       </div>
                     </div>
+                    {order.payment_date && (
+                      <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                        Оплата: {formatDate(order.payment_date)}
+                        {order.delivery_term && (
+                          <span className="ml-1">
+                            · Срок: {order.delivery_term} {order.delivery_term_unit === 'days' ? 'дн.' : order.delivery_term_unit === 'weeks' ? 'нед.' : 'мес.'}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {order.delivery_date_est && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                      <div className={`text-xs mt-0.5 flex items-center gap-1 ${days !== null && days < 0 ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
                         <Calendar size={11}/> Прибытие: {formatDate(order.delivery_date_est)}
                         {days !== null && days > 0 && <span className="text-primary-600">({days} дн.)</span>}
-                        {days !== null && days <= 0 && <span className="text-red-500">(просрочено)</span>}
+                        {days !== null && days === 0 && <span className="text-amber-500">(сегодня)</span>}
+                        {days !== null && days < 0 && <span>(просрочено на {Math.abs(days)} дн.)</span>}
                       </div>
                     )}
                     {order.delivery_date_actual && (

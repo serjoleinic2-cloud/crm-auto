@@ -97,6 +97,8 @@ export interface Order {
   inspection_done: number;
   inspection_comment: string | null;
   issue_date: string | null;
+  delivery_term: number | null;
+  delivery_term_unit: 'days' | 'weeks' | 'months' | null;
   created_at: string;
   updated_at: string;
   // joined
@@ -237,6 +239,7 @@ export interface ClientDocument {
   name: string;
   folder_name: string;
   sort_order: number;
+  is_system: number;
   document_id: number | null;
   status: DocumentStatus;
   requested_date: string | null;
@@ -321,6 +324,7 @@ export interface ElectronAPI {
   documentTypes: {
     getAll: () => Promise<DocumentType[]>;
     create: (data: { name: string; folder_name?: string }) => Promise<number | { error: string }>;
+    delete: (id: number) => Promise<true | { error: string }>;
   };
   documents: {
     getByClientId: (clientId: number) => Promise<ClientDocument[]>;

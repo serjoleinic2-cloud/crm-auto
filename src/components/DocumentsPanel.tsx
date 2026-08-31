@@ -3,7 +3,7 @@ import { useDocuments } from '../hooks/useDocuments';
 import { ipcService } from '../services/ipcService';
 import DocumentTypeCard from './DocumentTypeCard';
 import BulkUploadAssignModal from './BulkUploadAssignModal';
-import { Upload, Plus } from 'lucide-react';
+import { Upload, Plus, Trash2, X } from 'lucide-react';
 import type { ClientDocument } from '../types';
 
 interface Props { clientId: number; }
@@ -27,6 +27,39 @@ function groupDocuments(docs: ClientDocument[]) {
   return groups;
 }
 
+interface DeleteTypeConfirmProps {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
+}
+
+function DeleteTypeConfirm({ name, onConfirm, onCancel, deleting }: DeleteTypeConfirmProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="font-semibold text-gray-900 text-sm">Удалить тип документа «{name}»?</h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 ml-2 shrink-0"><X size={16}/></button>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Тип документа будет скрыт из списка. Уже загруженные файлы клиента не будут автоматически удалены.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel} className="btn-secondary text-sm">Отмена</button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded-md font-medium transition-colors disabled:opacity-50"
+          >
+            {deleting ? 'Удаление...' : 'Удалить'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentsPanel({ clientId }: Props) {
   const { documents, documentTypes, fetchDocuments } = useDocuments();
   const [bulkFiles, setBulkFiles] = useState<string[] | null>(null);
@@ -34,6 +67,8 @@ export default function DocumentsPanel({ clientId }: Props) {
   const [addingType, setAddingType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
   const [savingType, setSavingType] = useState(false);
+  const [deleteTypeTarget, setDeleteTypeTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deletingType, setDeletingType] = useState(false);
 
   useEffect(() => { if (clientId) fetchDocuments(clientId); }, [clientId, fetchDocuments]);
 
@@ -75,6 +110,22 @@ export default function DocumentsPanel({ clientId }: Props) {
     }
   };
 
+  const handleDeleteTypeConfirm = async () => {
+    if (!deleteTypeTarget) return;
+    setDeletingType(true);
+    try {
+      const result = await ipcService.documentTypes.delete(deleteTypeTarget.id);
+      if (result && typeof result === 'object' && 'error' in result) {
+        alert(result.error);
+        return;
+      }
+      setDeleteTypeTarget(null);
+      fetchDocuments(clientId);
+    } finally {
+      setDeletingType(false);
+    }
+  };
+
   const groups = groupDocuments(documents);
 
   return (
@@ -99,6 +150,11 @@ export default function DocumentsPanel({ clientId }: Props) {
                 clientId={clientId}
                 doc={doc}
                 onChanged={() => fetchDocuments(clientId)}
+                onDeleteType={
+                  !doc.is_system
+                    ? () => setDeleteTypeTarget({ id: doc.document_type_id, name: doc.name })
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -135,6 +191,15 @@ export default function DocumentsPanel({ clientId }: Props) {
           submitting={bulkSubmitting}
           onConfirm={handleBulkConfirm}
           onCancel={() => setBulkFiles(null)}
+        />
+      )}
+
+      {deleteTypeTarget && (
+        <DeleteTypeConfirm
+          name={deleteTypeTarget.name}
+          onConfirm={handleDeleteTypeConfirm}
+          onCancel={() => setDeleteTypeTarget(null)}
+          deleting={deletingType}
         />
       )}
     </div>

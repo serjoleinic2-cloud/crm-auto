@@ -55,6 +55,10 @@ export function initDatabase(): void {
   safeAlter('orders', 'inspection_comment',   'TEXT');
   safeAlter('orders', 'issue_date',           'TEXT');
 
+  // Delivery term fields
+  safeAlter('orders', 'delivery_term',       'INTEGER');
+  safeAlter('orders', 'delivery_term_unit',  'TEXT DEFAULT \'days\'');
+
   // Contract & car detail fields
   safeAlter('orders', 'contract_date',    'TEXT');
   safeAlter('orders', 'deal_amount',      'TEXT');
@@ -292,8 +296,8 @@ function registerHandlers(): void {
 
   ipcMain.handle('orders:create', (_e, data: Record<string, unknown>) => {
     const result = db.prepare(`
-      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date)
-      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date)
+      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date,delivery_term,delivery_term_unit)
+      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date,@delivery_term,@delivery_term_unit)
     `).run({
       client_id: data.client_id, contract_number: data.contract_number ?? null,
       brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
@@ -306,6 +310,8 @@ function registerHandlers(): void {
       broker_comment: data.broker_comment ?? null, broker_date: data.broker_date ?? null,
       inspection_done: data.inspection_done ?? 0, inspection_comment: data.inspection_comment ?? null,
       issue_date: data.issue_date ?? null,
+      delivery_term: data.delivery_term ?? null,
+      delivery_term_unit: data.delivery_term_unit ?? null,
     });
     const orderId = result.lastInsertRowid as number;
     _writeHistory(data.client_id as number, 'order_create',

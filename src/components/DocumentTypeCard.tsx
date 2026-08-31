@@ -10,6 +10,7 @@ interface Props {
   clientId: number;
   doc: ClientDocument;
   onChanged: () => void;
+  onDeleteType?: () => void;
 }
 
 const STATUS_COLORS: Record<DocumentStatus, string> = {
@@ -21,7 +22,7 @@ const STATUS_COLORS: Record<DocumentStatus, string> = {
   verified:      '#059669',
 };
 
-export default function DocumentTypeCard({ clientId, doc, onChanged }: Props) {
+export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteType }: Props) {
   const [comment, setComment] = useState(doc.comment ?? '');
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
@@ -116,6 +117,15 @@ export default function DocumentTypeCard({ clientId, doc, onChanged }: Props) {
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
         <span className="text-sm font-medium text-gray-900 flex-1 truncate">{doc.name}</span>
+        {onDeleteType && (
+          <button
+            onClick={e => { e.stopPropagation(); onDeleteType(); }}
+            title="Удалить тип документа"
+            className="text-gray-300 hover:text-red-500 shrink-0 transition-colors"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
         {doc.files.length > 0 && (
           <span className="text-xs text-gray-400 shrink-0">{doc.files.length} файл{doc.files.length > 1 ? 'а' : ''}</span>
         )}
