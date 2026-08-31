@@ -35,6 +35,7 @@ export interface Client {
   status_color?: string;
   contract_number?: string | null;
   car?: string | null;
+  payment_status?: string | null;
   consent_status?: ConsentStatus;
 }
 

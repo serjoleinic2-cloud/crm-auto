@@ -152,6 +152,7 @@ function registerHandlers(): void {
              s.color AS status_color,
              (SELECT o.contract_number FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS contract_number,
              (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
+             (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
              IFNULL(cn.status,'not_requested') AS consent_status
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id
