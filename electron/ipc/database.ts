@@ -59,6 +59,9 @@ export function initDatabase(): void {
   safeAlter('orders', 'delivery_term',       'INTEGER');
   safeAlter('orders', 'delivery_term_unit',  'TEXT DEFAULT \'days\'');
 
+  // Reminder time field
+  safeAlter('reminders', 'due_time', 'TEXT');
+
   // Contract & car detail fields
   safeAlter('orders', 'contract_date',    'TEXT');
   safeAlter('orders', 'deal_amount',      'TEXT');
@@ -448,8 +451,8 @@ function registerHandlers(): void {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     return {
       activeClients:     (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get() as { c: number }).c,
-      needsAttention:    (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date IS NOT NULL AND next_action_date < ?").get(now) as { c: number }).c,
-      todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0 AND next_action_date=?").get(now) as { c: number }).c,
+      needsAttention:    (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
+      todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
       carsInTransit:     (db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Автомобиль в пути' LIMIT 1)").get() as { c: number }).c,
       newClientsThisWeek:(db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo) as { c: number }).c,
       pendingConsent:    (db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get() as { c: number }).c,

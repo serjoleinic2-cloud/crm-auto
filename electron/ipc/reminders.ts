@@ -17,16 +17,16 @@ export function registerRemindersHandlers(): void {
     getDb().prepare('SELECT * FROM reminders WHERE id=?').get(id)
   );
 
-  ipcMain.handle('reminders:create', (_e, data: { client_id: number; title: string; description?: string; due_date?: string; auto_created?: number }) => {
+  ipcMain.handle('reminders:create', (_e, data: { client_id: number; title: string; description?: string; due_date?: string; due_time?: string; auto_created?: number }) => {
     const result = getDb().prepare(`
-      INSERT INTO reminders (client_id, title, description, due_date, auto_created)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(data.client_id, data.title, data.description ?? null, data.due_date ?? null, data.auto_created ?? 0);
+      INSERT INTO reminders (client_id, title, description, due_date, due_time, auto_created)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(data.client_id, data.title, data.description ?? null, data.due_date ?? null, data.due_time ?? null, data.auto_created ?? 0);
     return result.lastInsertRowid;
   });
 
-  ipcMain.handle('reminders:update', (_e, id: number, data: Partial<{ title: string; description: string; due_date: string; is_completed: number }>) => {
-    const fields = Object.keys(data).filter(k => ['title','description','due_date','is_completed'].includes(k));
+  ipcMain.handle('reminders:update', (_e, id: number, data: Partial<{ title: string; description: string; due_date: string; due_time: string; is_completed: number }>) => {
+    const fields = Object.keys(data).filter(k => ['title','description','due_date','due_time','is_completed'].includes(k));
     if (!fields.length) return false;
     const set = fields.map(f => `${f}=@${f}`).join(', ');
     const vals: Record<string, unknown> = { __id: id };

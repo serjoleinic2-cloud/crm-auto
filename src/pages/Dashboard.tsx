@@ -34,8 +34,8 @@ export default function Dashboard() {
 
   const statCards = [
     { label: 'Активные клиенты', value: stats.activeClients, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => navigate('/clients') },
-    { label: 'Просроченные задачи', value: stats.needsAttention, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', onClick: () => navigate('/reminders') },
-    { label: 'Задачи на сегодня', value: stats.todayTasks, icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => navigate('/reminders') },
+    { label: 'Просроченные задачи', value: stats.needsAttention, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', onClick: () => navigate('/reminders?filter=overdue') },
+    { label: 'Задачи на сегодня', value: stats.todayTasks, icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => navigate('/reminders?filter=today') },
     { label: 'Авто в пути', value: stats.carsInTransit, icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-50', onClick: () => navigate('/orders') },
   ];
 

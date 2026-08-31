@@ -16,7 +16,7 @@ export function useReminders() {
     }
   }, []);
 
-  const createReminder = useCallback(async (data: { client_id: number; title: string; description?: string; due_date?: string; auto_created?: number }) => {
+  const createReminder = useCallback(async (data: { client_id: number; title: string; description?: string; due_date?: string; due_time?: string; auto_created?: number }) => {
     try {
       const id = await ipcService.reminders.create(data);
       return id;

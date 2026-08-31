@@ -155,6 +155,7 @@ export interface Reminder {
   title: string;
   description: string | null;
   due_date: string | null;
+  due_time: string | null;
   is_completed: number;
   completed_at: string | null;
   auto_created: number;
@@ -340,7 +341,7 @@ export interface ElectronAPI {
   reminders: {
     getAll:   (filters?: { clientId?: number; overdue?: boolean; today?: boolean; upcoming?: boolean }) => Promise<Reminder[]>;
     getById:  (id: number) => Promise<Reminder | undefined>;
-    create:   (data: { client_id: number; title: string; description?: string; due_date?: string; auto_created?: number }) => Promise<number>;
+    create:   (data: { client_id: number; title: string; description?: string; due_date?: string; due_time?: string; auto_created?: number }) => Promise<number>;
     update:   (id: number, data: Partial<Reminder>) => Promise<boolean>;
     delete:   (id: number) => Promise<boolean>;
     getStats: () => Promise<{ overdue: number; today: number; total: number }>;
