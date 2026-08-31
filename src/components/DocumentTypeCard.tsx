@@ -28,7 +28,7 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
   const [savedTick, setSavedTick] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<{ ids: number[]; name?: string } | null>(null);
-  const [expanded, setExpanded] = useState(doc.status !== 'not_required' && doc.status !== 'not_requested');
+  const [expanded, setExpanded] = useState(false);
   const commentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,7 +111,7 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
   const color = STATUS_COLORS[doc.status];
 
   return (
-    <div className="border border-gray-200 rounded-lg p-3">
+    <div className={`border border-gray-200 rounded-lg p-3 transition-all ${expanded ? 'col-span-2' : ''}`}>
       <div className="flex items-center gap-2">
         <button onClick={() => setExpanded(e => !e)} className="text-gray-400 hover:text-gray-600 shrink-0">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
