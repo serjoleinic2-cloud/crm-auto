@@ -14,7 +14,12 @@ export function registerRemindersHandlers(): void {
       WHERE 1=1`;
     const params: unknown[] = [];
     if (filters?.clientId !== undefined) { sql += ' AND r.client_id=?'; params.push(filters.clientId); }
-    if (filters?.overdue) { sql += " AND r.is_completed=0 AND r.due_date < date('now')"; }
+    if (filters?.overdue) {
+      sql += ` AND r.is_completed=0 AND (
+        r.due_date < date('now')
+        OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime'))
+      )`;
+    }
     if (filters?.today) { sql += " AND r.is_completed=0 AND r.due_date=date('now')"; }
     if (filters?.upcoming) { sql += " AND r.is_completed=0 AND r.due_date > date('now')"; }
     sql += ' ORDER BY r.due_date IS NULL, r.due_date, r.created_at DESC';

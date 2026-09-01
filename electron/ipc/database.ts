@@ -154,7 +154,7 @@ function registerHandlers(): void {
              (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
              (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0) AS reminders_count,
-             (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND r.due_date < date('now')) AS reminders_overdue,
+             (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))) AS reminders_overdue,
              (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
              (SELECT r.due_date FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_date,
              (SELECT r.due_time FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_time,
@@ -458,7 +458,7 @@ function registerHandlers(): void {
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     return {
       activeClients:     (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get() as { c: number }).c,
-      needsAttention:    (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
+      needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
       carsInTransit:     (db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Автомобиль в пути' LIMIT 1)").get() as { c: number }).c,
       newClientsThisWeek:(db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo) as { c: number }).c,
