@@ -39,6 +39,8 @@ export interface Client {
   consent_status?: ConsentStatus;
   next_action_time?: string | null;
   next_reminder_id?: number | null;
+  reminders_count?: number;
+  reminders_overdue?: number;
 }
 
 export type ConsentStatus = 'not_requested' | 'sent' | 'received' | 'verified';

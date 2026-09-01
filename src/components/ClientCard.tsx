@@ -140,7 +140,22 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
     >
       <div className="flex items-start justify-between mb-2">
         <h3 className="font-semibold text-gray-900 truncate flex-1 mr-2">{client.full_name}</h3>
-        <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Tasks counter */}
+          {(client.reminders_count ?? 0) > 0 && (
+            <span
+              title={`Задач: ${client.reminders_count}`}
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                (client.reminders_overdue ?? 0) > 0
+                  ? 'bg-red-500 text-white'
+                  : 'bg-amber-400 text-white'
+              }`}
+            >
+              {client.reminders_count}
+            </span>
+          )}
+          <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
+        </div>
       </div>
 
       <div className="space-y-1 text-sm text-gray-600">
@@ -199,7 +214,7 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
           <div className="relative">
             <button
               onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-              className="flex items-center gap-1 text-xs text-gray-300 hover:text-primary-500 transition-colors px-2 py-0.5 -mx-2"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-600 transition-colors px-2 py-0.5 -mx-2"
             >
               <Plus size={11}/> Запланировать звонок
             </button>
