@@ -224,84 +224,169 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
 
 // ── ReminderCard ──────────────────────────────────────────────────────────────
 
+interface PostponePopupProps {
+  onSave: (date: string, time: string, comment: string) => void;
+  onClose: () => void;
+}
+
+function PostponePopup({ onSave, onClose }: PostponePopupProps) {
+  const [date, setDate] = useState(todayISO());
+  const [time, setTime] = useState('');
+  const [comment, setComment] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute z-50 right-0 top-full mt-1 w-60 bg-white border border-gray-200 rounded-xl shadow-xl p-3 space-y-2"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-700">Перенести на</span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={13}/></button>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <div>
+          <label className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Дата</label>
+          <input type="date" className="input text-xs py-1 px-2 w-full" value={date} onChange={e => setDate(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Время</label>
+          <input type="time" className="input text-xs py-1 px-2 w-full" value={time} onChange={e => setTime(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Комментарий</label>
+        <textarea
+          className="input text-xs resize-none w-full"
+          rows={2}
+          placeholder="Причина переноса..."
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+        />
+      </div>
+      <button
+        onClick={() => { if (date) { onSave(date, time, comment); onClose(); } }}
+        disabled={!date}
+        className="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
+      >
+        Перенести
+      </button>
+    </div>
+  );
+}
+
 interface ReminderCardProps {
   r: Reminder;
-  onToggle: () => void;
+  onDone: () => void;
+  onPostpone: (date: string, time: string, comment: string) => void;
   onDelete: () => void;
   onClientClick: () => void;
 }
 
-function ReminderCard({ r, onToggle, onDelete, onClientClick }: ReminderCardProps) {
+function ReminderCard({ r, onDone, onPostpone, onDelete, onClientClick }: ReminderCardProps) {
   const overdue = isOverdue(r);
   const today = isToday(r);
+  const [showPostpone, setShowPostpone] = useState(false);
 
   return (
-    <div className={`card py-3 px-4 flex items-start gap-3 transition-all ${
+    <div className={`card py-3 px-4 transition-all ${
       r.is_completed ? 'opacity-50' : overdue ? 'border-red-200 bg-red-50/40' : today ? 'border-amber-200 bg-amber-50/30' : ''
     }`}>
-      <button onClick={onToggle} className="shrink-0 mt-0.5">
-        {r.is_completed
-          ? <CheckCircle size={18} className="text-green-500" />
-          : <Circle size={18} className="text-gray-300 hover:text-primary-600 transition-colors" />}
-      </button>
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          {/* Title + badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-medium ${r.is_completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+              {r.title}
+            </span>
+            {overdue && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-0.5 font-medium">
+                <AlertTriangle size={9}/> просрочено
+              </span>
+            )}
+            {today && !overdue && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">сегодня</span>
+            )}
+            {r.auto_created ? (
+              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">авто</span>
+            ) : null}
+          </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-sm font-medium ${r.is_completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-            {r.title}
-          </span>
-          {overdue && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-0.5 font-medium">
-              <AlertTriangle size={9}/> просрочено
-            </span>
+          {r.description && (
+            <div className="text-xs text-gray-500 mt-0.5">{r.description}</div>
           )}
-          {today && !overdue && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">
-              сегодня
-            </span>
-          )}
-          {r.auto_created ? (
-            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">авто</span>
-          ) : null}
+
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap">
+            {r.client_name && (
+              <button onClick={onClientClick} className="flex items-center gap-1 hover:text-primary-600 transition-colors font-medium text-gray-600">
+                <User size={11}/> {r.client_name} <ChevronRight size={10}/>
+              </button>
+            )}
+            {r.client_phone && (
+              <span className="flex items-center gap-1 text-gray-500">
+                <Phone size={11}/> {r.client_phone}
+              </span>
+            )}
+            {r.contract_number && <span>№ {r.contract_number}</span>}
+            {r.car && r.car.trim() && <span>{r.car.trim()}</span>}
+            {r.due_date && (
+              <span className={`flex items-center gap-1 ${overdue ? 'text-red-500 font-medium' : ''}`}>
+                {r.due_time ? <Clock size={11}/> : <Calendar size={11}/>}
+                {formatDateTime(r.due_date, r.due_time)}
+              </span>
+            )}
+          </div>
         </div>
 
-        {r.description && (
-          <div className="text-xs text-gray-500 mt-0.5 truncate">{r.description}</div>
-        )}
-
-        <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap">
-          {r.client_name && (
-            <button
-              onClick={onClientClick}
-              className="flex items-center gap-1 hover:text-primary-600 transition-colors font-medium text-gray-600"
-            >
-              <User size={11}/> {r.client_name}
-              <ChevronRight size={10}/>
-            </button>
-          )}
-          {r.client_phone && (
-            <span className="flex items-center gap-1 text-gray-500">
-              <Phone size={11}/> {r.client_phone}
-            </span>
-          )}
-          {r.contract_number && (
-            <span className="text-gray-400">№ {r.contract_number}</span>
-          )}
-          {r.car && r.car.trim() && (
-            <span className="text-gray-400">{r.car.trim()}</span>
-          )}
-          {r.due_date && (
-            <span className={`flex items-center gap-1 ${overdue ? 'text-red-500 font-medium' : ''}`}>
-              {r.due_time ? <Clock size={11}/> : <Calendar size={11}/>}
-              {formatDateTime(r.due_date, r.due_time)}
-            </span>
-          )}
-        </div>
+        {/* Delete */}
+        <button onClick={onDelete} className="shrink-0 text-gray-200 hover:text-red-500 transition-colors p-1 mt-0.5">
+          <Trash2 size={14}/>
+        </button>
       </div>
 
-      <button onClick={onDelete} className="shrink-0 text-gray-200 hover:text-red-500 transition-colors p-1">
-        <Trash2 size={14}/>
-      </button>
+      {/* Action buttons */}
+      {!r.is_completed && (
+        <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-gray-100 relative">
+          <button
+            onClick={onDone}
+            className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+          >
+            <Check size={13}/> Сделано
+          </button>
+          <button
+            onClick={() => setShowPostpone(v => !v)}
+            className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+          >
+            <Calendar size={13}/> Перенести
+          </button>
+          {showPostpone && (
+            <PostponePopup
+              onSave={onPostpone}
+              onClose={() => setShowPostpone(false)}
+            />
+          )}
+        </div>
+      )}
+
+      {r.is_completed && (
+        <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-gray-100">
+          <button
+            onClick={onDone}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <Circle size={13}/> Восстановить
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -329,8 +414,17 @@ export default function Reminders() {
     setSearchParams({ filter: f });
   };
 
-  const toggleComplete = async (r: Reminder) => {
+  const handleDone = async (r: Reminder) => {
     await updateReminder(r.id, { is_completed: r.is_completed ? 0 : 1 });
+    load();
+  };
+
+  const handlePostpone = async (r: Reminder, date: string, time: string, comment: string) => {
+    await updateReminder(r.id, {
+      due_date: date,
+      due_time: time || undefined,
+      description: comment ? (r.description ? `${r.description}\n${comment}` : comment) : r.description ?? undefined,
+    });
     load();
   };
 
@@ -411,7 +505,8 @@ export default function Reminders() {
               <div className="space-y-2">
                 {grouped.overdue.map(r => (
                   <ReminderCard key={r.id} r={r}
-                    onToggle={() => toggleComplete(r)}
+                    onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
                     onDelete={() => handleDelete(r.id)}
                     onClientClick={() => navigate(`/clients/${r.client_id}`)}
                   />
@@ -428,7 +523,8 @@ export default function Reminders() {
               <div className="space-y-2">
                 {grouped.today.map(r => (
                   <ReminderCard key={r.id} r={r}
-                    onToggle={() => toggleComplete(r)}
+                    onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
                     onDelete={() => handleDelete(r.id)}
                     onClientClick={() => navigate(`/clients/${r.client_id}`)}
                   />
@@ -443,7 +539,8 @@ export default function Reminders() {
               <div className="space-y-2">
                 {grouped.noDate.map(r => (
                   <ReminderCard key={r.id} r={r}
-                    onToggle={() => toggleComplete(r)}
+                    onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
                     onDelete={() => handleDelete(r.id)}
                     onClientClick={() => navigate(`/clients/${r.client_id}`)}
                   />
@@ -458,7 +555,8 @@ export default function Reminders() {
               <div className="space-y-2">
                 {grouped.upcoming.map(r => (
                   <ReminderCard key={r.id} r={r}
-                    onToggle={() => toggleComplete(r)}
+                    onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
                     onDelete={() => handleDelete(r.id)}
                     onClientClick={() => navigate(`/clients/${r.client_id}`)}
                   />
@@ -475,7 +573,8 @@ export default function Reminders() {
               <div className="space-y-2">
                 {grouped.done.map(r => (
                   <ReminderCard key={r.id} r={r}
-                    onToggle={() => toggleComplete(r)}
+                    onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
                     onDelete={() => handleDelete(r.id)}
                     onClientClick={() => navigate(`/clients/${r.client_id}`)}
                   />
@@ -504,7 +603,8 @@ export default function Reminders() {
             </div>
           ) : reminders.map(r => (
             <ReminderCard key={r.id} r={r}
-              onToggle={() => toggleComplete(r)}
+              onDone={() => handleDone(r)}
+                    onPostpone={(date, time, comment) => handlePostpone(r, date, time, comment)}
               onDelete={() => handleDelete(r.id)}
               onClientClick={() => navigate(`/clients/${r.client_id}`)}
             />

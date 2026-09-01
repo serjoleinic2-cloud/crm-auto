@@ -153,6 +153,10 @@ function registerHandlers(): void {
              (SELECT o.contract_number FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS contract_number,
              (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
              (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
+             (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
+             (SELECT r.due_date FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_date,
+             (SELECT r.due_time FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_time,
+             (SELECT r.id FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_reminder_id,
              IFNULL(cn.status,'not_requested') AS consent_status
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id

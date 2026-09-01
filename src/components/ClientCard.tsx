@@ -21,7 +21,7 @@ const PAYMENT_LABEL: Record<string, { label: string; color: string }> = {
   cancelled: { label: 'Отменён',    color: '#9ca3af' },
 };
 
-// ── Inline popup ──────────────────────────────────────────────────────────────
+// ── Popup ─────────────────────────────────────────────────────────────────────
 
 interface PopupProps {
   client: Client;
@@ -36,7 +36,6 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
@@ -75,28 +74,16 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
           <X size={13}/>
         </button>
       </div>
-
       <div className="grid grid-cols-2 gap-1.5">
         <div>
           <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Дата</label>
-          <input
-            type="date"
-            className="input text-xs py-1 px-2 w-full"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-          />
+          <input type="date" className="input text-xs py-1 px-2 w-full" value={date} onChange={e => setDate(e.target.value)} />
         </div>
         <div>
           <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Время</label>
-          <input
-            type="time"
-            className="input text-xs py-1 px-2 w-full"
-            value={time}
-            onChange={e => setTime(e.target.value)}
-          />
+          <input type="time" className="input text-xs py-1 px-2 w-full" value={time} onChange={e => setTime(e.target.value)} />
         </div>
       </div>
-
       <div>
         <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Комментарий</label>
         <textarea
@@ -107,7 +94,6 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
           onChange={e => setComment(e.target.value)}
         />
       </div>
-
       <button
         onClick={handleSave}
         disabled={saving}
@@ -125,7 +111,10 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
   const [saved, setSaved] = useState(false);
-  const isOverdue = client.next_action_date && client.next_action_date < todayISO();
+
+  // next_action теперь берётся из ближайшего reminders (через JOIN в backend)
+  const hasReminder = !!client.next_action;
+  const isOverdue = hasReminder && client.next_action_date && client.next_action_date < todayISO();
   const payment = client.payment_status ? PAYMENT_LABEL[client.payment_status] : null;
 
   const handleSaved = () => {
@@ -134,60 +123,86 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
     onReminderCreated?.();
   };
 
+  const reminderLabel = (() => {
+    if (!client.next_action) return null;
+    const parts: string[] = [client.next_action];
+    if (client.next_action_date) {
+      parts.push(formatDate(client.next_action_date));
+      if (client.next_action_time) parts.push(`в ${client.next_action_time}`);
+    }
+    return parts.join(' · ');
+  })();
+
   return (
     <div
       onClick={() => navigate(`/clients/${client.id}`)}
       className="card cursor-pointer hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-semibold text-gray-900 truncate">{client.full_name}</h3>
+        <h3 className="font-semibold text-gray-900 truncate flex-1 mr-2">{client.full_name}</h3>
         <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
       </div>
 
       <div className="space-y-1 text-sm text-gray-600">
         {client.phone && (
           <div className="flex items-center gap-2">
-            <Phone size={14} />
+            <Phone size={14} className="shrink-0 text-gray-400" />
             <span>{client.phone}</span>
           </div>
         )}
 
-        {/* Payment status */}
-        {payment && (
-          <div className="flex items-center gap-2">
+        {/* Payment + car */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {payment && (
             <span
               className="text-xs font-medium px-1.5 py-0.5 rounded-full"
               style={{ color: payment.color, backgroundColor: payment.color + '18' }}
             >
               {payment.label}
             </span>
-            {client.car && client.car.trim() && (
-              <span className="text-xs text-gray-400 truncate">{client.car.trim()}</span>
-            )}
-          </div>
-        )}
+          )}
+          {client.car && client.car.trim() && (
+            <span className="text-xs text-gray-400 truncate">{client.car.trim()}</span>
+          )}
+        </div>
 
-        {/* Next action — кликабельная кнопка */}
-        {client.next_action && (
+        {/* Ближайший reminder — кнопка с попапом */}
+        {hasReminder && (
           <div className="relative">
             <button
               onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-              className={`flex items-center gap-1.5 text-sm rounded-md px-2 py-0.5 -mx-2 transition-colors w-full text-left ${
+              className={`flex items-center gap-1.5 text-xs rounded-md px-2 py-1 -mx-2 transition-colors w-full text-left ${
                 isOverdue
                   ? 'text-red-600 font-medium hover:bg-red-50'
                   : 'text-amber-600 hover:bg-amber-50'
               }`}
             >
-              {isOverdue ? <AlertCircle size={13} /> : <Calendar size={13} />}
-              <span className="flex-1 truncate">
-                {client.next_action}
-                {client.next_action_date && ` (${formatDate(client.next_action_date)})`}
-              </span>
+              {isOverdue ? <AlertCircle size={12} className="shrink-0"/> : <Calendar size={12} className="shrink-0"/>}
+              <span className="flex-1 truncate">{reminderLabel}</span>
               {saved
                 ? <Check size={12} className="text-green-500 shrink-0"/>
                 : <Clock size={12} className="opacity-40 shrink-0"/>}
             </button>
 
+            {showPopup && (
+              <CallPopup
+                client={client}
+                onClose={() => setShowPopup(false)}
+                onSaved={handleSaved}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Нет reminder — кнопка добавить */}
+        {!hasReminder && (
+          <div className="relative">
+            <button
+              onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
+              className="flex items-center gap-1 text-xs text-gray-300 hover:text-primary-500 transition-colors px-2 py-0.5 -mx-2"
+            >
+              <Plus size={11}/> Запланировать звонок
+            </button>
             {showPopup && (
               <CallPopup
                 client={client}

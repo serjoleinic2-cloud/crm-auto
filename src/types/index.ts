@@ -37,6 +37,8 @@ export interface Client {
   car?: string | null;
   payment_status?: string | null;
   consent_status?: ConsentStatus;
+  next_action_time?: string | null;
+  next_reminder_id?: number | null;
 }
 
 export type ConsentStatus = 'not_requested' | 'sent' | 'received' | 'verified';
