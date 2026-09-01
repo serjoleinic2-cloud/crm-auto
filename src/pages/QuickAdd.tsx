@@ -71,6 +71,7 @@ export default function QuickAdd() {
           body_type: null, engine: null, engine_type: null,
           drive: null, transmission: null, color: null, mileage: null, car_other: null,
           delivery_term: null, delivery_term_unit: null,
+          payment_deadline: null, signed_contract_date: null,
         });
       }
       navigate(`/clients/${clientId}`);

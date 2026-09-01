@@ -62,10 +62,27 @@ export function initDatabase(): void {
   // Reminder time field
   safeAlter('reminders', 'due_time', 'TEXT');
 
-  // Add lead status if missing
-  const hasLead = db.prepare("SELECT COUNT(*) as c FROM statuses WHERE name='Думает'").get() as { c: number };
-  if (!hasLead.c) {
-    db.prepare("INSERT INTO statuses (name,color,category,sort_order,is_active) VALUES ('Думает','#94a3b8','lead',0,1)").run();
+  // Payment deadline and signed contract date
+  safeAlter('orders', 'payment_deadline', 'TEXT');
+  safeAlter('orders', 'signed_contract_date', 'TEXT');
+
+  // Migrate statuses to match real process
+  const existingStatuses = (db.prepare('SELECT name FROM statuses').all() as {name:string}[]).map(s => s.name);
+  const newStatuses = [
+    { name: 'Думает',             color: '#94a3b8', category: 'lead',     sort_order: 0 },
+    { name: 'Документы получены', color: '#3b82f6', category: 'pipeline', sort_order: 1 },
+    { name: 'Договор отправлен',  color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
+    { name: 'Ожидает оплату',     color: '#f59e0b', category: 'pipeline', sort_order: 3 },
+    { name: 'Автомобиль в пути',  color: '#06b6d4', category: 'pipeline', sort_order: 4 },
+    { name: 'Готов к выдаче',     color: '#10b981', category: 'pipeline', sort_order: 5 },
+    { name: 'Завершён',           color: '#6b7280', category: 'done',     sort_order: 6 },
+    { name: 'Отказ',              color: '#ef4444', category: 'lost',     sort_order: 7 },
+  ];
+  for (const s of newStatuses) {
+    if (!existingStatuses.includes(s.name)) {
+      db.prepare('INSERT INTO statuses (name,color,category,sort_order,is_active) VALUES (?,?,?,?,1)')
+        .run(s.name, s.color, s.category, s.sort_order);
+    }
   }
 
   // Contract & car detail fields
@@ -161,6 +178,7 @@ function registerHandlers(): void {
              (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
              (SELECT o.payment_date FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_date,
              (SELECT o.delivery_date_est FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS delivery_date_est,
+             (SELECT o.payment_deadline FROM orders o WHERE o.client_id=c.id AND o.payment_deadline IS NOT NULL AND o.payment_status != 'paid' ORDER BY o.id DESC LIMIT 1) AS payment_deadline,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0) AS reminders_count,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))) AS reminders_overdue,
              (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
@@ -320,8 +338,8 @@ function registerHandlers(): void {
 
   ipcMain.handle('orders:create', (_e, data: Record<string, unknown>) => {
     const result = db.prepare(`
-      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date,delivery_term,delivery_term_unit)
-      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date,@delivery_term,@delivery_term_unit)
+      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
+      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
     `).run({
       client_id: data.client_id, contract_number: data.contract_number ?? null,
       brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
@@ -336,6 +354,8 @@ function registerHandlers(): void {
       issue_date: data.issue_date ?? null,
       delivery_term: data.delivery_term ?? null,
       delivery_term_unit: data.delivery_term_unit ?? null,
+      payment_deadline: data.payment_deadline ?? null,
+      signed_contract_date: data.signed_contract_date ?? null,
     });
     const orderId = result.lastInsertRowid as number;
     _writeHistory(data.client_id as number, 'order_create',

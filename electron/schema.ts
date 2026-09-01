@@ -240,12 +240,12 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 export const DEFAULT_STATUSES = [
-  { name: 'Думает',           color: '#94a3b8', category: 'lead',     sort_order: 0 },
-  { name: 'Новый клиент',     color: '#3b82f6', category: 'pipeline', sort_order: 1 },
-  { name: 'В переговорах',    color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
-  { name: 'Договор подписан', color: '#f59e0b', category: 'pipeline', sort_order: 3 },
-  { name: 'Автомобиль в пути',color: '#06b6d4', category: 'pipeline', sort_order: 4 },
-  { name: 'Готов к выдаче',   color: '#10b981', category: 'pipeline', sort_order: 5 },
-  { name: 'Завершён',         color: '#6b7280', category: 'done',     sort_order: 6 },
-  { name: 'Отказ',            color: '#ef4444', category: 'lost',     sort_order: 7 },
+  { name: 'Думает',              color: '#94a3b8', category: 'lead',     sort_order: 0 },
+  { name: 'Документы получены',  color: '#3b82f6', category: 'pipeline', sort_order: 1 },
+  { name: 'Договор отправлен',   color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
+  { name: 'Ожидает оплату',      color: '#f59e0b', category: 'pipeline', sort_order: 3 },
+  { name: 'Автомобиль в пути',   color: '#06b6d4', category: 'pipeline', sort_order: 4 },
+  { name: 'Готов к выдаче',      color: '#10b981', category: 'pipeline', sort_order: 5 },
+  { name: 'Завершён',            color: '#6b7280', category: 'done',     sort_order: 6 },
+  { name: 'Отказ',               color: '#ef4444', category: 'lost',     sort_order: 7 },
 ];

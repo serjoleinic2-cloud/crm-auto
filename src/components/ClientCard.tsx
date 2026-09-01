@@ -191,6 +191,15 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
               )}
             </div>
           )}
+          {client.payment_deadline && client.payment_status !== 'paid' && (() => {
+            const overdue = client.payment_deadline < todayISO();
+            return (
+              <div className={`flex items-center gap-1 text-[10px] font-medium ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
+                <Clock size={10}/>
+                {overdue ? '⚠ Дедлайн: ' : '⏰ Оплатить до: '}{formatDate(client.payment_deadline)}
+              </div>
+            );
+          })()}
           {client.delivery_date_est && (
             <div className={`flex items-center gap-1 text-[10px] ${
               daysUntil !== null && daysUntil < 0 ? 'text-red-500 font-medium' :

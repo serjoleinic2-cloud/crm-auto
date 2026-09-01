@@ -38,6 +38,7 @@ export interface Client {
   payment_status?: string | null;
   payment_date?: string | null;
   delivery_date_est?: string | null;
+  payment_deadline?: string | null;
   consent_status?: ConsentStatus;
   next_action_time?: string | null;
   next_reminder_id?: number | null;
@@ -106,6 +107,8 @@ export interface Order {
   issue_date: string | null;
   delivery_term: number | null;
   delivery_term_unit: 'days' | 'weeks' | 'months' | null;
+  payment_deadline: string | null;
+  signed_contract_date: string | null;
   created_at: string;
   updated_at: string;
   // joined
