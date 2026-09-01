@@ -112,10 +112,16 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   const [showPopup, setShowPopup] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // next_action теперь берётся из ближайшего reminders (через JOIN в backend)
   const hasReminder = !!client.next_action;
   const isOverdue = hasReminder && client.next_action_date && client.next_action_date < todayISO();
   const payment = client.payment_status ? PAYMENT_LABEL[client.payment_status] : null;
+
+  // Days until delivery
+  const daysUntil = (() => {
+    if (!client.delivery_date_est) return null;
+    const diff = Math.ceil((new Date(client.delivery_date_est).getTime() - new Date(todayISO()).getTime()) / 86400000);
+    return diff;
+  })();
 
   const handleSaved = () => {
     setSaved(true);
@@ -136,19 +142,17 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   return (
     <div
       onClick={() => navigate(`/clients/${client.id}`)}
-      className="card cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
-      <div className="flex items-start justify-between mb-2">
-        <h3 className="font-semibold text-gray-900 truncate flex-1 mr-2">{client.full_name}</h3>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Tasks counter */}
+      {/* Header */}
+      <div className="flex items-start justify-between mb-1.5">
+        <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate flex-1 mr-1">{client.full_name}</h3>
+        <div className="flex items-center gap-1 shrink-0">
           {(client.reminders_count ?? 0) > 0 && (
             <span
               title={`Задач: ${client.reminders_count}`}
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                (client.reminders_overdue ?? 0) > 0
-                  ? 'bg-red-500 text-white'
-                  : 'bg-amber-400 text-white'
+                (client.reminders_overdue ?? 0) > 0 ? 'bg-red-500 text-white' : 'bg-amber-400 text-white'
               }`}
             >
               {client.reminders_count}
@@ -158,74 +162,72 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      <div className="space-y-1 text-sm text-gray-600">
-        {client.phone && (
-          <div className="flex items-center gap-2">
-            <Phone size={14} className="shrink-0 text-gray-400" />
-            <span>{client.phone}</span>
-          </div>
-        )}
+      {/* Phone */}
+      {client.phone && (
+        <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1">
+          <Phone size={11} className="text-gray-400 shrink-0"/>
+          <span>{client.phone}</span>
+        </div>
+      )}
 
-        {/* Payment + car */}
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Car */}
+      {client.car && client.car.trim() && (
+        <div className="text-xs text-gray-500 mb-1 truncate">{client.car.trim()}</div>
+      )}
+
+      {/* Payment + delivery */}
+      {(payment || client.payment_date || client.delivery_date_est) && (
+        <div className="border-t border-gray-100 mt-1.5 pt-1.5 space-y-0.5">
           {payment && (
-            <span
-              className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-              style={{ color: payment.color, backgroundColor: payment.color + '18' }}
-            >
-              {payment.label}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ color: payment.color, backgroundColor: payment.color + '18' }}
+              >
+                {payment.label}
+              </span>
+              {client.payment_date && (
+                <span className="text-[10px] text-gray-400">{formatDate(client.payment_date)}</span>
+              )}
+            </div>
           )}
-          {client.car && client.car.trim() && (
-            <span className="text-xs text-gray-400 truncate">{client.car.trim()}</span>
+          {client.delivery_date_est && (
+            <div className={`flex items-center gap-1 text-[10px] ${
+              daysUntil !== null && daysUntil < 0 ? 'text-red-500 font-medium' :
+              daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-medium' : 'text-gray-400'
+            }`}>
+              <Calendar size={10}/>
+              <span>Прибытие: {formatDate(client.delivery_date_est)}</span>
+              {daysUntil !== null && daysUntil >= 0 && <span className="ml-0.5">({daysUntil} дн.)</span>}
+              {daysUntil !== null && daysUntil < 0 && <span className="ml-0.5">(просрочено)</span>}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Ближайший reminder — кнопка с попапом */}
-        {hasReminder && (
-          <div className="relative">
-            <button
-              onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-              className={`flex items-center gap-1.5 text-xs rounded-md px-2 py-1 -mx-2 transition-colors w-full text-left ${
-                isOverdue
-                  ? 'text-red-600 font-medium hover:bg-red-50'
-                  : 'text-amber-600 hover:bg-amber-50'
-              }`}
-            >
-              {isOverdue ? <AlertCircle size={12} className="shrink-0"/> : <Calendar size={12} className="shrink-0"/>}
-              <span className="flex-1 truncate">{reminderLabel}</span>
-              {saved
-                ? <Check size={12} className="text-green-500 shrink-0"/>
-                : <Clock size={12} className="opacity-40 shrink-0"/>}
-            </button>
-
-            {showPopup && (
-              <CallPopup
-                client={client}
-                onClose={() => setShowPopup(false)}
-                onSaved={handleSaved}
-              />
-            )}
-          </div>
+      {/* Reminder */}
+      <div className="mt-1.5 relative">
+        {hasReminder ? (
+          <button
+            onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
+            className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 -mx-1.5 w-full text-left transition-colors ${
+              isOverdue ? 'text-red-600 font-medium hover:bg-red-50' : 'text-amber-600 hover:bg-amber-50'
+            }`}
+          >
+            {isOverdue ? <AlertCircle size={10} className="shrink-0"/> : <Calendar size={10} className="shrink-0"/>}
+            <span className="flex-1 truncate">{reminderLabel}</span>
+            {saved ? <Check size={10} className="text-green-500 shrink-0"/> : <Clock size={10} className="opacity-40 shrink-0"/>}
+          </button>
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
+            className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-primary-600 transition-colors px-1.5 py-0.5 -mx-1.5"
+          >
+            <Plus size={10}/> Запланировать звонок
+          </button>
         )}
-
-        {/* Нет reminder — кнопка добавить */}
-        {!hasReminder && (
-          <div className="relative">
-            <button
-              onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-600 transition-colors px-2 py-0.5 -mx-2"
-            >
-              <Plus size={11}/> Запланировать звонок
-            </button>
-            {showPopup && (
-              <CallPopup
-                client={client}
-                onClose={() => setShowPopup(false)}
-                onSaved={handleSaved}
-              />
-            )}
-          </div>
+        {showPopup && (
+          <CallPopup client={client} onClose={() => setShowPopup(false)} onSaved={handleSaved} />
         )}
       </div>
     </div>

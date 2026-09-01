@@ -240,6 +240,7 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 export const DEFAULT_STATUSES = [
+  { name: 'Думает',           color: '#94a3b8', category: 'lead',     sort_order: 0 },
   { name: 'Новый клиент',     color: '#3b82f6', category: 'pipeline', sort_order: 1 },
   { name: 'В переговорах',    color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
   { name: 'Договор подписан', color: '#f59e0b', category: 'pipeline', sort_order: 3 },

@@ -62,6 +62,12 @@ export function initDatabase(): void {
   // Reminder time field
   safeAlter('reminders', 'due_time', 'TEXT');
 
+  // Add lead status if missing
+  const hasLead = db.prepare("SELECT COUNT(*) as c FROM statuses WHERE name='Думает'").get() as { c: number };
+  if (!hasLead.c) {
+    db.prepare("INSERT INTO statuses (name,color,category,sort_order,is_active) VALUES ('Думает','#94a3b8','lead',0,1)").run();
+  }
+
   // Contract & car detail fields
   safeAlter('orders', 'contract_date',    'TEXT');
   safeAlter('orders', 'deal_amount',      'TEXT');
@@ -144,7 +150,7 @@ function registerHandlers(): void {
   // ── CLIENTS ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('clients:getAll', (_e, filters: {
-    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean
+    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string
   } = {}) => {
     let sql = `
       SELECT c.*,
@@ -153,6 +159,8 @@ function registerHandlers(): void {
              (SELECT o.contract_number FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS contract_number,
              (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
              (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
+             (SELECT o.payment_date FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_date,
+             (SELECT o.delivery_date_est FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS delivery_date_est,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0) AS reminders_count,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))) AS reminders_overdue,
              (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
@@ -173,7 +181,13 @@ function registerHandlers(): void {
       sql += ' AND c.is_deleted=0';
       if (filters.archived !== undefined) { sql += ' AND c.is_archived=?'; params.push(filters.archived ? 1 : 0); }
       if (filters.statusId !== undefined) { sql += ' AND c.status_id=?'; params.push(filters.statusId); }
-      if (filters.overdue) { sql += " AND c.next_action_date IS NOT NULL AND c.next_action_date < date('now') AND c.is_archived=0"; }
+      if (filters.statusCategory !== undefined) { sql += ' AND s.category=?'; params.push(filters.statusCategory); }
+      if (filters.overdue) {
+        sql += ` AND c.is_archived=0 AND EXISTS (
+          SELECT 1 FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0
+          AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))
+        )`;
+      }
     }
     sql += ' ORDER BY c.updated_at DESC';
     return db.prepare(sql).all(...params);

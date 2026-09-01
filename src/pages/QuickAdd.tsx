@@ -99,7 +99,7 @@ export default function QuickAdd() {
             <div>
               <label className="label">Телефон</label>
               <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)}
-                placeholder="+373 xxx xx xx" />
+                placeholder="+7 900 000-00-00" />
             </div>
             <div>
               <label className="label">Email</label>

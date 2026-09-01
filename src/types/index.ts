@@ -36,6 +36,8 @@ export interface Client {
   contract_number?: string | null;
   car?: string | null;
   payment_status?: string | null;
+  payment_date?: string | null;
+  delivery_date_est?: string | null;
   consent_status?: ConsentStatus;
   next_action_time?: string | null;
   next_reminder_id?: number | null;
@@ -274,7 +276,7 @@ declare global {
 
 export interface ElectronAPI {
   clients: {
-    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean }) => Promise<Client[]>;
+    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string }) => Promise<Client[]>;
     getById: (id: number) => Promise<Client | undefined>;
     create:  (data: Omit<Client, 'id'|'created_at'|'updated_at'|'status_name'|'status_color'|'contract_number'|'car'|'consent_status'>) => Promise<number>;
     update:  (id: number, data: Partial<Client>) => Promise<boolean>;
