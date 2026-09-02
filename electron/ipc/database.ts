@@ -238,7 +238,13 @@ function registerHandlers(): void {
   ipcMain.handle('clients:getById', (_e, id: number) =>
     db.prepare(`
       SELECT c.*, s.name AS status_name, s.color AS status_color,
-             IFNULL(cn.status,'not_requested') AS consent_status
+             IFNULL(cn.status,'not_requested') AS consent_status,
+             (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
+             (SELECT r.due_date FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_date,
+             (SELECT r.due_time FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action_time,
+             (SELECT r.id FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_reminder_id,
+             (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0) AS reminders_count,
+             (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))) AS reminders_overdue
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id
       LEFT JOIN consent cn ON cn.client_id=c.id
