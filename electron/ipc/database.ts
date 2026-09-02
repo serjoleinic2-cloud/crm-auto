@@ -202,6 +202,7 @@ function registerHandlers(): void {
              (SELECT o.payment_date FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_date,
              (SELECT o.delivery_date_est FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS delivery_date_est,
              (SELECT o.payment_deadline FROM orders o WHERE o.client_id=c.id AND o.payment_deadline IS NOT NULL AND o.payment_status != 'paid' ORDER BY o.id DESC LIMIT 1) AS payment_deadline,
+             (SELECT o.price FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS price,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0) AS reminders_count,
              (SELECT COUNT(*) FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))) AS reminders_overdue,
              (SELECT r.title FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0 ORDER BY r.due_date ASC, r.id ASC LIMIT 1) AS next_action,
@@ -304,7 +305,8 @@ function registerHandlers(): void {
     const like = `%${q}%`;
     return db.prepare(`
       SELECT DISTINCT c.*, s.name AS status_name, s.color AS status_color,
-             IFNULL(cn.status,'not_requested') AS consent_status
+             IFNULL(cn.status,'not_requested') AS consent_status,
+             (SELECT o.price FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS price
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id
       LEFT JOIN orders o ON o.client_id=c.id
@@ -325,7 +327,8 @@ function registerHandlers(): void {
       SELECT DISTINCT c.id, c.full_name, c.phone,
              s.name AS status_name, s.color AS status_color,
              trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) AS car,
-             o.contract_number
+             o.contract_number,
+             (SELECT o2.price FROM orders o2 WHERE o2.client_id=c.id ORDER BY o2.id DESC LIMIT 1) AS price
       FROM clients c
       LEFT JOIN statuses s ON s.id=c.status_id
       LEFT JOIN orders o ON o.client_id=c.id
