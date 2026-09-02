@@ -352,7 +352,7 @@ export default function ClientDetail() {
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
               <Trash2 size={16} />
             </button>
-            <button onClick={() => setIsEditing(!isEditing)} className="btn-secondary text-sm">
+            <button onClick={() => { setActiveTab('main'); setIsEditing(!isEditing); }} className="btn-secondary text-sm">
               {isEditing ? 'Отмена' : 'Редактировать'}
             </button>
           </div>
@@ -388,7 +388,10 @@ export default function ClientDetail() {
                 <div className="space-y-3">
                   <div>
                     <label className="label">Статус</label>
-                    <select className="input" value={editData.status_id || ''} onChange={e => setEditData({...editData, status_id: parseInt(e.target.value) || null})}>
+                    <select className="input" value={editData.status_id || ''} onChange={e => {
+                      const val = e.target.value;
+                      setEditData({...editData, status_id: val ? parseInt(val) : null});
+                    }}>
                       <option value="">—</option>
                       {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
@@ -424,7 +427,7 @@ export default function ClientDetail() {
                     </div>
                     <div>
                       <label className="label">Время</label>
-                      <input type="time" className="input" value={editData.next_action_time?.split('T')[0] || ''} onChange={e => setEditData({...editData, next_action_time: e.target.value})} />
+                      <input type="time" className="input" value={editData.next_action_time || ''} onChange={e => setEditData({...editData, next_action_time: e.target.value})} />
                     </div>
                   </div>
                 </div>
