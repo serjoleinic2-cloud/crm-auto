@@ -383,42 +383,59 @@ export default function ClientDetail() {
         <div className="card space-y-4">
           {isEditing ? (
             <>
-              <div>
-                <label className="label">ФИО</label>
-                <input className="input" value={editData.full_name || ''} onChange={e => setEditData({...editData, full_name: e.target.value})} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* LEFT COLUMN */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Статус</label>
+                    <select className="input" value={editData.status_id || ''} onChange={e => setEditData({...editData, status_id: parseInt(e.target.value) || null})}>
+                      <option value="">—</option>
+                      {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">ФИО</label>
+                    <input className="input" value={editData.full_name || ''} onChange={e => setEditData({...editData, full_name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label">Телефон</label>
+                    <input className="input" value={editData.phone || ''} onChange={e => setEditData({...editData, phone: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input className="input" value={editData.email || ''} onChange={e => setEditData({...editData, email: e.target.value})} />
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Следующее действие</label>
+                    <input className="input" value={editData.next_action || ''} onChange={e => setEditData({...editData, next_action: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="label">Источник</label>
+                    <input className="input" value={editData.source || ''} onChange={e => setEditData({...editData, source: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Дата контакта</label>
+                      <input type="date" className="input" value={editData.next_action_date?.split('T')[0] || ''} onChange={e => setEditData({...editData, next_action_date: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="label">Время</label>
+                      <input type="time" className="input" value={editData.next_action_time?.split('T')[0] || ''} onChange={e => setEditData({...editData, next_action_time: e.target.value})} />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="label">Телефон</label>
-                <input className="input" value={editData.phone || ''} onChange={e => setEditData({...editData, phone: e.target.value})} />
-              </div>
-              <div>
-                <label className="label">Email</label>
-                <input className="input" value={editData.email || ''} onChange={e => setEditData({...editData, email: e.target.value})} />
-              </div>
-              <div>
-                <label className="label">Источник</label>
-                <input className="input" value={editData.source || ''} onChange={e => setEditData({...editData, source: e.target.value})} />
-              </div>
-              <div>
-                <label className="label">Статус</label>
-                <select className="input" value={editData.status_id || ''} onChange={e => setEditData({...editData, status_id: parseInt(e.target.value) || null})}>
-                  <option value="">—</option>
-                  {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Следующее действие</label>
-                <input className="input" value={editData.next_action || ''} onChange={e => setEditData({...editData, next_action: e.target.value})} />
-              </div>
-              <div>
-                <label className="label">Дата следующего контакта</label>
-                <input type="date" className="input" value={editData.next_action_date?.split('T')[0] || ''} onChange={e => setEditData({...editData, next_action_date: e.target.value})} />
-              </div>
-              <div>
+              <div className="mt-4">
                 <label className="label">Комментарий</label>
                 <textarea className="input" rows={3} value={editData.comment || ''} onChange={e => setEditData({...editData, comment: e.target.value})} />
               </div>
-              <button onClick={handleSave} className="btn-primary">Сохранить</button>
+              <div className="mt-4">
+                <button onClick={handleSave} className="btn-primary">Сохранить</button>
+              </div>
             </>
           ) : (
             <>
