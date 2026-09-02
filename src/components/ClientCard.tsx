@@ -30,8 +30,13 @@ interface PopupProps {
 }
 
 function CallPopup({ client, onClose, onSaved }: PopupProps) {
-  const [date, setDate] = useState(todayISO());
-  const [time, setTime] = useState('');
+  // Если у клиента уже есть активная задача — редактируем/переносим её,
+  // а не создаём новую (иначе старая просроченная остаётся висеть,
+  // а новая дублирует её).
+  const existingId = client.next_reminder_id ?? null;
+
+  const [date, setDate] = useState(client.next_action_date || todayISO());
+  const [time, setTime] = useState(client.next_action_time || '');
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -48,13 +53,35 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
     e.stopPropagation();
     setSaving(true);
     try {
-      await ipcService.reminders.create({
-        client_id: client.id,
-        title: 'Позвонить',
-        description: comment || undefined,
-        due_date: date || undefined,
-        due_time: time || undefined,
-      });
+      if (existingId) {
+        // Переносим существующую задачу на новую дату/время
+        await ipcService.reminders.update(existingId, {
+          due_date: date || undefined,
+          due_time: time || undefined,
+          ...(comment ? { description: comment } : {}),
+        });
+      } else {
+        await ipcService.reminders.create({
+          client_id: client.id,
+          title: 'Позвонить',
+          description: comment || undefined,
+          due_date: date || undefined,
+          due_time: time || undefined,
+        });
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDone = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!existingId) return;
+    setSaving(true);
+    try {
+      await ipcService.reminders.update(existingId, { is_completed: 1 });
       onSaved();
       onClose();
     } finally {
@@ -69,7 +96,9 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
       className="absolute z-50 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-3 space-y-2"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">Запланировать звонок</span>
+        <span className="text-xs font-semibold text-gray-700">
+          {existingId ? 'Перенести задачу' : 'Запланировать звонок'}
+        </span>
         <button onClick={e => { e.stopPropagation(); onClose(); }} className="text-gray-400 hover:text-gray-600">
           <X size={13}/>
         </button>
@@ -94,13 +123,25 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
           onChange={e => setComment(e.target.value)}
         />
       </div>
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full bg-primary-600 hover:bg-primary-700 text-white text-xs py-1.5 rounded-lg font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
-      >
-        {saving ? 'Сохранение...' : <><Plus size={11}/> Создать задачу</>}
-      </button>
+      <div className="flex gap-1.5">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs py-1.5 rounded-lg font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+        >
+          {saving ? 'Сохранение...' : existingId ? <><Calendar size={11}/> Перенести</> : <><Plus size={11}/> Создать задачу</>}
+        </button>
+        {existingId && (
+          <button
+            onClick={handleDone}
+            disabled={saving}
+            title="Отметить выполненной"
+            className="px-2.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+          >
+            <Check size={13}/>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
