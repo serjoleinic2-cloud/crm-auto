@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Client } from '../types';
 import StatusBadge from './StatusBadge';
 import { formatDate } from '../utils/formatters';
-import { Phone, Calendar, AlertCircle, Clock, X, Plus, Check } from 'lucide-react';
+import { Phone, Calendar, AlertCircle, Clock, X, Plus, Check, FileText } from 'lucide-react';
 import { ipcService } from '../services/ipcService';
 
 interface Props {
@@ -30,9 +30,6 @@ interface PopupProps {
 }
 
 function CallPopup({ client, onClose, onSaved }: PopupProps) {
-  // Если у клиента уже есть активная задача — редактируем/переносим её,
-  // а не создаём новую (иначе старая просроченная остаётся висеть,
-  // а новая дублирует её).
   const existingId = client.next_reminder_id ?? null;
 
   const [date, setDate] = useState(client.next_action_date || todayISO());
@@ -54,7 +51,6 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
     setSaving(true);
     try {
       if (existingId) {
-        // Переносим существующую задачу на новую дату/время
         await ipcService.reminders.update(existingId, {
           due_date: date || undefined,
           due_time: time || undefined,
@@ -185,9 +181,15 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
       onClick={() => navigate(`/clients/${client.id}`)}
       className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-1.5">
-        <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate flex-1 mr-1">{client.full_name}</h3>
+      {/* Top row: Contract number + Status */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          {client.contract_number && (
+            <span className="text-[10px] font-mono font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+              № {client.contract_number}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           {(client.reminders_count ?? 0) > 0 && (
             <span
@@ -203,24 +205,19 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* Phone */}
-      {client.phone && (
-        <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1">
-          <Phone size={11} className="text-gray-400 shrink-0"/>
-          <span>{client.phone}</span>
+      {/* Full name */}
+      <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate mb-2">{client.full_name}</h3>
+
+      {/* Middle row: Car (left) + Payment/Price (right) */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1 min-w-0">
+          {client.car && client.car.trim() && (
+            <div className="text-xs text-gray-600 truncate">{client.car.trim()}</div>
+          )}
         </div>
-      )}
-
-      {/* Car */}
-      {client.car && client.car.trim() && (
-        <div className="text-xs text-gray-500 mb-1 truncate">{client.car.trim()}</div>
-      )}
-
-      {/* Payment + delivery */}
-      {(payment || client.payment_date || client.delivery_date_est) && (
-        <div className="border-t border-gray-100 mt-1.5 pt-1.5 space-y-0.5">
+        <div className="text-right shrink-0 ml-2">
           {payment && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 justify-end">
               <span
                 className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                 style={{ color: payment.color, backgroundColor: payment.color + '18' }}
@@ -232,31 +229,38 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
               )}
             </div>
           )}
-          {client.payment_deadline && client.payment_status !== 'paid' && (() => {
-            const overdue = client.payment_deadline < todayISO();
-            return (
-              <div className={`flex items-center gap-1 text-[10px] font-medium ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
-                <Clock size={10}/>
-                {overdue ? '⚠ Дедлайн: ' : '⏰ Оплатить до: '}{formatDate(client.payment_deadline)}
-              </div>
-            );
-          })()}
-          {client.delivery_date_est && (
-            <div className={`flex items-center gap-1 text-[10px] ${
-              daysUntil !== null && daysUntil < 0 ? 'text-red-500 font-medium' :
-              daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-medium' : 'text-gray-400'
-            }`}>
-              <Calendar size={10}/>
-              <span>Прибытие: {formatDate(client.delivery_date_est)}</span>
-              {daysUntil !== null && daysUntil >= 0 && <span className="ml-0.5">({daysUntil} дн.)</span>}
-              {daysUntil !== null && daysUntil < 0 && <span className="ml-0.5">(просрочено)</span>}
+          {/* Price */}
+          {client.price !== undefined && client.price !== null && (
+            <div className="text-xs font-semibold text-primary-600 mt-0.5">
+              {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Phone */}
+      {client.phone && (
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1.5">
+          <Phone size={11} className="text-gray-400 shrink-0"/>
+          <span>{client.phone}</span>
+        </div>
       )}
 
-      {/* Reminder */}
-      <div className="mt-1.5 relative">
+      {/* Delivery info */}
+      {client.delivery_date_est && (
+        <div className={`flex items-center gap-1 text-[10px] mb-1.5 ${
+          daysUntil !== null && daysUntil < 0 ? 'text-red-500 font-medium' :
+          daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-medium' : 'text-gray-400'
+        }`}>
+          <Calendar size={10}/>
+          <span>Прибытие: {formatDate(client.delivery_date_est)}</span>
+          {daysUntil !== null && daysUntil >= 0 && <span className="ml-0.5">({daysUntil} дн.)</span>}
+          {daysUntil !== null && daysUntil < 0 && <span className="ml-0.5">(просрочено)</span>}
+        </div>
+      )}
+
+      {/* Reminder / Task row */}
+      <div className="mt-1 relative border-t border-gray-100 pt-1.5">
         {hasReminder ? (
           <button
             onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
