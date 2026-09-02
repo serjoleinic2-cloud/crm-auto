@@ -39,6 +39,7 @@ export interface Client {
   payment_date?: string | null;
   delivery_date_est?: string | null;
   payment_deadline?: string | null;
+  price?: number | null;
   consent_status?: ConsentStatus;
   next_action_time?: string | null;
   next_reminder_id?: number | null;
