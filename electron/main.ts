@@ -90,6 +90,30 @@ app.whenReady().then(() => {
         cp(path.join(dir, `daily-${d}.db`));   prune('daily-', 30);
         cp(path.join(dir, `weekly-${w}.db`));  prune('weekly-', 12);
         cp(path.join(dir, `monthly-${m}.db`)); prune('monthly-', 6);
+
+        // Also copy to Google Drive if configured
+        const settingsPath = path.join(basePath, 'crm-settings.json');
+        if (fs.existsSync(settingsPath)) {
+          try {
+            const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+            const gdrivePath = settings.gdrivePath;
+            if (gdrivePath && fs.existsSync(gdrivePath)) {
+              const gdriveDir = path.join(gdrivePath, 'CRM Auto Backups');
+              fs.mkdirSync(gdriveDir, { recursive: true });
+              const cpg = (dest: string) => { if (!fs.existsSync(dest)) fs.copyFileSync(dbPath, dest); };
+              const pruneg = (pfx: string, keep: number) => {
+                const gfiles = fs.readdirSync(gdriveDir).filter((f: string) => f.startsWith(pfx) && f.endsWith('.db')).sort().reverse();
+                for (const f of (gfiles as string[]).slice(keep)) try { fs.unlinkSync(path.join(gdriveDir, f)); } catch(_){}
+              };
+              cpg(path.join(gdriveDir, `daily-${d}.db`));   pruneg('daily-', 30);
+              cpg(path.join(gdriveDir, `weekly-${w}.db`));  pruneg('weekly-', 24);
+              cpg(path.join(gdriveDir, `monthly-${m}.db`)); pruneg('monthly-', 6);
+              // Save last backup time
+              settings.lastGdriveBackup = new Date().toISOString();
+              fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+            }
+          } catch (_) {}
+        }
       } catch (_) {}
     });
   }, 3000);

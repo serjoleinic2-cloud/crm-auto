@@ -96,5 +96,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveEmailSettings: (s: { email: string; appPassword: string }) => invoke('backup:saveEmailSettings', s),
     loadEmailSettings: () => invoke('backup:loadEmailSettings'),
     getStats:          () => invoke('backup:getStats'),
+    detectGdrive:      () => invoke('backup:detectGdrive'),
+    pickGdriveFolder:  () => invoke('backup:pickGdriveFolder'),
+    saveGdrivePath:    (p: string) => invoke('backup:saveGdrivePath', p),
+    copyToGdrive:      () => invoke('backup:copyToGdrive'),
   },
 });

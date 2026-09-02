@@ -1,6 +1,7 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { getBasePath } from './storagePaths';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -25,24 +26,55 @@ function pruneFiles(dir: string, prefix: string, keep: number) {
   } catch (_) {}
 }
 
-// ── settings persistence ───────────────────────────────────────────────────
+// ── settings ───────────────────────────────────────────────────────────────
 
 function getSettingsPath() {
   return path.join(getBasePath(), 'crm-settings.json');
 }
 
 function loadSettings(): Record<string, string> {
-  try {
-    const raw = fs.readFileSync(getSettingsPath(), 'utf-8');
-    return JSON.parse(raw);
-  } catch (_) { return {}; }
+  try { return JSON.parse(fs.readFileSync(getSettingsPath(), 'utf-8')); }
+  catch (_) { return {}; }
 }
 
 function saveSettings(data: Record<string, string>) {
   try {
-    const current = loadSettings();
-    fs.writeFileSync(getSettingsPath(), JSON.stringify({ ...current, ...data }, null, 2));
+    fs.writeFileSync(getSettingsPath(), JSON.stringify({ ...loadSettings(), ...data }, null, 2));
   } catch (_) {}
+}
+
+// ── Google Drive path detection ────────────────────────────────────────────
+
+function detectGoogleDrivePaths(): string[] {
+  const home = os.homedir();
+  const candidates: string[] = [];
+
+  if (process.platform === 'win32') {
+    // Google Drive for Desktop — Windows
+    // Обычно монтируется как G:\ или отдельный диск
+    for (const drive of ['G', 'H', 'I', 'D', 'E', 'F']) {
+      candidates.push(`${drive}:\\My Drive`);
+      candidates.push(`${drive}:\\Мой диск`);
+    }
+    // Старый Google Drive (Backup and Sync)
+    candidates.push(path.join(home, 'Google Drive'));
+    candidates.push(path.join(home, 'Гугл Диск'));
+    // Google Drive for Desktop — папка внутри пользователя
+    candidates.push(path.join(home, 'Google Drive', 'My Drive'));
+    candidates.push(path.join(home, 'Google Drive (My Drive)'));
+  } else if (process.platform === 'darwin') {
+    candidates.push(path.join(home, 'Google Drive', 'My Drive'));
+    candidates.push(path.join(home, 'Google Drive'));
+    candidates.push('/Volumes/GoogleDrive/My Drive');
+    candidates.push('/Volumes/Google Drive/My Drive');
+  } else {
+    candidates.push(path.join(home, 'Google Drive'));
+    candidates.push(path.join(home, 'GoogleDrive'));
+  }
+
+  return candidates.filter(p => {
+    try { return fs.statSync(p).isDirectory(); } catch (_) { return false; }
+  });
 }
 
 // ── handlers ───────────────────────────────────────────────────────────────
@@ -196,6 +228,68 @@ export function registerBackupHandlers(): void {
       dailyCount,
       weeklyCount,
       monthlyCount,
+      gdrivePath: s.gdrivePath ?? '',
+      lastGdriveBackup: s.lastGdriveBackup ?? null,
     };
+  });
+
+  // Detect Google Drive folder automatically
+  ipcMain.handle('backup:detectGdrive', () => {
+    return detectGoogleDrivePaths();
+  });
+
+  // Pick Google Drive folder manually
+  ipcMain.handle('backup:pickGdriveFolder', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+    const result = await dialog.showOpenDialog(win as BrowserWindow, {
+      title: 'Выбрать папку Google Drive',
+      properties: ['openDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return { canceled: true };
+    return { path: result.filePaths[0] };
+  });
+
+  // Save Google Drive path
+  ipcMain.handle('backup:saveGdrivePath', (_e, gdrivePath: string) => {
+    saveSettings({ gdrivePath });
+    return true;
+  });
+
+  // Copy backup to Google Drive folder
+  ipcMain.handle('backup:copyToGdrive', () => {
+    const s = loadSettings();
+    if (!s.gdrivePath) return { error: 'Папка Google Drive не настроена' };
+    if (!fs.existsSync(s.gdrivePath)) return { error: `Папка не найдена: ${s.gdrivePath}` };
+
+    const dbPath = path.join(getBasePath(), 'crm.db');
+    if (!fs.existsSync(dbPath)) return { error: 'База данных не найдена' };
+
+    try {
+      const gdriveDir = path.join(s.gdrivePath, 'CRM Auto Backups');
+      fs.mkdirSync(gdriveDir, { recursive: true });
+
+      const now = new Date();
+      const d = now.toISOString().slice(0, 10);
+      const w = getWeekNumber(now);
+      const m = now.toISOString().slice(0, 7);
+
+      // Same rotation logic but in Google Drive
+      const daily = path.join(gdriveDir, `daily-${d}.db`);
+      if (!fs.existsSync(daily)) fs.copyFileSync(dbPath, daily);
+      pruneFiles(gdriveDir, 'daily-', 30);
+
+      const weekly = path.join(gdriveDir, `weekly-${w}.db`);
+      if (!fs.existsSync(weekly)) fs.copyFileSync(dbPath, weekly);
+      pruneFiles(gdriveDir, 'weekly-', 24); // 6 months
+
+      const monthly = path.join(gdriveDir, `monthly-${m}.db`);
+      if (!fs.existsSync(monthly)) fs.copyFileSync(dbPath, monthly);
+      pruneFiles(gdriveDir, 'monthly-', 6);
+
+      saveSettings({ lastGdriveBackup: new Date().toISOString() });
+      return { success: true, gdriveDir };
+    } catch (err) {
+      return { error: (err as Error).message };
+    }
   });
 }
