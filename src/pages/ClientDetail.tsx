@@ -74,12 +74,28 @@ export default function ClientDetail() {
   const [archivePrompt, setArchivePrompt] = useState(false);
 
   const handleSave = async () => {
-    const success = await ipcService.clients.update(clientId, editData);
+    // Strip computed fields from getById that don't exist in clients table
+    const {
+      next_action, next_action_date, next_action_time, next_reminder_id,
+      reminders_count, reminders_overdue, status_name, status_color,
+      consent_status, payment_status, payment_date, delivery_date_est,
+      payment_deadline, price, car, contract_number,
+      ...cleanData
+    } = editData;
+
+    // Ensure status_id is a proper number, not NaN
+    if (cleanData.status_id !== undefined && cleanData.status_id !== null) {
+      cleanData.status_id = Number(cleanData.status_id);
+      if (isNaN(cleanData.status_id)) cleanData.status_id = null;
+    }
+
+    console.log('Saving client data:', cleanData);
+    const success = await ipcService.clients.update(clientId, cleanData);
     if (success) {
       setIsEditing(false);
       loadClient();
       // Suggest archive when status is done or lost
-      const newStatus = statuses.find(s => s.id === (editData.status_id as number));
+      const newStatus = statuses.find(s => s.id === (cleanData.status_id as number));
       if (newStatus && (newStatus.category === 'done' || newStatus.category === 'lost')) {
         setArchivePrompt(true);
       }
