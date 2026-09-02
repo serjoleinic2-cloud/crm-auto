@@ -161,7 +161,7 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
     <div onClick={() => navigate(`/clients/${client.id}`)}
       className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
-      {/* ROW 1: Contract number (large) + Status */}
+      {/* ROW 1: Contract + Status */}
       <div className="flex items-center justify-between mb-3">
         <div>
           {client.contract_number ? (
@@ -191,27 +191,12 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
       {/* ROW 2: Full name */}
       <h3 className="font-bold text-gray-900 text-base leading-snug truncate mb-3">{client.full_name}</h3>
 
-      {/* ROW 3: LEFT = Phone + Car | RIGHT = Payment + Delivery + Price */}
-      <div className="grid grid-cols-2 gap-4 mb-3">
-        {/* LEFT COLUMN — Client */}
-        <div className="space-y-2">
-          {/* Phone */}
-          {client.phone && (
-            <div className="text-sm font-medium text-gray-800">
-              {client.phone}
-            </div>
-          )}
-          {/* Car — under phone */}
-          {client.car && client.car.trim() && (
-            <div className="text-sm font-semibold text-gray-900">
-              {client.car.trim()}
-            </div>
-          )}
+      {/* ROW 3: Phone (left) | Payment+date (right) */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="text-sm font-medium text-gray-800">
+          {client.phone || ''}
         </div>
-
-        {/* RIGHT COLUMN — Car/Payment/Delivery/Price */}
-        <div className="space-y-2 text-right">
-          {/* Payment status + date */}
+        <div className="text-right">
           {payment && (
             <div className="flex items-center justify-end gap-2">
               <span className="text-xs font-bold px-2.5 py-1 rounded-full"
@@ -224,7 +209,15 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
               )}
             </div>
           )}
-          {/* Delivery — one line */}
+        </div>
+      </div>
+
+      {/* ROW 4: Car (left) | Delivery (right) */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="text-sm font-semibold text-gray-900">
+          {client.car && client.car.trim() ? client.car.trim() : ''}
+        </div>
+        <div className="text-right">
           {client.delivery_date_est && (
             <div className={`text-sm ${
               daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
@@ -239,7 +232,13 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
               )}
             </div>
           )}
-          {/* Price */}
+        </div>
+      </div>
+
+      {/* ROW 5: empty (left) | Price (right) */}
+      <div className="flex items-start justify-between mb-3">
+        <div></div>
+        <div className="text-right">
           {client.price !== undefined && client.price !== null && (
             <div className="text-sm font-bold text-primary-700">
               {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
@@ -248,7 +247,7 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* ROW 4: Task */}
+      {/* ROW 6: Task */}
       <div className="relative border-t border-gray-200 pt-2 mt-1">
         {hasReminder ? (
           <button onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
