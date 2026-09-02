@@ -212,30 +212,30 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* ROW 4: Car (left) | Delivery (right) */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="text-sm font-semibold text-gray-900">
-          {client.car && client.car.trim() ? client.car.trim() : ''}
+      {/* ROW 4: Car (full width) */}
+      {client.car && client.car.trim() && (
+        <div className="text-sm font-semibold text-gray-900 mb-2 truncate">
+          {client.car.trim()}
         </div>
-        <div className="text-right">
-          {client.delivery_date_est && (
-            <div className={`text-sm ${
-              daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
-              daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-bold' : 'text-gray-700'
-            }`}>
-              Прибытие: {formatDate(client.delivery_date_est)}
-              {daysUntil !== null && daysUntil >= 0 && (
-                <span className="ml-1.5 text-xs bg-gray-100 px-1.5 py-0.5 rounded">{daysUntil} дн.</span>
-              )}
-              {daysUntil !== null && daysUntil < 0 && (
-                <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Просрочено</span>
-              )}
-            </div>
+      )}
+
+      {/* ROW 5: Delivery (full width) */}
+      {client.delivery_date_est && (
+        <div className={`text-sm mb-2 ${
+          daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
+          daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-bold' : 'text-gray-700'
+        }`}>
+          Прибытие: {formatDate(client.delivery_date_est)}
+          {daysUntil !== null && daysUntil >= 0 && (
+            <span className="ml-1.5 text-xs bg-gray-100 px-1.5 py-0.5 rounded">{daysUntil} дн.</span>
+          )}
+          {daysUntil !== null && daysUntil < 0 && (
+            <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Просрочено</span>
           )}
         </div>
-      </div>
+      )}
 
-      {/* ROW 5: empty (left) | Price (right) */}
+      {/* ROW 6: empty (left) | Price (right) */}
       <div className="flex items-start justify-between mb-3">
         <div></div>
         <div className="text-right">
@@ -247,7 +247,7 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* ROW 6: Task */}
+      {/* ROW 7: Task */}
       <div className="relative border-t border-gray-200 pt-2 mt-1">
         {hasReminder ? (
           <button onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
