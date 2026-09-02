@@ -66,6 +66,29 @@ export function initDatabase(): void {
   safeAlter('orders', 'payment_deadline', 'TEXT');
   safeAlter('orders', 'signed_contract_date', 'TEXT');
 
+  // Migrate order statuses
+  const existingOrderStatuses = (db.prepare('SELECT name FROM order_statuses').all() as {name:string}[]).map(s => s.name);
+  const newOrderStatuses = [
+    { name: 'Новый заказ',           color: '#6b7280', sort_order: 1 },
+    { name: 'Ожидает оплату',        color: '#f59e0b', sort_order: 2 },
+    { name: 'Оплачен',               color: '#3b82f6', sort_order: 3 },
+    { name: 'Автомобиль заказан',    color: '#8b5cf6', sort_order: 4 },
+    { name: 'Автомобиль в пути',     color: '#06b6d4', sort_order: 5 },
+    { name: 'На таможне',            color: '#d946ef', sort_order: 6 },
+    { name: 'Таможенное оформление', color: '#ec4899', sort_order: 7 },
+    { name: 'Едет по РФ',            color: '#14b8a6', sort_order: 8 },
+    { name: 'Прибыл в офис',         color: '#22c55e', sort_order: 9 },
+    { name: 'Выдан клиенту',         color: '#10b981', sort_order: 10 },
+    { name: 'Отменён',               color: '#ef4444', sort_order: 11 },
+  ];
+  for (const s of newOrderStatuses) {
+    if (!existingOrderStatuses.includes(s.name)) {
+      db.prepare('INSERT INTO order_statuses (name,color,sort_order,is_active) VALUES (?,?,?,1)').run(s.name, s.color, s.sort_order);
+    }
+  }
+  // Hide obsolete "Ожидает доверенность" and "Готов к выдаче" order status
+  db.prepare("UPDATE order_statuses SET is_active=0 WHERE name IN ('Ожидает доверенность','Готов к выдаче') AND is_active=1").run();
+
   // Migrate statuses to match real process
   const existingStatuses = (db.prepare('SELECT name FROM statuses').all() as {name:string}[]).map(s => s.name);
   const newStatuses = [

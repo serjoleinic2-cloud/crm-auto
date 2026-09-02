@@ -216,19 +216,17 @@ export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 export const DEFAULT_ORDER_STATUSES = [
-  { name: 'Новый заказ',              color: '#6b7280', sort_order: 1 },
-  { name: 'Ожидает оплату',           color: '#f59e0b', sort_order: 2 },
-  { name: 'Оплачен',                  color: '#3b82f6', sort_order: 3 },
-  { name: 'Автомобиль заказан',       color: '#8b5cf6', sort_order: 4 },
-  { name: 'Автомобиль в пути',        color: '#06b6d4', sort_order: 5 },
-  { name: 'На таможне',               color: '#d946ef', sort_order: 6 },
-  { name: 'Ожидает доверенность',     color: '#f97316', sort_order: 7 },
-  { name: 'Таможенное оформление',    color: '#ec4899', sort_order: 8 },
-  { name: 'Едет по РФ',               color: '#14b8a6', sort_order: 9 },
-  { name: 'Прибыл в офис',            color: '#22c55e', sort_order: 10 },
-  { name: 'Готов к выдаче',           color: '#10b981', sort_order: 11 },
-  { name: 'Выдан клиенту',            color: '#059669', sort_order: 12 },
-  { name: 'Отменён',                  color: '#ef4444', sort_order: 13 },
+  { name: 'Новый заказ',           color: '#6b7280', sort_order: 1 },
+  { name: 'Ожидает оплату',        color: '#f59e0b', sort_order: 2 },
+  { name: 'Оплачен',               color: '#3b82f6', sort_order: 3 },
+  { name: 'Автомобиль заказан',    color: '#8b5cf6', sort_order: 4 },
+  { name: 'Автомобиль в пути',     color: '#06b6d4', sort_order: 5 },
+  { name: 'На таможне',            color: '#d946ef', sort_order: 6 },
+  { name: 'Таможенное оформление', color: '#ec4899', sort_order: 7 },
+  { name: 'Едет по РФ',            color: '#14b8a6', sort_order: 8 },
+  { name: 'Прибыл в офис',         color: '#22c55e', sort_order: 9 },
+  { name: 'Выдан клиенту',         color: '#10b981', sort_order: 10 },
+  { name: 'Отменён',               color: '#ef4444', sort_order: 11 },
 ];
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {

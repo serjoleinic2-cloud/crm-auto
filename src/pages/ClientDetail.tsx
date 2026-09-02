@@ -62,6 +62,7 @@ export default function ClientDetail() {
     fetchContacts(clientId);
     fetchHistory(clientId);
     fetchReminders({ clientId });
+    fetchDocuments(clientId);
   }, [clientId]);
 
   const loadClient = async () => {
@@ -226,12 +227,22 @@ export default function ClientDetail() {
           setClient(prev => prev ? { ...prev, status_id: inTransitStatus.id } : prev);
         }
       }
-      // При статусе "Прибыл в офис" или "Готов к выдаче" → обновить статус клиента
-      if (newOrderStatusName === 'Прибыл в офис' || newOrderStatusName === 'Готов к выдаче') {
+      // При статусе "Прибыл в офис" → статус клиента "Готов к выдаче"
+      if (newOrderStatusName === 'Прибыл в офис') {
         const readyStatus = statuses.find(s => s.name === 'Готов к выдаче');
         if (readyStatus && client.status_id !== readyStatus.id) {
           await ipcService.clients.update(clientId, { status_id: readyStatus.id });
           setClient(prev => prev ? { ...prev, status_id: readyStatus.id } : prev);
+        }
+      }
+
+      // При статусе "Выдан клиенту" → статус клиента "Завершён" + предложить архив
+      if (newOrderStatusName === 'Выдан клиенту') {
+        const doneStatus = statuses.find(s => s.name === 'Завершён');
+        if (doneStatus) {
+          await ipcService.clients.update(clientId, { status_id: doneStatus.id });
+          setClient(prev => prev ? { ...prev, status_id: doneStatus.id } : prev);
+          setArchivePrompt(true);
         }
       }
     }
