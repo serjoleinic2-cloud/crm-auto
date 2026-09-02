@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Client } from '../types';
 import StatusBadge from './StatusBadge';
 import { formatDate } from '../utils/formatters';
-import { Phone, Calendar, AlertCircle, Clock, X, Plus, Check, FileText } from 'lucide-react';
+import { Phone, Calendar, AlertCircle, Clock, X, Plus, Check, Car, User, CreditCard, Tag } from 'lucide-react';
 import { ipcService } from '../services/ipcService';
 
 interface Props {
@@ -13,12 +13,12 @@ interface Props {
 
 function todayISO() { return new Date().toISOString().split('T')[0]; }
 
-const PAYMENT_LABEL: Record<string, { label: string; color: string }> = {
-  paid:      { label: 'Оплачен',    color: '#10b981' },
-  not_paid:  { label: 'Не оплачен', color: '#ef4444' },
-  pending:   { label: 'Ожидает',    color: '#f59e0b' },
-  partial:   { label: 'Частично',   color: '#f59e0b' },
-  cancelled: { label: 'Отменён',    color: '#9ca3af' },
+const PAYMENT_LABEL: Record<string, { label: string; color: string; bg: string }> = {
+  paid:      { label: 'Оплачен',    color: '#059669', bg: '#d1fae5' },
+  not_paid:  { label: 'Не оплачен', color: '#dc2626', bg: '#fee2e2' },
+  pending:   { label: 'Ожидает',    color: '#d97706', bg: '#fef3c7' },
+  partial:   { label: 'Частично',   color: '#d97706', bg: '#fef3c7' },
+  cancelled: { label: 'Отменён',    color: '#6b7280', bg: '#f3f4f6' },
 };
 
 // ── Popup ─────────────────────────────────────────────────────────────────────
@@ -31,7 +31,6 @@ interface PopupProps {
 
 function CallPopup({ client, onClose, onSaved }: PopupProps) {
   const existingId = client.next_reminder_id ?? null;
-
   const [date, setDate] = useState(client.next_action_date || todayISO());
   const [time, setTime] = useState(client.next_action_time || '');
   const [comment, setComment] = useState('');
@@ -67,9 +66,7 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
       }
       onSaved();
       onClose();
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleDone = async (e: React.MouseEvent) => {
@@ -80,15 +77,11 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
       await ipcService.reminders.update(existingId, { is_completed: 1 });
       onSaved();
       onClose();
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   return (
-    <div
-      ref={ref}
-      onClick={e => e.stopPropagation()}
+    <div ref={ref} onClick={e => e.stopPropagation()}
       className="absolute z-50 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-3 space-y-2"
     >
       <div className="flex items-center justify-between">
@@ -111,27 +104,16 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
       </div>
       <div>
         <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Комментарий</label>
-        <textarea
-          className="input text-xs resize-none w-full"
-          rows={2}
-          placeholder="О чём поговорить..."
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-        />
+        <textarea className="input text-xs resize-none w-full" rows={2} placeholder="О чём поговорить..." value={comment} onChange={e => setComment(e.target.value)} />
       </div>
       <div className="flex gap-1.5">
-        <button
-          onClick={handleSave}
-          disabled={saving}
+        <button onClick={handleSave} disabled={saving}
           className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs py-1.5 rounded-lg font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
         >
           {saving ? 'Сохранение...' : existingId ? <><Calendar size={11}/> Перенести</> : <><Plus size={11}/> Создать задачу</>}
         </button>
         {existingId && (
-          <button
-            onClick={handleDone}
-            disabled={saving}
-            title="Отметить выполненной"
+          <button onClick={handleDone} disabled={saving} title="Отметить выполненной"
             className="px-2.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             <Check size={13}/>
@@ -153,7 +135,6 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   const isOverdue = hasReminder && client.next_action_date && client.next_action_date < todayISO();
   const payment = client.payment_status ? PAYMENT_LABEL[client.payment_status] : null;
 
-  // Days until delivery
   const daysUntil = (() => {
     if (!client.delivery_date_est) return null;
     const diff = Math.ceil((new Date(client.delivery_date_est).getTime() - new Date(todayISO()).getTime()) / 86400000);
@@ -177,24 +158,26 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   })();
 
   return (
-    <div
-      onClick={() => navigate(`/clients/${client.id}`)}
-      className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
+    <div onClick={() => navigate(`/clients/${client.id}`)}
+      className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
-      {/* Top row: Contract number + Status */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          {client.contract_number && (
-            <span className="text-[10px] font-mono font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+      {/* ── ROW 1: Contract number (large, prominent) + Status badge ── */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {client.contract_number ? (
+            <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded-lg">
               № {client.contract_number}
+            </span>
+          ) : (
+            <span className="text-sm font-medium text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg">
+              Без договора
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {(client.reminders_count ?? 0) > 0 && (
-            <span
-              title={`Задач: ${client.reminders_count}`}
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+            <span title={`Задач: ${client.reminders_count}`}
+              className={`text-xs font-bold px-2 py-0.5 rounded-full leading-none ${
                 (client.reminders_overdue ?? 0) > 0 ? 'bg-red-500 text-white' : 'bg-amber-400 text-white'
               }`}
             >
@@ -205,79 +188,90 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* Full name */}
-      <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate mb-2">{client.full_name}</h3>
+      {/* ── ROW 2: Full name (center, bold) ── */}
+      <h3 className="font-bold text-gray-900 text-base leading-snug truncate mb-3">{client.full_name}</h3>
 
-      {/* Middle row: Car (left) + Payment/Price (right) */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 min-w-0">
-          {client.car && client.car.trim() && (
-            <div className="text-xs text-gray-600 truncate">{client.car.trim()}</div>
+      {/* ── ROW 3: LEFT = Client info | RIGHT = Car info ── */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* LEFT: Client */}
+        <div className="space-y-2">
+          {/* Phone */}
+          {client.phone && (
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <Phone size={14} className="text-gray-500 shrink-0"/>
+              <span className="font-medium">{client.phone}</span>
+            </div>
+          )}
+          {/* Delivery date */}
+          {client.delivery_date_est && (
+            <div className={`flex items-center gap-2 text-sm ${
+              daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-semibold' :
+              daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-semibold' : 'text-gray-600'
+            }`}>
+              <Calendar size={14} className="shrink-0"/>
+              <span>Прибытие: {formatDate(client.delivery_date_est)}</span>
+              {daysUntil !== null && daysUntil >= 0 && (
+                <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{daysUntil} дн.</span>
+              )}
+              {daysUntil !== null && daysUntil < 0 && (
+                <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Просрочено</span>
+              )}
+            </div>
           )}
         </div>
-        <div className="text-right shrink-0 ml-2">
+
+        {/* RIGHT: Car + Payment + Price */}
+        <div className="space-y-2 text-right">
+          {/* Car */}
+          {client.car && client.car.trim() && (
+            <div className="flex items-center justify-end gap-2 text-sm text-gray-700">
+              <Car size={14} className="text-gray-500 shrink-0"/>
+              <span className="font-medium truncate">{client.car.trim()}</span>
+            </div>
+          )}
+          {/* Payment status */}
           {payment && (
-            <div className="flex items-center gap-1.5 justify-end">
-              <span
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                style={{ color: payment.color, backgroundColor: payment.color + '18' }}
+            <div className="flex items-center justify-end gap-2">
+              <CreditCard size={14} className="text-gray-500 shrink-0"/>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ color: payment.color, backgroundColor: payment.bg }}
               >
                 {payment.label}
               </span>
               {client.payment_date && (
-                <span className="text-[10px] text-gray-400">{formatDate(client.payment_date)}</span>
+                <span className="text-xs text-gray-500">{formatDate(client.payment_date)}</span>
               )}
             </div>
           )}
           {/* Price */}
           {client.price !== undefined && client.price !== null && (
-            <div className="text-xs font-semibold text-primary-600 mt-0.5">
-              {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
+            <div className="flex items-center justify-end gap-2">
+              <Tag size={14} className="text-primary-600 shrink-0"/>
+              <span className="text-sm font-bold text-primary-700">
+                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Phone */}
-      {client.phone && (
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1.5">
-          <Phone size={11} className="text-gray-400 shrink-0"/>
-          <span>{client.phone}</span>
-        </div>
-      )}
-
-      {/* Delivery info */}
-      {client.delivery_date_est && (
-        <div className={`flex items-center gap-1 text-[10px] mb-1.5 ${
-          daysUntil !== null && daysUntil < 0 ? 'text-red-500 font-medium' :
-          daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-medium' : 'text-gray-400'
-        }`}>
-          <Calendar size={10}/>
-          <span>Прибытие: {formatDate(client.delivery_date_est)}</span>
-          {daysUntil !== null && daysUntil >= 0 && <span className="ml-0.5">({daysUntil} дн.)</span>}
-          {daysUntil !== null && daysUntil < 0 && <span className="ml-0.5">(просрочено)</span>}
-        </div>
-      )}
-
-      {/* Reminder / Task row */}
-      <div className="mt-1 relative border-t border-gray-100 pt-1.5">
+      {/* ── ROW 4: Task / Reminder ── */}
+      <div className="relative border-t border-gray-200 pt-2 mt-1">
         {hasReminder ? (
-          <button
-            onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-            className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 -mx-1.5 w-full text-left transition-colors ${
-              isOverdue ? 'text-red-600 font-medium hover:bg-red-50' : 'text-amber-600 hover:bg-amber-50'
+          <button onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
+            className={`flex items-center gap-2 text-sm rounded-lg px-2 py-1 -mx-2 w-full text-left transition-colors ${
+              isOverdue ? 'text-red-600 font-semibold hover:bg-red-50' : 'text-amber-700 hover:bg-amber-50'
             }`}
           >
-            {isOverdue ? <AlertCircle size={10} className="shrink-0"/> : <Calendar size={10} className="shrink-0"/>}
+            {isOverdue ? <AlertCircle size={14} className="shrink-0"/> : <Calendar size={14} className="shrink-0"/>}
             <span className="flex-1 truncate">{reminderLabel}</span>
-            {saved ? <Check size={10} className="text-green-500 shrink-0"/> : <Clock size={10} className="opacity-40 shrink-0"/>}
+            {saved ? <Check size={14} className="text-green-600 shrink-0"/> : <Clock size={14} className="opacity-50 shrink-0"/>}
           </button>
         ) : (
-          <button
-            onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
-            className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-primary-600 transition-colors px-1.5 py-0.5 -mx-1.5"
+          <button onClick={e => { e.stopPropagation(); setShowPopup(v => !v); }}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary-600 transition-colors px-2 py-1 -mx-2"
           >
-            <Plus size={10}/> Запланировать звонок
+            <Plus size={14}/> Запланировать звонок
           </button>
         )}
         {showPopup && (
