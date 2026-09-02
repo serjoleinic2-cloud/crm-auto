@@ -40,10 +40,10 @@ export default function Dashboard() {
   ];
 
   const orderCards = [
+    { label: 'Просрочена оплата', value: stats.overduePayment, icon: AlertTriangle, color: 'text-red-600', bg: stats.overduePayment > 0 ? 'bg-red-50' : 'bg-gray-50', onClick: () => navigate('/orders') },
     { label: 'Ожидают оплаты', value: stats.pendingPayment, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/orders') },
-    { label: 'На таможне', value: stats.atCustoms, icon: Package, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', onClick: () => navigate('/orders') },
-    { label: 'В офисе', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/orders') },
-    { label: 'Новые клиенты (неделя)', value: stats.newClientsThisWeek, icon: UserPlus, color: 'text-indigo-600', bg: 'bg-indigo-50', onClick: () => navigate('/clients') },
+    { label: 'На таможне', value: stats.atCustoms, icon: Package, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', onClick: () => navigate('/orders?filter=customs') },
+    { label: 'В офисе', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/orders?filter=office') },
   ];
 
   return (

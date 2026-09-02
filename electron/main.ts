@@ -57,6 +57,26 @@ app.whenReady().then(() => {
   registerContractsHandlers();
   createWindow();
 
+  // Auto-backup daily on launch (silent, keeps 7 days)
+  setTimeout(() => {
+    const { getBasePath } = require('./ipc/storagePaths');
+    const { getDb } = require('./ipc/database');
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const basePath = getBasePath();
+      const dbPath = path.join(basePath, 'crm.db');
+      if (!fs.existsSync(dbPath)) return;
+      const backupsDir = path.join(basePath, 'auto-backups');
+      fs.mkdirSync(backupsDir, { recursive: true });
+      const ts = new Date().toISOString().slice(0, 10);
+      const dest = path.join(backupsDir, `crm-${ts}.db`);
+      if (!fs.existsSync(dest)) fs.copyFileSync(dbPath, dest);
+      const files = fs.readdirSync(backupsDir).filter((f: string) => f.endsWith('.db')).sort().reverse();
+      for (const f of files.slice(7)) fs.unlinkSync(path.join(backupsDir, f));
+    } catch (_) { /* silent */ }
+  }, 3000);
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

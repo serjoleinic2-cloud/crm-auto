@@ -185,6 +185,7 @@ export interface DashboardStats {
   trashCount: number;
   overdueReminders: number;
   pendingPayment: number;
+  overduePayment: number;
   atCustoms: number;
   inOffice: number;
 }
@@ -292,6 +293,7 @@ export interface ElectronAPI {
     search:  (query: string) => Promise<Client[]>;
   };
   orders: {
+    getAll:        () => Promise<(Order & { client_name?: string })[]>;
     getByClientId: (clientId: number) => Promise<Order[]>;
     getById:       (id: number) => Promise<Order | undefined>;
     create:        (data: Omit<Order, 'id'|'created_at'|'updated_at'|'order_status_name'|'order_status_color'>) => Promise<number>;

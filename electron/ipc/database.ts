@@ -340,6 +340,18 @@ function registerHandlers(): void {
 
   // ── ORDERS ────────────────────────────────────────────────────────────────
 
+  ipcMain.handle('orders:getAll', () => {
+    return db.prepare(`
+      SELECT o.*, c.full_name as client_name,
+             os.name as order_status_name, os.color as order_status_color
+      FROM orders o
+      JOIN clients c ON c.id=o.client_id
+      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      WHERE c.is_deleted=0 AND c.is_archived=0
+      ORDER BY o.id DESC
+    `).all();
+  });
+
   ipcMain.handle('orders:getByClientId', (_e, clientId: number) =>
     db.prepare(`
       SELECT o.*, os.name as order_status_name, os.color as order_status_color
@@ -416,12 +428,13 @@ function registerHandlers(): void {
           `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
 
         if (newStatus?.name === 'На таможне') {
-          db.prepare(`INSERT INTO reminders (client_id, title, description, auto_created) VALUES (?, ?, ?, 1)`)
-            .run(clientId, 'Доверенность брокеру', `Для клиента нужна доверенность брокеру`);
+          db.prepare(`INSERT INTO reminders (client_id, title, description, due_date, auto_created) VALUES (?, ?, ?, date('now'), 1)`)
+            .run(clientId, 'Позвонить клиенту — авто на таможне', `Связать клиента с брокером`);
         }
         if (newStatus?.name === 'Прибыл в офис') {
-          db.prepare(`INSERT INTO reminders (client_id, title, description, auto_created) VALUES (?, ?, ?, 1)`)
-            .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля');
+          db.prepare(`INSERT INTO reminders (client_id, title, description, due_date, auto_created) VALUES (?, ?, ?, date('now'), 1)`)
+            .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля в офис');
+        }
         }
       }
       if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
@@ -517,14 +530,15 @@ function registerHandlers(): void {
       activeClients:     (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get() as { c: number }).c,
       needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
-      carsInTransit:     (db.prepare("SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_archived=0 AND c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Автомобиль в пути' LIMIT 1)").get() as { c: number }).c,
+      carsInTransit:     (db.prepare(`SELECT COUNT(DISTINCT o.client_id) as c FROM orders o JOIN clients c ON c.id=o.client_id LEFT JOIN order_statuses os ON os.id=o.order_status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND os.name IN ('Автомобиль в пути','На таможне','Таможенное оформление','Едет по РФ')`).get() as { c: number }).c,
       newClientsThisWeek:(db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo) as { c: number }).c,
       pendingConsent:    (db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get() as { c: number }).c,
       trashCount:        (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get() as { c: number }).c,
       overdueReminders:  (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
       pendingPayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_status='pending'").get() as { c: number }).c,
-      atCustoms:         (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='На таможне' LIMIT 1)").get() as { c: number }).c,
-      inOffice:          (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.order_status_id=(SELECT id FROM order_statuses WHERE name='Прибыл в офис' LIMIT 1)").get() as { c: number }).c,
+      overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND o.payment_status != 'paid' AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
+      atCustoms:         (db.prepare(`SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id LEFT JOIN order_statuses os ON os.id=o.order_status_id WHERE c.is_deleted=0 AND os.name IN ('На таможне','Таможенное оформление')`).get() as { c: number }).c,
+      inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id LEFT JOIN order_statuses os ON os.id=o.order_status_id WHERE c.is_deleted=0 AND os.name='Прибыл в офис'`).get() as { c: number }).c,
     };
   });
 

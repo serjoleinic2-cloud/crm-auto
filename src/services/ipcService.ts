@@ -17,6 +17,7 @@ export const ipcService = {
     suggest:        (q: string) => api().clients.suggest(q),
   },
   orders: {
+    getAll:        () => api().orders.getAll(),
     getByClientId: (id: number) => api().orders.getByClientId(id),
     getById:       (id: number) => api().orders.getById(id),
     create:        (d: Parameters<Window['electronAPI']['orders']['create']>[0]) => api().orders.create(d),

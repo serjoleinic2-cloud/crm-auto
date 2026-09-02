@@ -207,19 +207,9 @@ export default function ClientDetail() {
       }
     }
 
-    // Auto-tasks on order status change
+    // Auto-tasks on order status change — создаются в backend (orders:update)
+    // Здесь только синхронизация статуса клиента
     if (orderStatusChanged && newOrderStatusName && client) {
-      // При статусе "На таможне" → задача позвонить клиенту
-      if (newOrderStatusName === 'На таможне') {
-        await createReminder({
-          client_id: clientId,
-          title: 'Позвонить клиенту — авто на таможне',
-          description: `Связать ${client.full_name} с брокером. ${orderForm.broker_name ? 'Брокер: ' + orderForm.broker_name : ''}`,
-          due_date: new Date().toISOString().split('T')[0],
-          auto_created: 1,
-        });
-      }
-      // При статусе "Автомобиль в пути" → обновить статус клиента
       if (newOrderStatusName === 'Автомобиль в пути') {
         const inTransitStatus = statuses.find(s => s.name === 'Автомобиль в пути');
         if (inTransitStatus && client.status_id !== inTransitStatus.id) {
@@ -227,7 +217,6 @@ export default function ClientDetail() {
           setClient(prev => prev ? { ...prev, status_id: inTransitStatus.id } : prev);
         }
       }
-      // При статусе "Прибыл в офис" → статус клиента "Готов к выдаче"
       if (newOrderStatusName === 'Прибыл в офис') {
         const readyStatus = statuses.find(s => s.name === 'Готов к выдаче');
         if (readyStatus && client.status_id !== readyStatus.id) {
@@ -235,8 +224,6 @@ export default function ClientDetail() {
           setClient(prev => prev ? { ...prev, status_id: readyStatus.id } : prev);
         }
       }
-
-      // При статусе "Выдан клиенту" → статус клиента "Завершён" + предложить архив
       if (newOrderStatusName === 'Выдан клиенту') {
         const doneStatus = statuses.find(s => s.name === 'Завершён');
         if (doneStatus) {

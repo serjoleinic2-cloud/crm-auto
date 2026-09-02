@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     suggest:        (query: string)                  => invoke('clients:suggest', query),
   },
   orders: {
+    getAll:         ()                               => invoke('orders:getAll'),
     getByClientId:  (clientId: number)               => invoke('orders:getByClientId', clientId),
     getById:        (id: number)                       => invoke('orders:getById', id),
     create:         (data: object)                   => invoke('orders:create', data),
@@ -86,5 +87,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     savePassportData: (clientId: number, data: object)            => invoke('contracts:savePassportData', clientId, data),
     generate:         (data: object)                              => invoke('contracts:generate', data),
     openFile:         (filePath: string)                          => invoke('contracts:openFile', filePath),
+  },
+  backup: {
+    create:             () => invoke('backup:create'),
+    restore:            () => invoke('backup:restore'),
+    getDbPath:          () => invoke('backup:getDbPath'),
+    autoBackupOnLaunch: () => invoke('backup:autoBackupOnLaunch'),
   },
 });
