@@ -435,7 +435,6 @@ function registerHandlers(): void {
           db.prepare(`INSERT INTO reminders (client_id, title, description, due_date, auto_created) VALUES (?, ?, ?, date('now'), 1)`)
             .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля в офис');
         }
-        }
       }
       if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
         _writeHistory(clientId, 'arrival', 'Автомобиль прибыл в офис');

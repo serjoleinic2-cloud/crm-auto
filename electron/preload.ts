@@ -89,9 +89,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFile:         (filePath: string)                          => invoke('contracts:openFile', filePath),
   },
   backup: {
-    create:             () => invoke('backup:create'),
-    restore:            () => invoke('backup:restore'),
-    getDbPath:          () => invoke('backup:getDbPath'),
-    autoBackupOnLaunch: () => invoke('backup:autoBackupOnLaunch'),
+    create:            () => invoke('backup:create'),
+    restore:           () => invoke('backup:restore'),
+    auto:              () => invoke('backup:auto'),
+    sendEmail:         () => invoke('backup:sendEmail'),
+    saveEmailSettings: (s: { email: string; appPassword: string }) => invoke('backup:saveEmailSettings', s),
+    loadEmailSettings: () => invoke('backup:loadEmailSettings'),
+    getStats:          () => invoke('backup:getStats'),
   },
 });

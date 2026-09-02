@@ -57,24 +57,41 @@ app.whenReady().then(() => {
   registerContractsHandlers();
   createWindow();
 
-  // Auto-backup daily on launch (silent, keeps 7 days)
+  // Auto-backup on launch (daily×30, weekly×12, monthly×6)
   setTimeout(() => {
-    const { getBasePath } = require('./ipc/storagePaths');
-    const { getDb } = require('./ipc/database');
-    try {
+    const { ipcMain: ipc } = require('electron');
+    // Trigger via direct import to avoid circular deps
+    const bkp = require('./ipc/backup');
+    void bkp; // already registered — just call the handler directly
+    import('./ipc/storagePaths').then(({ getBasePath }) => {
       const fs = require('fs');
       const path = require('path');
-      const basePath = getBasePath();
-      const dbPath = path.join(basePath, 'crm.db');
-      if (!fs.existsSync(dbPath)) return;
-      const backupsDir = path.join(basePath, 'auto-backups');
-      fs.mkdirSync(backupsDir, { recursive: true });
-      const ts = new Date().toISOString().slice(0, 10);
-      const dest = path.join(backupsDir, `crm-${ts}.db`);
-      if (!fs.existsSync(dest)) fs.copyFileSync(dbPath, dest);
-      const files = fs.readdirSync(backupsDir).filter((f: string) => f.endsWith('.db')).sort().reverse();
-      for (const f of files.slice(7)) fs.unlinkSync(path.join(backupsDir, f));
-    } catch (_) { /* silent */ }
+      try {
+        const basePath = getBasePath();
+        const dbPath = path.join(basePath, 'crm.db');
+        if (!fs.existsSync(dbPath)) return;
+        const dir = path.join(basePath, 'auto-backups');
+        fs.mkdirSync(dir, { recursive: true });
+        const now = new Date();
+        const d = now.toISOString().slice(0, 10);
+        const m = now.toISOString().slice(0, 7);
+        // ISO week
+        const date2 = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        const day = date2.getUTCDay() || 7;
+        date2.setUTCDate(date2.getUTCDate() + 4 - day);
+        const yearStart = new Date(Date.UTC(date2.getUTCFullYear(), 0, 1));
+        const wk = Math.ceil((((date2.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        const w = `${date2.getUTCFullYear()}-W${String(wk).padStart(2,'0')}`;
+        const cp = (dest: string) => { if (!fs.existsSync(dest)) fs.copyFileSync(dbPath, dest); };
+        const prune = (pfx: string, keep: number) => {
+          const files = fs.readdirSync(dir).filter((f: string) => f.startsWith(pfx) && f.endsWith('.db')).sort().reverse();
+          for (const f of (files as string[]).slice(keep)) try { fs.unlinkSync(path.join(dir, f)); } catch(_){}
+        };
+        cp(path.join(dir, `daily-${d}.db`));   prune('daily-', 30);
+        cp(path.join(dir, `weekly-${w}.db`));  prune('weekly-', 12);
+        cp(path.join(dir, `monthly-${m}.db`)); prune('monthly-', 6);
+      } catch (_) {}
+    });
   }, 3000);
 
   app.on('activate', () => {
