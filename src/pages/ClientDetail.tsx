@@ -410,15 +410,39 @@ export default function ClientDetail() {
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN */}
+                {/* RIGHT COLUMN — Task block (unified) */}
                 <div className="space-y-3">
                   <div>
                     <label className="label">Следующее действие</label>
-                    <input className="input" value={editData.next_action || ''} onChange={e => setEditData({...editData, next_action: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="label">Источник</label>
-                    <input className="input" value={editData.source || ''} onChange={e => setEditData({...editData, source: e.target.value})} />
+                    <div className="flex bg-white rounded-lg border border-gray-300 overflow-hidden text-xs mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditData({...editData, next_action: 'Позвонить'})}
+                        className={`flex-1 px-2 py-1 transition-colors ${editData.next_action === 'Позвонить' ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                      >
+                        Позвонить
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditData({...editData, next_action: 'Связь мессенджер'})}
+                        className={`flex-1 px-2 py-1 transition-colors ${editData.next_action === 'Связь мессенджер' ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                      >
+                        Связь мессенджер
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditData({...editData, next_action: ''})}
+                        className={`flex-1 px-2 py-1 transition-colors ${editData.next_action && editData.next_action !== 'Позвонить' && editData.next_action !== 'Связь мессенджер' ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                      >
+                        Своя
+                      </button>
+                    </div>
+                    <input
+                      className="input"
+                      value={editData.next_action || ''}
+                      onChange={e => setEditData({...editData, next_action: e.target.value})}
+                      placeholder={editData.next_action === 'Позвонить' || editData.next_action === 'Связь мессенджер' ? editData.next_action : 'Введите задачу'}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -431,6 +455,10 @@ export default function ClientDetail() {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div className="mt-3">
+                <label className="label">Источник</label>
+                <input className="input" value={editData.source || ''} onChange={e => setEditData({...editData, source: e.target.value})} />
               </div>
               <div className="mt-4">
                 <label className="label">Комментарий</label>
