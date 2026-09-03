@@ -74,6 +74,12 @@ export const ipcService = {
     delete:   (id: number) => api().reminders.delete(id),
     getStats: () => api().reminders.getStats(),
   },
+  extras: {
+    getByOrder: (orderId: number) => api().extras.getByOrder(orderId),
+    create:     (d: Parameters<Window['electronAPI']['extras']['create']>[0]) => api().extras.create(d),
+    update:     (id: number, d: Parameters<Window['electronAPI']['extras']['update']>[1]) => api().extras.update(id, d),
+    delete:     (id: number) => api().extras.delete(id),
+  },
   customFields: {
     getAll:    (t: string) => api().customFields.getAll(t),
     getValues: (fids: number[], eid: number) => api().customFields.getValues(fids, eid),
