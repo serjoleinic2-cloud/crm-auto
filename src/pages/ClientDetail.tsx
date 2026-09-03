@@ -36,7 +36,7 @@ export default function ClientDetail() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
-  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'officers' | 'history' | 'contract'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);
@@ -377,7 +377,7 @@ export default function ClientDetail() {
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200">
-        {(['main', 'contacts', 'orders', 'documents', 'officers', 'contract', 'history'] as const).map(tab => (
+        {(['main', 'contacts', 'orders', 'documents', 'contract', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -389,7 +389,6 @@ export default function ClientDetail() {
             {tab === 'contacts' && 'Контакты'}
             {tab === 'orders' && 'Заказы'}
             {tab === 'documents' && 'Документы'}
-            {tab === 'officers' && '📋 Оформителям'}
             {tab === 'contract' && '📄 Договор'}
             {tab === 'history' && 'История'}
           </button>
