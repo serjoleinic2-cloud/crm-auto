@@ -95,7 +95,8 @@ export function initDatabase(): void {
   db.prepare("UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче' AND is_active=1").run();
 
   // Remove broker_poa and customs-related document types
-  db.prepare("DELETE FROM documents WHERE type='broker_poa'").run();
+  // First delete documents with broker_poa type (via doc_type_id)
+  db.prepare(`DELETE FROM documents WHERE doc_type_id IN (SELECT id FROM document_types WHERE code='broker_poa')`).run();
   db.prepare("DELETE FROM document_types WHERE code='broker_poa'").run();
   db.prepare("DELETE FROM document_types WHERE name LIKE '%таможн%' OR name LIKE '%ТАМОЖН%' OR folder_name LIKE '%таможн%' OR folder_name LIKE '%ТАМОЖН%'").run();
 
