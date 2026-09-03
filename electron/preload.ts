@@ -101,4 +101,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveGdrivePath:    (p: string) => invoke('backup:saveGdrivePath', p),
     copyToGdrive:      () => invoke('backup:copyToGdrive'),
   },
+  extras: {
+    getByOrder: (orderId: number)                  => invoke('extras:getByOrder', orderId),
+    create:     (data: object)                     => invoke('extras:create', data),
+    update:     (id: number, data: object)         => invoke('extras:update', id, data),
+    delete:     (id: number)                       => invoke('extras:delete', id),
+  },
 });

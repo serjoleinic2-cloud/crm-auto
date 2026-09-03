@@ -176,6 +176,14 @@ export interface Reminder {
   created_at: string;
 }
 
+export interface Extra {
+  id: number;
+  order_id: number;
+  name: string;
+  price: number;
+  created_at: string;
+}
+
 export interface DashboardStats {
   activeClients: number;
   needsAttention: number;

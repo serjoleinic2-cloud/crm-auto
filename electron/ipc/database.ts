@@ -618,6 +618,29 @@ function registerHandlers(): void {
     }
     return true;
   });
+
+  // ── EXTRAS ────────────────────────────────────────────────────────────────
+
+  ipcMain.handle('extras:getByOrder', (_e, orderId: number) =>
+    db.prepare('SELECT * FROM extras WHERE order_id=? ORDER BY id').all(orderId)
+  );
+
+  ipcMain.handle('extras:create', (_e, data: { order_id: number; name: string; price: number }) => {
+    const r = db.prepare('INSERT INTO extras (order_id,name,price) VALUES (?,?,?)').run(data.order_id, data.name, data.price);
+    return r.lastInsertRowid;
+  });
+
+  ipcMain.handle('extras:update', (_e, id: number, data: { name?: string; price?: number }) => {
+    const fields = Object.keys(data).filter(k => ['name','price'].includes(k));
+    if (!fields.length) return false;
+    db.prepare(`UPDATE extras SET ${fields.map(f => `${f}=@${f}`).join(',')} WHERE id=@id`).run({ ...data, id });
+    return true;
+  });
+
+  ipcMain.handle('extras:delete', (_e, id: number) => {
+    db.prepare('DELETE FROM extras WHERE id=?').run(id);
+    return true;
+  });
 }
 
 export function writeHistory(clientId: number, action: string, description: string, oldValue?: string, newValue?: string) {
