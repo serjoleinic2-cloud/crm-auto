@@ -189,6 +189,7 @@ export interface DashboardStats {
   overduePayment: number;
   atCustoms: number;
   inOffice: number;
+  extrasCount: number;
 }
 
 export interface CarBrand {
@@ -373,5 +374,11 @@ export interface ElectronAPI {
     savePassportData: (clientId: number, data: Partial<ClientPassportData>) => Promise<boolean>;
     generate:         (data: ContractGenerateData) => Promise<{ success: true; filePath: string; fileName: string } | { error: string }>;
     openFile:         (filePath: string) => Promise<true | { error: string }>;
+  };
+  extras: {
+    getByOrder: (orderId: number) => Promise<Extra[]>;
+    create:     (data: Omit<Extra, 'id' | 'created_at'>) => Promise<number>;
+    update:     (id: number, data: Partial<Extra>) => Promise<boolean>;
+    delete:     (id: number) => Promise<boolean>;
   };
 }
