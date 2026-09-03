@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useClients } from '../hooks/useClients';
 import { ipcService } from '../services/ipcService';
 import type { Status } from '../types';
@@ -8,10 +8,19 @@ import SearchBar from '../components/SearchBar';
 
 type Filter = 'leads' | 'active' | 'extras' | 'payment_overdue' | 'overdue' | 'archived';
 
+const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'payment_overdue', 'overdue', 'archived'];
+
 export default function Clients() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { clients, loading, fetchClients, searchClients } = useClients();
-  const [filter, setFilter] = useState<Filter>('active');
+
+  const initialFilter = (): Filter => {
+    const f = searchParams.get('filter');
+    return VALID_FILTERS.includes(f as Filter) ? (f as Filter) : 'active';
+  };
+
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [statuses, setStatuses] = useState<Status[]>([]);
 
   useEffect(() => {

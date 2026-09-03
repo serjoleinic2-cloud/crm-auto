@@ -158,7 +158,7 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
   })();
 
   const handleClick = () => {
-    if (client.status_name === 'Допы' || client.status_id === statuses.find(s => s.name === 'Допы')?.id) {
+    if (client.status_name === 'Допы') {
       navigate(`/extras/${client.id}`);
     } else {
       navigate(`/clients/${client.id}`);

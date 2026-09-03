@@ -58,6 +58,7 @@ function App() {
           <Route path="/"              element={<Dashboard />} />
           <Route path="/clients"       element={<Clients />} />
           <Route path="/clients/:id"   element={<ClientDetail />} />
+          <Route path="/extras/:id"    element={<ExtrasDetail />} />
           <Route path="/quick-add"     element={<QuickAdd />} />
           <Route path="/orders"        element={<Orders />} />
           <Route path="/archive"       element={<Archive />} />
