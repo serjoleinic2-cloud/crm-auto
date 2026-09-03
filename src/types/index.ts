@@ -189,6 +189,7 @@ export interface DashboardStats {
   overduePayment: number;
   atCustoms: number;
   inOffice: number;
+  extrasCount: number;
 }
 
 export interface CarBrand {
