@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
+import ExtrasDetail from './pages/ExtrasDetail';
 import QuickAdd from './pages/QuickAdd';
 import Orders from './pages/Orders';
 import Archive from './pages/Archive';
