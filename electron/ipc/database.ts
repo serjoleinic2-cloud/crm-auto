@@ -210,7 +210,7 @@ function registerHandlers(): void {
   // ── CLIENTS ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('clients:getAll', (_e, filters: {
-    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string
+    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; paymentOverdue?: boolean
   } = {}) => {
     let sql = `
       SELECT c.*,
