@@ -33,6 +33,8 @@ export default function ClientDetail() {
   const clientId = parseInt(id || '0');
 
   const [client, setClient] = useState<Client | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
@@ -54,7 +56,7 @@ export default function ClientDetail() {
   const { documents, fetchDocuments } = useDocuments();
 
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || isNaN(clientId) || clientId <= 0) { setLoadError(true); setIsLoading(false); return; }
     loadClient();
     ipcService.statuses.getAll().then(setStatuses);
     ipcService.orderStatuses.getAll().then(setOrderStatuses);
@@ -67,6 +69,7 @@ export default function ClientDetail() {
   }, [clientId]);
 
   const loadClient = async () => {
+    setIsLoading(true);
     try {
       const data = await ipcService.clients.getById(clientId);
       setClient(data ?? null);
@@ -75,10 +78,9 @@ export default function ClientDetail() {
     } catch (e) {
       console.error('loadClient error:', e);
       setLoadError(true);
-    }
+    } finally { setIsLoading(false); }
   };
 
-  const [loadError, setLoadError] = useState(false);
   const [archivePrompt, setArchivePrompt] = useState(false);
 
   const handleSave = async () => {
@@ -342,7 +344,7 @@ export default function ClientDetail() {
   };
 
   if (loadError) return <div className="p-4 text-red-500">Ошибка загрузки клиента. Проверьте консоль.</div>;
-  if (!client) return <div className="p-4">Загрузка...</div>;
+  if (isLoading) return <div className="p-4">Загрузка...</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
 
