@@ -47,15 +47,26 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  initDatabase();
-  registerDatabaseHandlers();
-  registerMessagingHandlers();
-  registerFilesHandlers();
-  registerDocumentsHandlers();
-  registerBackupHandlers();
-  registerOrderStatusesHandlers();
-  registerRemindersHandlers();
-  registerContractsHandlers();
+  try {
+    initDatabase();
+    registerDatabaseHandlers();
+    registerMessagingHandlers();
+    registerFilesHandlers();
+    registerDocumentsHandlers();
+    registerBackupHandlers();
+    registerOrderStatusesHandlers();
+    registerRemindersHandlers();
+    registerContractsHandlers();
+  } catch (err) {
+    console.error('[STARTUP ERROR]', err);
+    const { dialog } = require('electron');
+    dialog.showErrorBox(
+      'CRM Auto — ошибка запуска',
+      `Не удалось инициализировать базу данных:\n\n${err instanceof Error ? err.message : String(err)}\n\nПожалуйста, отправьте этот текст разработчику.`
+    );
+    app.quit();
+    return;
+  }
   createWindow();
 
   // Auto-backup on launch (daily×30, weekly×12, monthly×6)

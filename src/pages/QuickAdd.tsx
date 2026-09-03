@@ -141,9 +141,9 @@ export default function QuickAdd() {
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           {/* LEFT COLUMN — Client data */}
-          <div className="card space-y-3 bg-slate-50 border-slate-200">
-            <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-200 pb-2 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs">👤</span>
+          <div className="card space-y-3 bg-blue-50 border-blue-200">
+            <h2 className="text-sm font-semibold text-blue-800 border-b border-blue-200 pb-2 flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs">👤</span>
               Данные клиента
             </h2>
 
@@ -189,30 +189,19 @@ export default function QuickAdd() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Мессенджер</label>
-                <select
-                  className="input bg-white"
-                  value={form.messenger}
-                  onChange={e => set('messenger', e.target.value as typeof form.messenger)}
-                >
-                  <option value="phone">Телефон</option>
-                  <option value="telegram">Telegram</option>
-                  <option value="max">MAX</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="other">Другое</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Контакт</label>
-                <input
-                  className="input bg-white"
-                  value={form.messengerValue}
-                  onChange={e => set('messengerValue', e.target.value)}
-                  placeholder="@ник или номер"
-                />
-              </div>
+            <div>
+              <label className="label">Мессенджер</label>
+              <select
+                className="input bg-white"
+                value={form.messenger}
+                onChange={e => set('messenger', e.target.value as typeof form.messenger)}
+              >
+                <option value="phone">Телефон</option>
+                <option value="telegram">Telegram</option>
+                <option value="max">MAX</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="other">Другое</option>
+              </select>
             </div>
 
             <div>
@@ -228,9 +217,9 @@ export default function QuickAdd() {
           </div>
 
           {/* RIGHT COLUMN — Car data */}
-          <div className="card space-y-3 bg-stone-50 border-stone-200">
-            <h2 className="text-sm font-semibold text-stone-700 border-b border-stone-200 pb-2 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center text-xs">🚗</span>
+          <div className="card space-y-3 bg-slate-100 border-slate-300">
+            <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-300 pb-2 flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-300 text-slate-600 flex items-center justify-center text-xs">🚗</span>
               Автомобиль
             </h2>
 
@@ -462,9 +451,9 @@ export default function QuickAdd() {
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <button type="submit" className="btn-primary flex-1">Сохранить клиента</button>
+        <div className="flex gap-3 justify-end">
           <button type="button" onClick={() => navigate(-1)} className="btn-secondary">Отмена</button>
+          <button type="submit" className="btn-primary px-8">Создать клиента</button>
         </div>
       </form>
     </div>

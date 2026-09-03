@@ -220,14 +220,19 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
         </div>
       </div>
 
-      {/* ROW 4: Car (full width) */}
-      {client.car && client.car.trim() && (
-        <div className="text-sm font-semibold text-gray-900 mb-2 truncate">
-          {client.car.trim()}
+      {/* ROW 4: Car (left) | Price (right) */}
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <div className="text-sm font-semibold text-gray-900 truncate flex-1">
+          {client.car && client.car.trim() ? client.car.trim() : ''}
         </div>
-      )}
+        {client.price !== undefined && client.price !== null && (
+          <div className="text-sm font-bold text-primary-700 shrink-0">
+            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
+          </div>
+        )}
+      </div>
 
-      {/* ROW 5: Delivery (full width) */}
+      {/* ROW 5: Delivery */}
       {client.delivery_date_est && (
         <div className={`text-sm mb-2 ${
           daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
@@ -242,18 +247,6 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
           )}
         </div>
       )}
-
-      {/* ROW 6: empty (left) | Price (right) */}
-      <div className="flex items-start justify-between mb-3">
-        <div></div>
-        <div className="text-right">
-          {client.price !== undefined && client.price !== null && (
-            <div className="text-sm font-bold text-primary-700">
-              {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* ROW 7: Task */}
       <div className="relative border-t border-gray-200 pt-2 mt-1">

@@ -35,10 +35,14 @@ function safeAlter(table: string, col: string, def: string) {
 export function initDatabase(): void {
   const userDataPath = app.getPath('userData');
   const dbPath = path.join(userDataPath, 'crm-auto.db');
+  console.log('[DB] Opening database at:', dbPath);
   db = new Database(dbPath);
+  console.log('[DB] Setting pragmas...');
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  console.log('[DB] Running CREATE_TABLES_SQL...');
   db.exec(CREATE_TABLES_SQL);
+  console.log('[DB] Tables created.');
 
   // ── Migrations (safe, idempotent) ─────────────────────────────────────────
 
@@ -63,9 +67,11 @@ export function initDatabase(): void {
   safeAlter('reminders', 'due_time', 'TEXT');
 
   // Make reminders.client_id nullable (for personal tasks without client)
+  console.log('[DB] Checking reminders.client_id nullability...');
   const reminderInfo = db.prepare("PRAGMA table_info(reminders)").all() as {name: string; notnull: number}[];
   const clientIdCol = reminderInfo.find(c => c.name === 'client_id');
   if (clientIdCol && clientIdCol.notnull === 1) {
+    console.log('[DB] Migrating reminders table (making client_id nullable)...');
     db.exec(`
       PRAGMA foreign_keys=OFF;
       CREATE TABLE reminders_new (
@@ -85,6 +91,9 @@ export function initDatabase(): void {
       ALTER TABLE reminders_new RENAME TO reminders;
       PRAGMA foreign_keys=ON;
     `);
+    console.log('[DB] reminders migration done.');
+  } else {
+    console.log('[DB] reminders.client_id already nullable, skipping migration.');
   }
 
   // Payment deadline and signed contract date
@@ -227,9 +236,11 @@ export function initDatabase(): void {
     setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
   }
 
+  console.log('[DB] initDatabase() completed successfully.');
 }
 
 export function registerDatabaseHandlers(): void {
+  console.log('[DB] Registering IPC handlers...');
 
   // ── STATUSES ──────────────────────────────────────────────────────────────
 
