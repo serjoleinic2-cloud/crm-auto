@@ -67,11 +67,18 @@ export default function ClientDetail() {
   }, [clientId]);
 
   const loadClient = async () => {
-    const data = await ipcService.clients.getById(clientId);
-    setClient(data ?? null);
-    if (data) setEditData(data);
+    try {
+      const data = await ipcService.clients.getById(clientId);
+      setClient(data ?? null);
+      if (data) setEditData(data);
+      else setLoadError(true);
+    } catch (e) {
+      console.error('loadClient error:', e);
+      setLoadError(true);
+    }
   };
 
+  const [loadError, setLoadError] = useState(false);
   const [archivePrompt, setArchivePrompt] = useState(false);
 
   const handleSave = async () => {
@@ -334,6 +341,7 @@ export default function ClientDetail() {
     return statusName === 'Выдан клиенту';
   };
 
+  if (loadError) return <div className="p-4 text-red-500">Ошибка загрузки клиента. Проверьте консоль.</div>;
   if (!client) return <div className="p-4">Загрузка...</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
