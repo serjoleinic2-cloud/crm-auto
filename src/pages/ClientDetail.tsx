@@ -511,7 +511,41 @@ export default function ClientDetail() {
               <Plus size={16} /> Добавить
             </button>
           </div>
+
+          {/* Client's main contacts from client record */}
+          {(client.phone || client.email) && (
+            <div className="mb-4 pb-3 border-b border-gray-200">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Основные</h4>
+              {client.phone && (
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md mb-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">📞</span>
+                    <div>
+                      <div className="font-medium text-sm">{client.phone}</div>
+                      <div className="text-xs text-gray-500">Телефон (из карточки)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {client.email && (
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">✉️</span>
+                    <div>
+                      <div className="font-medium text-sm">{client.email}</div>
+                      <div className="text-xs text-gray-500">Email (из карточки)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Additional contacts */}
           <div className="space-y-2">
+            {contacts.length > 0 && (
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Дополнительные</h4>
+            )}
             {contacts.map(contact => (
               <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                 <div className="flex items-center gap-3">
@@ -537,7 +571,9 @@ export default function ClientDetail() {
                 </div>
               </div>
             ))}
-            {contacts.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Контакты не добавлены</p>}
+            {contacts.length === 0 && !client.phone && !client.email && (
+              <p className="text-sm text-gray-500 text-center py-4">Контакты не добавлены</p>
+            )}
           </div>
         </div>
       )}
