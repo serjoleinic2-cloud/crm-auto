@@ -73,12 +73,13 @@ export default function ClientDetail() {
     try {
       const data = await ipcService.clients.getById(clientId);
       setClient(data ?? null);
-      if (data) setEditData(data);
-      else setLoadError(true);
+      if (!data) setLoadError(true);
     } catch (e) {
       console.error('loadClient error:', e);
       setLoadError(true);
-    } finally { setIsLoading(false); }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const [archivePrompt, setArchivePrompt] = useState(false);

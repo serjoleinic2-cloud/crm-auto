@@ -6,11 +6,12 @@
   "author": "CRM Auto",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:electron && vite build",
     "dist": "npm run build && electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "dev:watch": "concurrently \"tsc -p tsconfig.electron.json --watch\" \"vite\" \"wait-on http://localhost:5173 && electron .\""
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
