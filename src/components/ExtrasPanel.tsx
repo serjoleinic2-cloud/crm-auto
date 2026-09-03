@@ -40,11 +40,11 @@ export default function ExtrasPanel({ orderId }: Props) {
   };
 
   return (
-    <div className="border-t border-gray-200 pt-3 mt-3">
+    <div className="border-t border-gray-200 pt-3 mt-3 bg-blue-900/5 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
-        <h5 className="text-xs font-semibold text-gray-600">🔧 Дополнительное оборудование</h5>
+        <h5 className="text-xs font-semibold text-blue-900">🔧 Дополнительное оборудование</h5>
         {!editing && (
-          <button onClick={() => setEditing(true)} className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+          <button onClick={() => setEditing(true)} className="text-xs text-blue-700 hover:underline flex items-center gap-1">
             <Plus size={12}/> Добавить
           </button>
         )}
@@ -52,44 +52,60 @@ export default function ExtrasPanel({ orderId }: Props) {
 
       {extras.length > 0 && (
         <div className="space-y-1 mb-2">
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_auto_auto] gap-2 text-[10px] font-semibold text-blue-800 uppercase tracking-wide px-2">
+            <span>Наименование</span>
+            <span className="text-right">Цена</span>
+            <span></span>
+          </div>
           {extras.map(e => (
-            <div key={e.id} className="flex items-center justify-between text-sm bg-gray-50 rounded px-2 py-1">
-              <span className="flex-1">{e.name}</span>
-              <span className="font-medium text-gray-900">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(e.price)}</span>
-              <button onClick={() => handleDelete(e.id)} className="ml-2 text-gray-400 hover:text-red-500">
+            <div key={e.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center text-sm bg-white/60 rounded px-2 py-1">
+              <span className="font-medium text-gray-800">{e.name}</span>
+              <span className="font-medium text-gray-900 text-right">
+                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(e.price)}
+              </span>
+              <button onClick={() => handleDelete(e.id)} className="text-gray-400 hover:text-red-500 ml-1">
                 <Trash2 size={12}/>
               </button>
             </div>
           ))}
-          <div className="flex items-center justify-between text-sm font-bold border-t border-gray-200 pt-1 mt-1">
-            <span>Итого:</span>
-            <span className="text-primary-700">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(total)}</span>
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-center text-sm font-bold border-t border-blue-200/50 pt-1 mt-1 px-2">
+            <span className="text-blue-900">Итого:</span>
+            <span className="text-blue-900 text-right">
+              {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(total)}
+            </span>
           </div>
         </div>
       )}
 
       {editing && (
-        <div className="flex items-center gap-2">
-          <input
-            className="input text-xs flex-1"
-            placeholder="Наименование"
-            value={form.name}
-            onChange={e => setForm({...form, name: e.target.value})}
-            autoFocus
-          />
-          <input
-            className="input text-xs w-24"
-            type="number"
-            placeholder="Цена"
-            value={form.price}
-            onChange={e => setForm({...form, price: e.target.value})}
-          />
-          <button onClick={handleAdd} className="text-green-600 hover:text-green-700">
-            <Check size={16}/>
-          </button>
-          <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
-            <X size={16}/>
-          </button>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <div>
+              <label className="text-[10px] font-semibold text-blue-800 uppercase tracking-wide">Наименование</label>
+              <input
+                className="input text-sm w-full"
+                placeholder="Например: сигнализация"
+                value={form.name}
+                onChange={e => setForm({...form, name: e.target.value})}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-blue-800 uppercase tracking-wide">Цена (₽)</label>
+              <input
+                className="input text-sm w-28"
+                type="number"
+                placeholder="0"
+                value={form.price}
+                onChange={e => setForm({...form, price: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} className="btn-primary text-xs flex-1">Добавить</button>
+            <button onClick={() => setEditing(false)} className="btn-secondary text-xs">Отмена</button>
+          </div>
         </div>
       )}
     </div>
