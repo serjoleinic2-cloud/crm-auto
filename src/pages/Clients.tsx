@@ -25,7 +25,7 @@ export default function Clients() {
     const awaitPayStatus = statuses.find(s => s.name === 'Ожидает оплату');
 
     if (filter === 'leads')          fetchClients({ statusCategory: 'lead' });
-    else if (filter === 'active')    fetchClients({ archived: false });
+    else if (filter === 'active')    fetchClients({ archived: false, statusCategory: 'pipeline' });
     else if (filter === 'extras')    fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
     else if (filter === 'overdue')   fetchClients({ overdue: true });
