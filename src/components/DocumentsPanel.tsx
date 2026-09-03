@@ -11,7 +11,6 @@ interface Props { clientId: number; }
 const GROUP_CODES: { title: string; codes: string[] }[] = [
   { title: 'Обязательные / основные', codes: ['consent', 'passport', 'snils', 'inn', 'contract', 'contract_signed'] },
   { title: 'Оплата', codes: ['payment_proof'] },
-  { title: 'Таможня', codes: ['broker_poa'] },
 ];
 
 function groupDocuments(docs: ClientDocument[]) {
