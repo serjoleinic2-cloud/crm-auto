@@ -161,7 +161,7 @@ export interface HistoryEntry {
 
 export interface Reminder {
   id: number;
-  client_id?: number;
+  client_id: number;
   client_name?: string;
   client_phone?: string | null;
   contract_number?: string | null;
@@ -190,6 +190,7 @@ export interface DashboardStats {
   atCustoms: number;
   inOffice: number;
   extrasCount: number;
+  leadClients: number;
 }
 
 export interface CarBrand {
