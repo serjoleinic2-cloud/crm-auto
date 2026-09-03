@@ -223,7 +223,6 @@ export const DEFAULT_DOCUMENT_TYPES = [
   { code: 'contract',       name: 'Договор',                    folder_name: 'Договор',              sort_order: 5, is_system: 1 },
   { code: 'contract_signed',name: 'Подписанный договор',        folder_name: 'Договор',              sort_order: 6, is_system: 1 },
   { code: 'payment_proof',  name: 'Документ/чек об оплате',     folder_name: 'Оплата',               sort_order: 7, is_system: 1 },
-  { code: 'broker_poa',     name: 'Доверенность брокеру',       folder_name: 'Доверенность',         sort_order: 8, is_system: 1 },
   { code: 'other',          name: 'Другой документ',            folder_name: 'Прочее',               sort_order: 9, is_system: 1 },
 ];
 
