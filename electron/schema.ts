@@ -192,6 +192,16 @@ CREATE INDEX IF NOT EXISTS idx_cfv_field_entity ON custom_field_values(field_id,
 CREATE INDEX IF NOT EXISTS idx_reminders_client ON reminders(client_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_date);
 CREATE INDEX IF NOT EXISTS idx_reminders_completed ON reminders(is_completed);
+
+CREATE TABLE IF NOT EXISTS extras (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  price REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_extras_order ON extras(order_id);
 `;
 
 export const DEFAULT_DOCUMENT_TYPES = [
@@ -240,10 +250,14 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 export const DEFAULT_STATUSES = [
   { name: 'Думает',              color: '#94a3b8', category: 'lead',     sort_order: 0 },
   { name: 'Документы получены',  color: '#3b82f6', category: 'pipeline', sort_order: 1 },
-  { name: 'Договор отправлен',   color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
+  { name: 'Договор подписан',    color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
   { name: 'Ожидает оплату',      color: '#f59e0b', category: 'pipeline', sort_order: 3 },
-  { name: 'Автомобиль в пути',   color: '#06b6d4', category: 'pipeline', sort_order: 4 },
-  { name: 'Готов к выдаче',      color: '#10b981', category: 'pipeline', sort_order: 5 },
-  { name: 'Завершён',            color: '#6b7280', category: 'done',     sort_order: 6 },
-  { name: 'Отказ',               color: '#ef4444', category: 'lost',     sort_order: 7 },
+  { name: 'Оплачен',             color: '#3b82f6', category: 'pipeline', sort_order: 4 },
+  { name: 'На таможне',          color: '#d946ef', category: 'pipeline', sort_order: 5 },
+  { name: 'Едет по РФ',          color: '#14b8a6', category: 'pipeline', sort_order: 6 },
+  { name: 'На площадке',         color: '#22c55e', category: 'pipeline', sort_order: 7 },
+  { name: 'Допы',                color: '#f97316', category: 'pipeline', sort_order: 8 },
+  { name: 'Выдан',               color: '#10b981', category: 'done',     sort_order: 9 },
+  { name: 'Завершён',            color: '#6b7280', category: 'done',     sort_order: 10 },
+  { name: 'Отказ',               color: '#ef4444', category: 'lost',     sort_order: 11 },
 ];
