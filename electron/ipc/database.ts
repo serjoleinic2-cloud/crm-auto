@@ -575,6 +575,7 @@ function registerHandlers(): void {
       overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND o.payment_status != 'paid' AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
       atCustoms:         (db.prepare(`SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id LEFT JOIN order_statuses os ON os.id=o.order_status_id WHERE c.is_deleted=0 AND os.name IN ('На таможне','Таможенное оформление')`).get() as { c: number }).c,
       inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id LEFT JOIN order_statuses os ON os.id=o.order_status_id WHERE c.is_deleted=0 AND os.name='Прибыл в офис'`).get() as { c: number }).c,
+      extrasCount:       (db.prepare("SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Допы'").get() as { c: number }).c,
     };
   });
 
