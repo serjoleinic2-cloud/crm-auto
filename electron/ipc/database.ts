@@ -250,6 +250,14 @@ function registerHandlers(): void {
           AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))
         )`;
       }
+      if (filters.paymentOverdue) {
+        sql += ` AND c.is_archived=0 AND c.is_deleted=0 AND EXISTS (
+          SELECT 1 FROM orders o WHERE o.client_id=c.id
+          AND o.payment_deadline < date('now')
+          AND o.payment_status != 'paid'
+          AND o.payment_deadline IS NOT NULL
+        )`;
+      }
     }
     sql += ' ORDER BY c.updated_at DESC';
     return db.prepare(sql).all(...params);
