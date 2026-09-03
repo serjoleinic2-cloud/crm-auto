@@ -157,8 +157,16 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
     return parts.join(' · ');
   })();
 
+  const handleClick = () => {
+    if (client.status_name === 'Допы') {
+      navigate(`/extras/${client.id}`);
+    } else {
+      navigate(`/clients/${client.id}`);
+    }
+  };
+
   return (
-    <div onClick={() => navigate(`/clients/${client.id}`)}
+    <div onClick={handleClick}
       className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
       {/* ROW 1: Contract + Status */}
