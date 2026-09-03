@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS document_files (
 
 CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
   due_date TEXT,

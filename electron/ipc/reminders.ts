@@ -10,7 +10,7 @@ export function registerRemindersHandlers(): void {
         (SELECT contract_number FROM orders WHERE client_id=r.client_id AND contract_number IS NOT NULL ORDER BY id DESC LIMIT 1) as contract_number,
         (SELECT TRIM(COALESCE(brand,'')||' '||COALESCE(model,'')) FROM orders WHERE client_id=r.client_id ORDER BY id DESC LIMIT 1) as car
       FROM reminders r
-      JOIN clients c ON c.id=r.client_id
+      LEFT JOIN clients c ON c.id=r.client_id
       WHERE 1=1`;
     const params: unknown[] = [];
     if (filters?.clientId !== undefined) { sql += ' AND r.client_id=?'; params.push(filters.clientId); }
@@ -31,10 +31,11 @@ export function registerRemindersHandlers(): void {
   );
 
   ipcMain.handle('reminders:create', (_e, data: { client_id: number; title: string; description?: string; due_date?: string; due_time?: string; auto_created?: number }) => {
+    const clientId = data.client_id && data.client_id > 0 ? data.client_id : null;
     const result = getDb().prepare(`
       INSERT INTO reminders (client_id, title, description, due_date, due_time, auto_created)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(data.client_id, data.title, data.description ?? null, data.due_date ?? null, data.due_time ?? null, data.auto_created ?? 0);
+    `).run(clientId, data.title, data.description ?? null, data.due_date ?? null, data.due_time ?? null, data.auto_created ?? 0);
     return result.lastInsertRowid;
   });
 

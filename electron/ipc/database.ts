@@ -62,6 +62,31 @@ export function initDatabase(): void {
   // Reminder time field
   safeAlter('reminders', 'due_time', 'TEXT');
 
+  // Make reminders.client_id nullable (for personal tasks without client)
+  const reminderInfo = db.prepare("PRAGMA table_info(reminders)").all() as {name: string; notnull: number}[];
+  const clientIdCol = reminderInfo.find(c => c.name === 'client_id');
+  if (clientIdCol && clientIdCol.notnull === 1) {
+    db.exec(`
+      PRAGMA foreign_keys=OFF;
+      CREATE TABLE reminders_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        due_date TEXT,
+        due_time TEXT,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT,
+        auto_created INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO reminders_new SELECT id,client_id,title,description,due_date,due_time,is_completed,completed_at,auto_created,created_at FROM reminders;
+      DROP TABLE reminders;
+      ALTER TABLE reminders_new RENAME TO reminders;
+      PRAGMA foreign_keys=ON;
+    `);
+  }
+
   // Payment deadline and signed contract date
   safeAlter('orders', 'payment_deadline', 'TEXT');
   safeAlter('orders', 'signed_contract_date', 'TEXT');
