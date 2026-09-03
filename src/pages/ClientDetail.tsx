@@ -11,6 +11,7 @@ import DocumentsPanel from '../components/DocumentsPanel';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck, Phone, ClipboardCheck } from 'lucide-react';
 import ContractTab from '../components/ContractTab';
+import ExtrasPanel from '../components/ExtrasPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
 import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
@@ -853,9 +854,30 @@ export default function ClientDetail() {
                       <div className="text-xs text-green-600 mt-0.5">Прибыл: {formatDate(order.delivery_date_actual)}</div>
                     )}
                     {order.comment && <div className="text-xs text-gray-600 mt-1">{order.comment}</div>}
-                    <div className="flex gap-2 mt-2">
+                    <ExtrasPanel orderId={order.id} />
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       <button onClick={e => { e.stopPropagation(); startEditOrder(order); }} className="text-xs text-primary-600 hover:underline">Редактировать</button>
                       <button onClick={e => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="text-xs text-red-500 hover:underline">Удалить</button>
+                      {status?.name !== 'Допы' && (
+                        <button onClick={async e => {
+                          e.stopPropagation();
+                          const extrasStatus = statuses.find(s => s.name === 'Допы');
+                          if (extrasStatus) {
+                            await ipcService.clients.update(clientId, { status_id: extrasStatus.id });
+                            loadClient();
+                          }
+                        }} className="text-xs text-orange-600 hover:underline">На допы</button>
+                      )}
+                      {status?.name === 'Допы' && (
+                        <button onClick={async e => {
+                          e.stopPropagation();
+                          const yardStatus = statuses.find(s => s.name === 'На площадке');
+                          if (yardStatus) {
+                            await ipcService.clients.update(clientId, { status_id: yardStatus.id });
+                            loadClient();
+                          }
+                        }} className="text-xs text-green-600 hover:underline">С допов → На площадке</button>
+                      )}
                     </div>
                   </div>
                 );
