@@ -89,17 +89,25 @@ export function initDatabase(): void {
   // Hide obsolete "Ожидает доверенность" and "Готов к выдаче" order status
   db.prepare("UPDATE order_statuses SET is_active=0 WHERE name IN ('Ожидает доверенность','Готов к выдаче') AND is_active=1").run();
 
-  // Migrate statuses to match real process
+  // Migrate statuses to match real process (v5)
+  // Rename old statuses
+  db.prepare("UPDATE statuses SET name='Договор подписан' WHERE name='Договор отправлен' AND is_active=1").run();
+  db.prepare("UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче' AND is_active=1").run();
+
   const existingStatuses = (db.prepare('SELECT name FROM statuses').all() as {name:string}[]).map(s => s.name);
   const newStatuses = [
     { name: 'Думает',             color: '#94a3b8', category: 'lead',     sort_order: 0 },
     { name: 'Документы получены', color: '#3b82f6', category: 'pipeline', sort_order: 1 },
-    { name: 'Договор отправлен',  color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
+    { name: 'Договор подписан',   color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
     { name: 'Ожидает оплату',     color: '#f59e0b', category: 'pipeline', sort_order: 3 },
-    { name: 'Автомобиль в пути',  color: '#06b6d4', category: 'pipeline', sort_order: 4 },
-    { name: 'Готов к выдаче',     color: '#10b981', category: 'pipeline', sort_order: 5 },
-    { name: 'Завершён',           color: '#6b7280', category: 'done',     sort_order: 6 },
-    { name: 'Отказ',              color: '#ef4444', category: 'lost',     sort_order: 7 },
+    { name: 'Оплачен',            color: '#3b82f6', category: 'pipeline', sort_order: 4 },
+    { name: 'На таможне',         color: '#d946ef', category: 'pipeline', sort_order: 5 },
+    { name: 'Едет по РФ',         color: '#14b8a6', category: 'pipeline', sort_order: 6 },
+    { name: 'На площадке',        color: '#22c55e', category: 'pipeline', sort_order: 7 },
+    { name: 'Допы',               color: '#f97316', category: 'pipeline', sort_order: 8 },
+    { name: 'Выдан',              color: '#10b981', category: 'done',     sort_order: 9 },
+    { name: 'Завершён',           color: '#6b7280', category: 'done',     sort_order: 10 },
+    { name: 'Отказ',              color: '#ef4444', category: 'lost',     sort_order: 11 },
   ];
   for (const s of newStatuses) {
     if (!existingStatuses.includes(s.name)) {
@@ -139,6 +147,18 @@ export function initDatabase(): void {
 
   // Create missing index for order_status_id
   try { db.prepare('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status_id)').run(); } catch (e) { /* ignore */ }
+
+  // Create extras table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS extras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_extras_order ON extras(order_id);
+  `);
 
   // ── Seed data ──────────────────────────────────────────────────────────────
 
