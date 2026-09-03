@@ -94,6 +94,11 @@ export function initDatabase(): void {
   db.prepare("UPDATE statuses SET name='Договор подписан' WHERE name='Договор отправлен' AND is_active=1").run();
   db.prepare("UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче' AND is_active=1").run();
 
+  // Remove broker_poa and customs-related document types
+  db.prepare("DELETE FROM documents WHERE type='broker_poa'").run();
+  db.prepare("DELETE FROM document_types WHERE code='broker_poa'").run();
+  db.prepare("DELETE FROM document_types WHERE name LIKE '%таможн%' OR name LIKE '%ТАМОЖН%' OR folder_name LIKE '%таможн%' OR folder_name LIKE '%ТАМОЖН%'").run();
+
   const existingStatuses = (db.prepare('SELECT name FROM statuses').all() as {name:string}[]).map(s => s.name);
   const newStatuses = [
     { name: 'Думает',             color: '#94a3b8', category: 'lead',     sort_order: 0 },
