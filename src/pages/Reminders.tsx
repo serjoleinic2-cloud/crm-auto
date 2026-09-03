@@ -126,7 +126,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
   const quickTitles = ['Позвонить', 'Написать', 'Встреча', 'Документы', 'Другое'];
 
   const handleSave = async () => {
-    if (!client) return;
+    if (!title.trim()) return;
     setSaving(true);
     try {
       await ipcService.reminders.create({
@@ -151,7 +151,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
 
       {/* Client */}
       <div>
-        <label className="label text-xs">Клиент <span className="text-red-500">*</span></label>
+        <label className="label text-xs">Клиент (необязательно)</label>
         <ClientSearch value={client} onChange={setClient} />
       </div>
 
@@ -211,7 +211,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
       <div className="flex gap-2">
         <button
           onClick={handleSave}
-          disabled={saving || !client || !title.trim()}
+          disabled={saving || !title.trim()}
           className="btn-primary text-sm flex-1 disabled:opacity-50"
         >
           {saving ? 'Сохранение...' : 'Создать задачу'}
