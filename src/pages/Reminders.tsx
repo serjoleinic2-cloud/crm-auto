@@ -130,7 +130,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
     setSaving(true);
     try {
       await ipcService.reminders.create({
-        client_id: client?.id ?? null,
+        client_id: client?.id ?? 0,
         title,
         description: description || undefined,
         due_date: date || undefined,

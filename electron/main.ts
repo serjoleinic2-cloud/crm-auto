@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'path';
-import { initDatabase } from './ipc/database';
+import { initDatabase, registerDatabaseHandlers } from './ipc/database';
 import { registerMessagingHandlers } from './ipc/messaging';
 import { registerFilesHandlers } from './ipc/files';
 import { registerDocumentsHandlers } from './ipc/documents';
@@ -48,6 +48,7 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   initDatabase();
+  registerDatabaseHandlers();
   registerMessagingHandlers();
   registerFilesHandlers();
   registerDocumentsHandlers();

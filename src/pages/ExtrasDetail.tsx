@@ -21,8 +21,8 @@ export default function ExtrasDetail() {
     if (!clientId) return;
     const id = parseInt(clientId);
     const c = await ipcService.clients.getById(id);
-    setClient(c);
-    const o = await ipcService.orders.getByClient(id);
+    setClient(c ?? null);
+    const o = await ipcService.orders.getByClientId(id);
     setOrders(o);
     const s = await ipcService.statuses.getAll();
     setStatuses(s);

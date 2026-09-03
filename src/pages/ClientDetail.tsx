@@ -345,6 +345,7 @@ export default function ClientDetail() {
 
   if (loadError) return <div className="p-4 text-red-500">Ошибка загрузки клиента. Проверьте консоль.</div>;
   if (isLoading) return <div className="p-4">Загрузка...</div>;
+  if (!client) return <div className="p-4 text-gray-500">Клиент не найден.</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
 
@@ -939,7 +940,7 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {activeTab === 'officers' && client && (() => {
+      {activeTab === ('officers' as string) && client && (() => {
         // Documents needed by officers
         const officerDocs = [
           { code: 'inn',             label: 'ИНН' },

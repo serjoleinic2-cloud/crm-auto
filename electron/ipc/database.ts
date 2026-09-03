@@ -202,10 +202,9 @@ export function initDatabase(): void {
     setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
   }
 
-  registerHandlers();
 }
 
-function registerHandlers(): void {
+export function registerDatabaseHandlers(): void {
 
   // ── STATUSES ──────────────────────────────────────────────────────────────
 
