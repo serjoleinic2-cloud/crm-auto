@@ -263,7 +263,7 @@ export default function ClientDetail() {
 
   const startNewOrder = async () => {
     await getNextContractNumber();
-    const pendingStatus = orderStatuses.find(s => s.name === 'Ожидает оплату');
+    const pendingStatus = statuses.find(s => s.name === 'Ожидает оплату');
     setOrderForm({
       client_id: clientId,
       contract_number: String(parseInt(nextContractNum || '1')),
@@ -321,10 +321,6 @@ export default function ClientDetail() {
       orderForm.payment_deadline = deadline.toISOString().split('T')[0];
     }
 
-    const newOrderStatusName = orderStatuses.find(s => s.id === orderForm.order_status_id)?.name;
-    const prevOrderStatusName = prevOrder ? orderStatuses.find(s => s.id === prevOrder.order_status_id)?.name : null;
-    const orderStatusChanged = newOrderStatusName !== prevOrderStatusName;
-
     if (editingOrder && editingOrder.id > 0) {
       await updateOrder(editingOrder.id, orderForm);
     } else {
@@ -339,33 +335,6 @@ export default function ClientDetail() {
           due_date: due.toISOString().split('T')[0],
           auto_created: 1,
         });
-      }
-    }
-
-    // Auto-tasks on order status change — создаются в backend (orders:update)
-    // Здесь только синхронизация статуса клиента
-    if (orderStatusChanged && newOrderStatusName && client) {
-      if (newOrderStatusName === 'Автомобиль в пути') {
-        const inTransitStatus = statuses.find(s => s.name === 'Автомобиль в пути');
-        if (inTransitStatus && client.status_id !== inTransitStatus.id) {
-          await ipcService.clients.update(clientId, { status_id: inTransitStatus.id });
-          setClient(prev => prev ? { ...prev, status_id: inTransitStatus.id } : prev);
-        }
-      }
-      if (newOrderStatusName === 'Прибыл в офис') {
-        const readyStatus = statuses.find(s => s.name === 'Готов к выдаче');
-        if (readyStatus && client.status_id !== readyStatus.id) {
-          await ipcService.clients.update(clientId, { status_id: readyStatus.id });
-          setClient(prev => prev ? { ...prev, status_id: readyStatus.id } : prev);
-        }
-      }
-      if (newOrderStatusName === 'Выдан клиенту') {
-        const doneStatus = statuses.find(s => s.name === 'Завершён');
-        if (doneStatus) {
-          await ipcService.clients.update(clientId, { status_id: doneStatus.id });
-          setClient(prev => prev ? { ...prev, status_id: doneStatus.id } : prev);
-          setArchivePrompt(true);
-        }
       }
     }
 
@@ -439,17 +408,15 @@ export default function ClientDetail() {
   };
 
   const showBrokerBlock = (statusName?: string) => {
-    const brokerStatuses = ['На таможне', 'Ожидает доверенность', 'Таможенное оформление', 'Едет по РФ', 'Прибыл в офис', 'Готов к выдаче', 'Выдан клиенту'];
-    return brokerStatuses.includes(statusName || '');
+    return ['На таможне', 'Едет по РФ', 'На площадке', 'Допы', 'Выдан'].includes(statusName || '');
   };
 
   const showInspectionBlock = (statusName?: string) => {
-    const inspectionStatuses = ['Прибыл в офис', 'Готов к выдаче', 'Выдан клиенту'];
-    return inspectionStatuses.includes(statusName || '');
+    return ['На площадке', 'Допы', 'Выдан'].includes(statusName || '');
   };
 
   const showIssueDate = (statusName?: string) => {
-    return statusName === 'Выдан клиенту';
+    return statusName === 'Выдан';
   };
 
   if (loadError) return <div className="p-4 text-red-500">Ошибка загрузки клиента. Проверьте консоль.</div>;
@@ -883,17 +850,32 @@ export default function ClientDetail() {
                   })()}
                 </div>
 
-                {/* Order status */}
+                {/* Order status — меняет статус клиента напрямую */}
                 <div className="border-t border-gray-200 pt-3">
-                  <label className="label text-xs">Статус заказа</label>
-                  <select className="input text-sm" value={orderForm.order_status_id || ''} onChange={e => setOrderForm({...orderForm, order_status_id: e.target.value ? parseInt(e.target.value) : null})}>
+                  <label className="label text-xs">Статус клиента</label>
+                  <select
+                    className="input text-sm"
+                    value={orderForm.order_status_id || ''}
+                    onChange={async e => {
+                      const val = e.target.value ? parseInt(e.target.value) : null;
+                      setOrderForm({...orderForm, order_status_id: val});
+                      // Сразу меняем статус клиента
+                      if (val && client) {
+                        const picked = statuses.find(s => s.id === val);
+                        if (picked) {
+                          await ipcService.clients.update(clientId, { status_id: val });
+                          setClient(prev => prev ? { ...prev, status_id: val, status_name: picked.name, status_color: picked.color } : prev);
+                        }
+                      }
+                    }}
+                  >
                     <option value="">—</option>
-                    {orderStatuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
 
                 {/* Broker block */}
-                {showBrokerBlock(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                {showBrokerBlock(statuses.find(s => s.id === orderForm.order_status_id)?.name) && (
                   <div className="border-t border-gray-200 pt-3">
                     <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Phone size={12}/> Брокер</h5>
                     <div className="grid grid-cols-2 gap-3">
@@ -918,7 +900,7 @@ export default function ClientDetail() {
                 )}
 
                 {/* Inspection block */}
-                {showInspectionBlock(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                {showInspectionBlock(statuses.find(s => s.id === orderForm.order_status_id)?.name) && (
                   <div className="border-t border-gray-200 pt-3">
                     <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><ClipboardCheck size={12}/> Осмотр автомобиля</h5>
                     <div className="grid grid-cols-2 gap-2">
@@ -942,7 +924,7 @@ export default function ClientDetail() {
                 )}
 
                 {/* Issue date */}
-                {showIssueDate(orderStatuses.find(s => s.id === orderForm.order_status_id)?.name) && (
+                {showIssueDate(statuses.find(s => s.id === orderForm.order_status_id)?.name) && (
                   <div className="border-t border-gray-200 pt-3">
                     <label className="label text-xs">Дата выдачи клиенту</label>
                     <input type="date" className="input text-sm" value={orderForm.issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, issue_date: e.target.value || null})} />
@@ -958,7 +940,7 @@ export default function ClientDetail() {
 
             <div className="space-y-3">
               {orders.map(order => {
-                const os = orderStatuses.find(s => s.id === order.order_status_id);
+                const os = statuses.find(s => s.id === order.order_status_id);
                 const days = daysUntil(order.delivery_date_est);
                 return (
                   <div key={order.id} className="p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => startEditOrder(order)}>
