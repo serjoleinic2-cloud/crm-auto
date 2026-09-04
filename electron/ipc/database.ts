@@ -207,13 +207,7 @@ export function initDatabase(): void {
     const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
     for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
   } else {
-    // Дедупликация: оставляем только запись с минимальным id для каждого имени
-    db.exec(`
-      DELETE FROM statuses WHERE id NOT IN (
-        SELECT MIN(id) FROM statuses GROUP BY name
-      );
-    `);
-    // Добавляем статусы которых нет (новые из DEFAULT_STATUSES)
+    // Добавляем только отсутствующие статусы, дубли НЕ трогаем (они привязаны к клиентам)
     const ins = db.prepare('INSERT OR IGNORE INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
     for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
   }
@@ -257,7 +251,11 @@ export function registerDatabaseHandlers(): void {
   // ── STATUSES ──────────────────────────────────────────────────────────────
 
   ipcMain.handle('statuses:getAll', () =>
-    db.prepare('SELECT * FROM statuses WHERE is_active=1 ORDER BY sort_order').all()
+    db.prepare(`
+      SELECT * FROM statuses
+      WHERE id IN (SELECT MIN(id) FROM statuses WHERE is_active=1 GROUP BY name)
+      ORDER BY sort_order
+    `).all()
   );
 
   // ── CLIENTS ───────────────────────────────────────────────────────────────
