@@ -80,7 +80,7 @@ function LoadingDiag({ clientId }: { clientId: number }) {
   );
 }
 // ────────────────────────────────────────────────────────────────────────────
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import { useOrders } from '../hooks/useOrders';
 import { useContacts } from '../hooks/useContacts';
@@ -111,6 +111,7 @@ const INSPECTION_ITEMS = [
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const clientId = parseInt(id || '0');
 
   const [client, setClient] = useState<Client | null>(null);
@@ -119,7 +120,9 @@ export default function ClientDetail() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
-  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras'>(
+    (searchParams.get('tab') as 'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras') || 'main'
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);

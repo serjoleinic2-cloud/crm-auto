@@ -192,7 +192,11 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
   })();
 
   const handleClick = () => {
-    navigate(`/clients/${client.id}`);
+    if (client.status_name === 'Допы') {
+      navigate(`/clients/${client.id}?tab=extras`);
+    } else {
+      navigate(`/clients/${client.id}`);
+    }
   };
 
   return (
