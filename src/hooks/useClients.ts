@@ -7,7 +7,7 @@ export function useClients() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchClients = useCallback(async (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; statusCategory?: string; paymentOverdue?: boolean }) => {
+  const fetchClients = useCallback(async (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; statusCategory?: string; paymentOverdue?: boolean; excludeStatusNames?: string[] }) => {
     setLoading(true);
     setError(null);
     try {

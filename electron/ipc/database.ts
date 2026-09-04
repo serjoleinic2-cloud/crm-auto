@@ -251,7 +251,7 @@ export function registerDatabaseHandlers(): void {
   // ── CLIENTS ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('clients:getAll', (_e, filters: {
-    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; paymentOverdue?: boolean
+    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; paymentOverdue?: boolean; excludeStatusNames?: string[]
   } = {}) => {
     let sql = `
       SELECT c.*,
@@ -285,6 +285,10 @@ export function registerDatabaseHandlers(): void {
       if (filters.archived !== undefined) { sql += ' AND c.is_archived=?'; params.push(filters.archived ? 1 : 0); }
       if (filters.statusId !== undefined) { sql += ' AND c.status_id=?'; params.push(filters.statusId); }
       if (filters.statusCategory !== undefined) { sql += ' AND s.category=?'; params.push(filters.statusCategory); }
+      if (filters.excludeStatusNames?.length) {
+        sql += ` AND (s.name IS NULL OR s.name NOT IN (${filters.excludeStatusNames.map(() => '?').join(',')}))`;
+        params.push(...filters.excludeStatusNames);
+      }
       if (filters.overdue) {
         sql += ` AND c.is_archived=0 AND EXISTS (
           SELECT 1 FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0

@@ -36,7 +36,7 @@ export default function Clients() {
     const plazaStatus    = statuses.find(s => s.name === 'На площадке');
 
     if (filter === 'leads')           fetchClients({ statusCategory: 'lead' });
-    else if (filter === 'active')     fetchClients({ archived: false, statusCategory: 'pipeline' });
+    else if (filter === 'active')     fetchClients({ archived: false, statusCategory: 'pipeline', excludeStatusNames: ['Допы'] });
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
     else if (filter === 'customs')    fetchClients({ statusId: customsStatus?.id });
