@@ -8,6 +8,7 @@ import { ipcService } from '../services/ipcService';
 
 interface Props {
   client: Client;
+  statuses: { id: number; name: string; color: string }[];
   onReminderCreated?: () => void;
   onStatusChanged?: () => void;
 }
@@ -127,12 +128,11 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
 
 // ── Main card ─────────────────────────────────────────────────────────────────
 
-export default function ClientCard({ client, onReminderCreated, onStatusChanged }: Props) {
+export default function ClientCard({ client, statuses, onReminderCreated, onStatusChanged }: Props) {
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [statuses, setStatuses] = useState<{ id: number; name: string; color: string }[]>([]);
   const [changingStatus, setChangingStatus] = useState(false);
   const statusRef = useRef<HTMLDivElement>(null);
 
@@ -140,15 +140,10 @@ export default function ClientCard({ client, onReminderCreated, onStatusChanged 
   const isOverdue = hasReminder && client.next_action_date && client.next_action_date < todayISO();
   const payment = client.payment_status ? PAYMENT_LABEL[client.payment_status] : null;
 
-  // Загружаем статусы один раз при открытии меню
-  const handleOpenStatusMenu = useCallback(async (e: React.MouseEvent) => {
+  const handleOpenStatusMenu = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (statuses.length === 0) {
-      const list = await ipcService.statuses.getAll();
-      setStatuses(list.map(s => ({ id: s.id, name: s.name, color: s.color })));
-    }
     setShowStatusMenu(v => !v);
-  }, [statuses.length]);
+  }, []);
 
   const handleSelectStatus = async (e: React.MouseEvent, statusId: number) => {
     e.stopPropagation();

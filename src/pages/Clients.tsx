@@ -91,7 +91,7 @@ export default function Clients() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {clients.map(client => (
-            <ClientCard key={client.id} client={client} onStatusChanged={load} />
+            <ClientCard key={client.id} client={client} statuses={statuses} onStatusChanged={load} />
           ))}
         </div>
       )}
