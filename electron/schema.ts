@@ -203,16 +203,9 @@ CREATE TABLE IF NOT EXISTS extras (
 
 CREATE INDEX IF NOT EXISTS idx_extras_order ON extras(order_id);
 
--- Migration v4 → v5: rename statuses and add new ones
+-- Migration v4 → v5: rename statuses
 UPDATE statuses SET name='Договор подписан' WHERE name='Договор отправлен';
 UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче';
-
-INSERT OR IGNORE INTO statuses (name, color, category, sort_order, is_active) VALUES
-  ('Оплачен', '#3b82f6', 'pipeline', 4, 1),
-  ('На таможне', '#d946ef', 'pipeline', 5, 1),
-  ('Едет по РФ', '#14b8a6', 'pipeline', 6, 1),
-  ('Допы', '#f97316', 'pipeline', 8, 1),
-  ('Выдан', '#10b981', 'done', 9, 1);
 `;
 
 export const DEFAULT_DOCUMENT_TYPES = [

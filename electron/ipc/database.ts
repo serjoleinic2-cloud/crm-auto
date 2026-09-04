@@ -206,6 +206,16 @@ export function initDatabase(): void {
   if (statusCount === 0) {
     const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
     for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
+  } else {
+    // Дедупликация: оставляем только запись с минимальным id для каждого имени
+    db.exec(`
+      DELETE FROM statuses WHERE id NOT IN (
+        SELECT MIN(id) FROM statuses GROUP BY name
+      );
+    `);
+    // Добавляем статусы которых нет (новые из DEFAULT_STATUSES)
+    const ins = db.prepare('INSERT OR IGNORE INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
+    for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
   }
 
   const orderStatusCount = (db.prepare('SELECT COUNT(*) as c FROM order_statuses').get() as { c: number }).c;
