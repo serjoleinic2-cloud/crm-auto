@@ -259,7 +259,7 @@ export function registerDatabaseHandlers(): void {
   // ── CLIENTS ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('clients:getAll', (_e, filters: {
-    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; paymentOverdue?: boolean; excludeStatusNames?: string[]
+    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; statusCategories?: string[]; paymentOverdue?: boolean; excludeStatusNames?: string[]
   } = {}) => {
     let sql = `
       SELECT c.*,
@@ -293,6 +293,10 @@ export function registerDatabaseHandlers(): void {
       if (filters.archived !== undefined) { sql += ' AND c.is_archived=?'; params.push(filters.archived ? 1 : 0); }
       if (filters.statusId !== undefined) { sql += ' AND c.status_id=?'; params.push(filters.statusId); }
       if (filters.statusCategory !== undefined) { sql += ' AND s.category=?'; params.push(filters.statusCategory); }
+      if (filters.statusCategories?.length) {
+        sql += ` AND s.category IN (${filters.statusCategories.map(() => '?').join(',')})`;
+        params.push(...filters.statusCategories);
+      }
       if (filters.excludeStatusNames?.length) {
         sql += ` AND (s.name IS NULL OR s.name NOT IN (${filters.excludeStatusNames.map(() => '?').join(',')}))`;
         params.push(...filters.excludeStatusNames);
@@ -616,7 +620,7 @@ export function registerDatabaseHandlers(): void {
     const now = new Date().toISOString().split('T')[0];
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     return {
-      activeClients:     (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_archived=0 AND is_deleted=0").get() as { c: number }).c,
+      activeClients:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.category IN ('lead','pipeline') AND s.name NOT IN ('Допы','Отказ')`).get() as { c: number }).c,
       needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
       carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name IN ('Едет по РФ','На таможне','Автомобиль в пути')`).get() as { c: number }).c,

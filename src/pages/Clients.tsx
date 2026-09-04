@@ -6,9 +6,9 @@ import type { Status } from '../types';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 
-type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'customs' | 'plaza' | 'payment_overdue' | 'overdue' | 'archived';
+type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'customs' | 'plaza' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
 
-const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'customs', 'plaza', 'payment_overdue', 'overdue', 'archived'];
+const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'customs', 'plaza', 'payment_overdue', 'overdue', 'lost', 'archived'];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -42,22 +42,23 @@ export default function Clients() {
     const plazaStatus    = statuses.find(s => s.name === 'На площадке');
 
     if (filter === 'leads')           fetchClients({ statusCategory: 'lead' });
-    else if (filter === 'active')     fetchClients({ archived: false, statusCategory: 'pipeline', excludeStatusNames: ['Допы'] });
+    else if (filter === 'active')     fetchClients({ archived: false, statusCategories: ['lead', 'pipeline'], excludeStatusNames: ['Допы'] });
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
     else if (filter === 'customs')    fetchClients({ statusId: customsStatus?.id });
     else if (filter === 'plaza')      fetchClients({ statusId: plazaStatus?.id });
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
     else if (filter === 'overdue')    fetchClients({ overdue: true });
+    else if (filter === 'lost')       fetchClients({ statusCategory: 'lost' });
     else                              fetchClients({ archived: true });
   };
 
   const tabs: { key: Filter; label: string; hint?: string }[] = [
-    { key: 'leads',          label: 'Думают',     hint: 'Потенциальные клиенты' },
     { key: 'active',         label: 'В работе' },
     { key: 'extras',         label: 'Допы',       hint: 'Авто на дополнительном оборудовании' },
     { key: 'payment_overdue',label: 'Просрочена оплата', hint: 'Дедлайн оплаты прошёл' },
     { key: 'overdue',        label: 'Просрочено', hint: 'Просроченные задачи' },
+    { key: 'lost',           label: 'Отказы',     hint: 'Клиенты отказавшиеся от сделки' },
     { key: 'archived',       label: 'Архив' },
   ];
 
@@ -97,7 +98,9 @@ export default function Clients() {
           {filter === 'leads'          ? 'Нет потенциальных клиентов' :
            filter === 'extras'         ? 'Нет авто на допах' :
            filter === 'payment_overdue'? 'Нет просроченных оплат' :
-           filter === 'overdue'        ? 'Просроченных задач нет' : 'Клиенты не найдены'}
+           filter === 'overdue'        ? 'Просроченных задач нет' :
+           filter === 'lost'           ? 'Нет отказов' :
+           filter === 'archived'       ? 'Архив пуст' : 'Клиенты не найдены'}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
