@@ -5,7 +5,7 @@ import type { Client, Extra, Order, Status } from '../types';
 import { ArrowLeft, Plus, Trash2, Check, X, Calendar, Clock } from 'lucide-react';
 
 export default function ExtrasDetail() {
-  const { clientId } = useParams<{ clientId: string }>();
+  const { id: clientId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -18,7 +18,7 @@ export default function ExtrasDetail() {
   const [reminderTime, setReminderTime] = useState('');
 
   const load = async () => {
-    if (!clientId) return;
+    if (!clientId) { setLoading(false); return; }
     const id = parseInt(clientId);
     const c = await ipcService.clients.getById(id);
     setClient(c ?? null);

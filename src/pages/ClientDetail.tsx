@@ -1,4 +1,85 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useSyncExternalStore } from 'react';
+
+// ── Диагностический экран загрузки ──────────────────────────────────────────
+function LoadingDiag({ clientId }: { clientId: number }) {
+  const [log, setLog] = useState<{ name: string; status: 'pending' | 'ok' | 'error' | 'timeout'; detail?: string }[]>([]);
+
+  useEffect(() => {
+    const checks = [
+      { name: 'electronAPI доступен', fn: async () => {
+        if (!window.electronAPI) throw new Error('window.electronAPI = undefined');
+        return 'ok';
+      }},
+      { name: 'clients:getById(' + clientId + ')', fn: async () => {
+        const r = await ipcService.clients.getById(clientId);
+        return r ? `найден: ${(r as {full_name?:string}).full_name}` : 'null (клиент не найден)';
+      }},
+      { name: 'statuses:getAll', fn: async () => {
+        const r = await ipcService.statuses.getAll();
+        return `${r.length} статусов`;
+      }},
+      { name: 'orders:getByClientId', fn: async () => {
+        const r = await ipcService.orders.getByClientId(clientId);
+        return `${r.length} заказов`;
+      }},
+      { name: 'reminders:getAll', fn: async () => {
+        const r = await ipcService.reminders.getAll({ clientId });
+        return `${r.length} напоминаний`;
+      }},
+      { name: 'contacts:getByClientId', fn: async () => {
+        const r = await ipcService.contacts.getByClientId(clientId);
+        return `${r.length} контактов`;
+      }},
+      { name: 'documents:getByClientId', fn: async () => {
+        const r = await ipcService.documents.getByClientId(clientId);
+        return `${r.length} документов`;
+      }},
+    ];
+
+    setLog(checks.map(c => ({ name: c.name, status: 'pending' as const })));
+
+    checks.forEach((check, i) => {
+      const timer = setTimeout(() => {
+        setLog(prev => prev.map((l, idx) => idx === i && l.status === 'pending'
+          ? { ...l, status: 'timeout', detail: 'не ответил за 6 сек — IPC завис!' }
+          : l
+        ));
+      }, 6000);
+
+      check.fn()
+        .then(detail => {
+          clearTimeout(timer);
+          setLog(prev => prev.map((l, idx) => idx === i ? { ...l, status: 'ok', detail: String(detail) } : l));
+        })
+        .catch(err => {
+          clearTimeout(timer);
+          setLog(prev => prev.map((l, idx) => idx === i ? { ...l, status: 'error', detail: String(err) } : l));
+        });
+    });
+  }, [clientId]);
+
+  const icon = (s: string) => s === 'ok' ? '✅' : s === 'error' ? '❌' : s === 'timeout' ? '⏰' : '⏳';
+  const color = (s: string) => s === 'ok' ? 'text-green-700' : s === 'error' ? 'text-red-700 font-bold' : s === 'timeout' ? 'text-orange-700 font-bold' : 'text-gray-500';
+
+  return (
+    <div className="p-6 max-w-xl">
+      <h2 className="text-lg font-bold mb-4 text-gray-800">Диагностика загрузки клиента #{clientId}</h2>
+      <div className="space-y-2 font-mono text-sm">
+        {log.map((l, i) => (
+          <div key={i} className={`flex gap-2 ${color(l.status)}`}>
+            <span>{icon(l.status)}</span>
+            <div>
+              <div>{l.name}</div>
+              {l.detail && <div className="text-xs opacity-75 ml-2">→ {l.detail}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-gray-400">Скриншот этого экрана поможет найти проблему</p>
+    </div>
+  );
+}
+// ────────────────────────────────────────────────────────────────────────────
 import { useParams, useNavigate } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import { useOrders } from '../hooks/useOrders';
@@ -389,7 +470,7 @@ export default function ClientDetail() {
   };
 
   if (loadError) return <div className="p-4 text-red-500">Ошибка загрузки клиента. Проверьте консоль.</div>;
-  if (isLoading) return <div className="p-4">Загрузка...</div>;
+  if (isLoading) return <LoadingDiag clientId={clientId} />;
   if (!client) return <div className="p-4 text-gray-500">Клиент не найден.</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
