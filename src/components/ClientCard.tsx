@@ -231,16 +231,18 @@ export default function ClientCard({ client, onReminderCreated, onStatusChanged 
               {client.reminders_count}
             </span>
           )}
-          <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
-          {/* Кнопка смены статуса */}
+          {/* Статус + кнопка смены */}
           <div ref={statusRef} className="relative">
             <button
               onClick={handleOpenStatusMenu}
               disabled={changingStatus}
               title="Сменить статус"
-              className="text-gray-300 hover:text-gray-500 transition-colors text-xs leading-none px-0.5 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50 group"
             >
-              {changingStatus ? '⏳' : '▾'}
+              <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
+              <span className="text-gray-400 group-hover:text-gray-600 transition-colors text-xs font-bold leading-none">
+                {changingStatus ? '⏳' : '▾'}
+              </span>
             </button>
             {showStatusMenu && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[180px] py-1 overflow-hidden">
