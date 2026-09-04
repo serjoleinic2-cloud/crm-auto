@@ -251,11 +251,9 @@ export function registerDatabaseHandlers(): void {
   // ── STATUSES ──────────────────────────────────────────────────────────────
 
   ipcMain.handle('statuses:getAll', () =>
-    db.prepare(`
-      SELECT * FROM statuses
-      WHERE id IN (SELECT MIN(id) FROM statuses WHERE is_active=1 GROUP BY name)
-      ORDER BY sort_order
-    `).all()
+    db.prepare(
+      'SELECT * FROM statuses WHERE id IN (SELECT MIN(id) FROM statuses WHERE is_active=1 GROUP BY name) ORDER BY sort_order'
+    ).all()
   );
 
   // ── CLIENTS ───────────────────────────────────────────────────────────────

@@ -48,15 +48,25 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   try {
+    console.log('[MAIN] initDatabase...');
     initDatabase();
+    console.log('[MAIN] registerDatabaseHandlers...');
     registerDatabaseHandlers();
+    console.log('[MAIN] registerMessagingHandlers...');
     registerMessagingHandlers();
+    console.log('[MAIN] registerFilesHandlers...');
     registerFilesHandlers();
+    console.log('[MAIN] registerDocumentsHandlers...');
     registerDocumentsHandlers();
+    console.log('[MAIN] registerBackupHandlers...');
     registerBackupHandlers();
+    console.log('[MAIN] registerOrderStatusesHandlers...');
     registerOrderStatusesHandlers();
+    console.log('[MAIN] registerRemindersHandlers...');
     registerRemindersHandlers();
+    console.log('[MAIN] registerContractsHandlers...');
     registerContractsHandlers();
+    console.log('[MAIN] createWindow...');
   } catch (err) {
     console.error('[STARTUP ERROR]', err);
     const { dialog } = require('electron');
