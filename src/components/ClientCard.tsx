@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Client } from '../types';
 import StatusBadge from './StatusBadge';
@@ -9,6 +9,7 @@ import { ipcService } from '../services/ipcService';
 interface Props {
   client: Client;
   onReminderCreated?: () => void;
+  onStatusChanged?: () => void;
 }
 
 function todayISO() { return new Date().toISOString().split('T')[0]; }
@@ -126,14 +127,52 @@ function CallPopup({ client, onClose, onSaved }: PopupProps) {
 
 // ── Main card ─────────────────────────────────────────────────────────────────
 
-export default function ClientCard({ client, onReminderCreated }: Props) {
+export default function ClientCard({ client, onReminderCreated, onStatusChanged }: Props) {
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [statuses, setStatuses] = useState<{ id: number; name: string; color: string }[]>([]);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   const hasReminder = !!client.next_action;
   const isOverdue = hasReminder && client.next_action_date && client.next_action_date < todayISO();
   const payment = client.payment_status ? PAYMENT_LABEL[client.payment_status] : null;
+
+  // Загружаем статусы один раз при открытии меню
+  const handleOpenStatusMenu = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (statuses.length === 0) {
+      const list = await ipcService.statuses.getAll();
+      setStatuses(list.map(s => ({ id: s.id, name: s.name, color: s.color })));
+    }
+    setShowStatusMenu(v => !v);
+  }, [statuses.length]);
+
+  const handleSelectStatus = async (e: React.MouseEvent, statusId: number) => {
+    e.stopPropagation();
+    setChangingStatus(true);
+    setShowStatusMenu(false);
+    try {
+      await ipcService.clients.update(client.id, { status_id: statusId });
+      onStatusChanged?.();
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
+  // Закрываем меню по клику снаружи
+  useEffect(() => {
+    if (!showStatusMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showStatusMenu]);
 
   const daysUntil = (() => {
     if (!client.delivery_date_est) return null;
@@ -193,6 +232,35 @@ export default function ClientCard({ client, onReminderCreated }: Props) {
             </span>
           )}
           <StatusBadge status={client.status_id ? { name: client.status_name || '', color: client.status_color || '', id: client.status_id, sort_order: 0, is_active: 1, category: 'pipeline' } : null} />
+          {/* Кнопка смены статуса */}
+          <div ref={statusRef} className="relative">
+            <button
+              onClick={handleOpenStatusMenu}
+              disabled={changingStatus}
+              title="Сменить статус"
+              className="text-gray-300 hover:text-gray-500 transition-colors text-xs leading-none px-0.5 disabled:opacity-50"
+            >
+              {changingStatus ? '⏳' : '▾'}
+            </button>
+            {showStatusMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[180px] py-1 overflow-hidden">
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-1">
+                  Сменить статус
+                </div>
+                {statuses.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={e => handleSelectStatus(e, s.id)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors ${s.id === client.status_id ? 'font-semibold bg-gray-50' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color || '#94a3b8' }} />
+                    {s.name}
+                    {s.id === client.status_id && <span className="ml-auto text-primary-500 text-xs">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
