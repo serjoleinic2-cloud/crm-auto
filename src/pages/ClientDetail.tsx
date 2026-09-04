@@ -94,7 +94,7 @@ import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen,
 import ContractTab from '../components/ContractTab';
 import ExtrasPanel from '../components/ExtrasPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
-import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder } from '../types';
+import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder, Extra } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
 
 const INSPECTION_ITEMS = [
@@ -119,7 +119,7 @@ export default function ClientDetail() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
-  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras'>('main');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [trashConfirm, setTrashConfirm] = useState(false);
@@ -135,6 +135,9 @@ export default function ClientDetail() {
   const { entries, fetchHistory } = useHistory();
   const { reminders, fetchReminders, createReminder } = useReminders();
   const { documents, fetchDocuments } = useDocuments();
+  const [extras, setExtras] = useState<Extra[]>([]);
+  const [extrasLoading, setExtrasLoading] = useState(false);
+  const [newExtra, setNewExtra] = useState({ name: '', price: '' });
 
   useEffect(() => {
     if (!clientId || isNaN(clientId) || clientId <= 0) { setLoadError(true); setIsLoading(false); return; }
@@ -178,6 +181,26 @@ export default function ClientDetail() {
     fetchReminders({ clientId });
     fetchDocuments(clientId);
   }, [clientId]);
+
+  const fetchExtras = async (cid: number) => {
+    setExtrasLoading(true);
+    try {
+      const ords = await ipcService.orders.getByClientId(cid);
+      const all: Extra[] = [];
+      for (const o of ords) {
+        const e = await ipcService.extras.getByOrder(o.id);
+        all.push(...e);
+      }
+      setExtras(all);
+    } finally {
+      setExtrasLoading(false);
+    }
+  };
+
+  // Загружаем extras когда переключаемся на вкладку
+  useEffect(() => {
+    if (activeTab === 'extras' && clientId) fetchExtras(clientId);
+  }, [activeTab, clientId]);
 
   const loadClient = async () => {
     setIsLoading(true);
@@ -514,11 +537,11 @@ export default function ClientDetail() {
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200">
-        {(['main', 'contacts', 'orders', 'documents', 'contract', 'history'] as const).map(tab => (
+        {(['main', 'contacts', 'orders', 'documents', 'contract', 'extras', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -527,6 +550,12 @@ export default function ClientDetail() {
             {tab === 'orders' && 'Заказы'}
             {tab === 'documents' && 'Документы'}
             {tab === 'contract' && '📄 Договор'}
+            {tab === 'extras' && (
+              <span className="flex items-center gap-1">
+                🔧 Допы
+                {extras.length > 0 && <span className="bg-amber-100 text-amber-700 text-xs rounded-full px-1.5 leading-5">{extras.length}</span>}
+              </span>
+            )}
             {tab === 'history' && 'История'}
           </button>
         ))}
@@ -1142,6 +1171,130 @@ export default function ClientDetail() {
             onDocumentsRefresh={() => fetchDocuments(clientId)}
           />
         </ErrorBoundary>
+      )}
+
+      {activeTab === 'extras' && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">🔧 Дополнительное оборудование</h3>
+            {extras.length > 0 && (
+              <span className="text-sm text-gray-500">
+                Итого: <span className="font-bold text-gray-900">
+                  {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(
+                    extras.reduce((s, e) => s + (e.price || 0), 0)
+                  )}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Список позиций */}
+          {extrasLoading ? (
+            <p className="text-sm text-gray-400 text-center py-4">Загрузка...</p>
+          ) : extras.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Доп. оборудование не добавлено</p>
+          ) : (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Заголовок таблицы */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase">
+                <div>Наименование / описание</div>
+                <div className="text-right w-28">Цена работы (₽)</div>
+                <div className="w-8"></div>
+              </div>
+              {/* Строки */}
+              {extras.map((ex, idx) => (
+                <div key={ex.id} className={`grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2.5 items-center text-sm ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                  <div className="text-gray-900">{ex.name}</div>
+                  <div className="text-right w-28 font-medium text-gray-800">
+                    {ex.price ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(ex.price) + ' ₽' : '—'}
+                  </div>
+                  <div className="w-8 flex justify-end">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Удалить "${ex.name}"?`)) return;
+                        await ipcService.extras.delete(ex.id);
+                        fetchExtras(clientId);
+                      }}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                      title="Удалить"
+                    >✕</button>
+                  </div>
+                </div>
+              ))}
+              {/* Итого */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2.5 bg-amber-50 border-t border-amber-200 text-sm font-bold">
+                <div className="text-amber-800">Итого</div>
+                <div className="text-right w-28 text-amber-900">
+                  {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(
+                    extras.reduce((s, e) => s + (e.price || 0), 0)
+                  )} ₽
+                </div>
+                <div className="w-8"></div>
+              </div>
+            </div>
+          )}
+
+          {/* Форма добавления новой позиции */}
+          {orders.length > 0 ? (
+            <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Добавить позицию</p>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="label">Доп. оборудование / описание работы</label>
+                  <input
+                    className="input text-sm"
+                    placeholder="Например: Тонировка задних стёкол"
+                    value={newExtra.name}
+                    onChange={e => setNewExtra(p => ({ ...p, name: e.target.value }))}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && newExtra.name.trim()) {
+                        await ipcService.extras.create({
+                          order_id: orders[0].id,
+                          name: newExtra.name.trim(),
+                          price: parseFloat(newExtra.price) || 0,
+                        });
+                        setNewExtra({ name: '', price: '' });
+                        fetchExtras(clientId);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="w-36">
+                  <label className="label">Цена за работу (₽)</label>
+                  <input
+                    className="input text-sm"
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    value={newExtra.price}
+                    onChange={e => setNewExtra(p => ({ ...p, price: e.target.value }))}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!newExtra.name.trim()) return;
+                    await ipcService.extras.create({
+                      order_id: orders[0].id,
+                      name: newExtra.name.trim(),
+                      price: parseFloat(newExtra.price) || 0,
+                    });
+                    setNewExtra({ name: '', price: '' });
+                    fetchExtras(clientId);
+                  }}
+                  className="btn-primary mb-0.5"
+                  disabled={!newExtra.name.trim()}
+                >
+                  + Добавить
+                </button>
+              </div>
+              <p className="text-xs text-gray-400">Enter или кнопка — добавляет позицию. Можно добавлять сколько угодно.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-3">
+              ⚠️ Сначала создайте заказ на вкладке «Заказы» — допы привязываются к заказу.
+            </p>
+          )}
+        </div>
       )}
 
       {activeTab === 'history' && (
