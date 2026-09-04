@@ -217,7 +217,9 @@ export function initDatabase(): void {
   // Всегда синхронизируем марки с car_brands.txt (заменяем старый список)
   const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
   if (fs.existsSync(brandsFile)) {
-    const lines = fs.readFileSync(brandsFile, 'utf-8').split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = fs.readFileSync(brandsFile, 'utf-8')
+      .split('\n').map(l => l.trim()).filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'ru'));
     db.prepare('DELETE FROM car_brands').run();
     const ins = db.prepare('INSERT INTO car_brands (name,sort_order) VALUES (?,?)');
     lines.forEach((name, i) => ins.run(name, i));
@@ -628,7 +630,7 @@ export function registerDatabaseHandlers(): void {
   // ── CAR BRANDS ────────────────────────────────────────────────────────────
 
   ipcMain.handle('carBrands:getAll', () =>
-    db.prepare('SELECT * FROM car_brands ORDER BY sort_order, name').all()
+    db.prepare('SELECT * FROM car_brands ORDER BY name').all()
   );
 
   // ── SETTINGS ──────────────────────────────────────────────────────────────

@@ -144,37 +144,8 @@ export default function ClientDetail() {
 
   useEffect(() => {
     if (!clientId || isNaN(clientId) || clientId <= 0) { setLoadError(true); setIsLoading(false); return; }
-    console.log('[ClientDetail] useEffect START, clientId=', clientId);
-    console.log('[ClientDetail] electronAPI available:', typeof window !== 'undefined' && !!window.electronAPI);
 
     loadClient();
-
-    // Диагностика параллельных IPC
-    const diag = async () => {
-      const calls: [string, Promise<unknown>][] = [
-        ['statuses:getAll', ipcService.statuses.getAll()],
-        ['orderStatuses:getAll', ipcService.orderStatuses.getAll()],
-        ['carBrands:getAll', ipcService.carBrands.getAll()],
-        ['orders:getByClientId', ipcService.orders.getByClientId(clientId)],
-        ['contacts:getByClientId', ipcService.contacts.getByClientId(clientId)],
-        ['history:getByClientId', ipcService.history.getByClientId(clientId)],
-        ['reminders:getAll', ipcService.reminders.getAll({ clientId })],
-        ['documents:getByClientId', ipcService.documents.getByClientId(clientId)],
-      ];
-      for (const [name, promise] of calls) {
-        promise
-          .then(r => console.log(`[IPC] ✅ ${name} ok, count=`, Array.isArray(r) ? (r as unknown[]).length : r))
-          .catch(e => console.error(`[IPC] ❌ ${name} FAILED:`, e));
-        // Таймаут предупреждение
-        setTimeout(() => {
-          Promise.race([promise, new Promise(r => setTimeout(r, 4000))]).then(() => {}).catch(() => {
-            console.error(`[IPC] ⏰ ${name} НЕ ОТВЕТИЛ за 4 сек — вероятно завис!`);
-          });
-        }, 4000);
-      }
-    };
-    diag();
-
     ipcService.statuses.getAll().then(setStatuses);
     ipcService.orderStatuses.getAll().then(setOrderStatuses);
     ipcService.carBrands.getAll().then(setCarBrands);
@@ -207,28 +178,14 @@ export default function ClientDetail() {
 
   const loadClient = async () => {
     setIsLoading(true);
-    console.log('[ClientDetail] loadClient START, clientId=', clientId);
-
-    // Обёртка с таймаутом — если IPC не отвечает за 5 сек, пишем в консоль
-    const timed = (name: string, promise: Promise<unknown>) => {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`TIMEOUT: ${name} не ответил за 5 сек`)), 5000)
-      );
-      return Promise.race([
-        promise.then(r => { console.log(`[ClientDetail] ✅ ${name}:`, r); return r; }),
-        timeout,
-      ]).catch(e => { console.error(`[ClientDetail] ❌ ${name}:`, e); throw e; });
-    };
-
     try {
-      const data = await timed('clients:getById', ipcService.clients.getById(clientId)) as Client | undefined;
+      const data = await ipcService.clients.getById(clientId) as Client | undefined;
       setClient(data ?? null);
-      if (!data) { console.warn('[ClientDetail] клиент не найден'); setLoadError(true); }
+      if (!data) setLoadError(true);
     } catch (e) {
-      console.error('[ClientDetail] loadClient FAILED:', e);
+      console.error('loadClient error:', e);
       setLoadError(true);
     } finally {
-      console.log('[ClientDetail] loadClient END, setIsLoading(false)');
       setIsLoading(false);
     }
   };
@@ -251,7 +208,7 @@ export default function ClientDetail() {
       if (isNaN(cleanData.status_id)) cleanData.status_id = null;
     }
 
-    console.log('Saving client data:', cleanData);
+    
     const success = await ipcService.clients.update(clientId, cleanData);
     if (success) {
       setIsEditing(false);

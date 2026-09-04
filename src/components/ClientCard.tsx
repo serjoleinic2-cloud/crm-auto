@@ -240,19 +240,19 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
               </span>
             </button>
             {showStatusMenu && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[180px] py-1 overflow-hidden">
-                <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-1">
-                  Сменить статус
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl w-48 py-1 max-h-72 overflow-y-auto">
+                <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-0.5">
+                  Статус
                 </div>
                 {statuses.map(s => (
                   <button
                     key={s.id}
                     onClick={e => handleSelectStatus(e, s.id)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors ${s.id === client.status_id ? 'font-semibold bg-gray-50' : ''}`}
+                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors ${s.id === client.status_id ? 'font-semibold' : ''}`}
                   >
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color || '#94a3b8' }} />
-                    {s.name}
-                    {s.id === client.status_id && <span className="ml-auto text-primary-500 text-xs">✓</span>}
+                    <span className="truncate">{s.name}</span>
+                    {s.id === client.status_id && <span className="ml-auto text-primary-500 text-xs shrink-0">✓</span>}
                   </button>
                 ))}
               </div>
