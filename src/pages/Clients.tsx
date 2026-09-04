@@ -6,9 +6,9 @@ import type { Status } from '../types';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 
-type Filter = 'leads' | 'active' | 'extras' | 'payment_overdue' | 'overdue' | 'archived';
+type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'customs' | 'plaza' | 'payment_overdue' | 'overdue' | 'archived';
 
-const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'payment_overdue', 'overdue', 'archived'];
+const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'customs', 'plaza', 'payment_overdue', 'overdue', 'archived'];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -30,15 +30,20 @@ export default function Clients() {
   useEffect(() => { load(); }, [filter, statuses]);
 
   const load = () => {
-    const extrasStatus = statuses.find(s => s.name === 'Допы');
-    const awaitPayStatus = statuses.find(s => s.name === 'Ожидает оплату');
+    const extrasStatus   = statuses.find(s => s.name === 'Допы');
+    const transitStatus  = statuses.find(s => s.name === 'Едет по РФ');
+    const customsStatus  = statuses.find(s => s.name === 'На таможне');
+    const plazaStatus    = statuses.find(s => s.name === 'На площадке');
 
-    if (filter === 'leads')          fetchClients({ statusCategory: 'lead' });
-    else if (filter === 'active')    fetchClients({ archived: false, statusCategory: 'pipeline' });
-    else if (filter === 'extras')    fetchClients({ statusId: extrasStatus?.id });
+    if (filter === 'leads')           fetchClients({ statusCategory: 'lead' });
+    else if (filter === 'active')     fetchClients({ archived: false, statusCategory: 'pipeline' });
+    else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
+    else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
+    else if (filter === 'customs')    fetchClients({ statusId: customsStatus?.id });
+    else if (filter === 'plaza')      fetchClients({ statusId: plazaStatus?.id });
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
-    else if (filter === 'overdue')   fetchClients({ overdue: true });
-    else                             fetchClients({ archived: true });
+    else if (filter === 'overdue')    fetchClients({ overdue: true });
+    else                              fetchClients({ archived: true });
   };
 
   const tabs: { key: Filter; label: string; hint?: string }[] = [

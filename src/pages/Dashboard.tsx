@@ -36,14 +36,14 @@ export default function Dashboard() {
     { label: 'Активные клиенты', value: stats.activeClients, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => navigate('/clients') },
     { label: 'Просроченные задачи', value: stats.needsAttention, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', onClick: () => navigate('/reminders?filter=overdue') },
     { label: 'Задачи на сегодня', value: stats.todayTasks, icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => navigate('/reminders?filter=today') },
-    { label: 'Авто в пути', value: stats.carsInTransit, icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-50', onClick: () => navigate('/orders') },
+    { label: 'Авто в пути', value: stats.carsInTransit, icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-50', onClick: () => navigate('/clients?filter=transit') },
   ];
 
   const orderCards = [
-    { label: 'Просрочена оплата', value: stats.overduePayment, icon: AlertTriangle, color: 'text-red-600', bg: stats.overduePayment > 0 ? 'bg-red-50' : 'bg-gray-50', onClick: () => navigate('/orders') },
-    { label: 'Ожидают оплаты', value: stats.pendingPayment, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/orders') },
-    { label: 'На таможне', value: stats.atCustoms, icon: Package, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', onClick: () => navigate('/orders?filter=customs') },
-    { label: 'На площадке', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/orders?filter=office') },
+    { label: 'Просрочена оплата', value: stats.overduePayment, icon: AlertTriangle, color: 'text-red-600', bg: stats.overduePayment > 0 ? 'bg-red-50' : 'bg-gray-50', onClick: () => navigate('/clients?filter=payment_overdue') },
+    { label: 'Ожидают оплаты', value: stats.pendingPayment, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=payment_overdue') },
+    { label: 'На таможне', value: stats.atCustoms, icon: Package, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', onClick: () => navigate('/clients?filter=customs') },
+    { label: 'На площадке', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/clients?filter=plaza') },
     { label: 'Допы', value: stats.extrasCount ?? 0, icon: Wrench, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=extras') },
   ];
 
