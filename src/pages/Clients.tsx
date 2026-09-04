@@ -22,12 +22,18 @@ export default function Clients() {
 
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [statusesLoaded, setStatusesLoaded] = useState(false);
 
   useEffect(() => {
-    ipcService.statuses.getAll().then(setStatuses);
+    ipcService.statuses.getAll().then(list => {
+      setStatuses(list);
+      setStatusesLoaded(true);
+    });
   }, []);
 
-  useEffect(() => { load(); }, [filter, statuses]);
+  useEffect(() => {
+    if (statusesLoaded) load();
+  }, [filter, statusesLoaded]);
 
   const load = () => {
     const extrasStatus   = statuses.find(s => s.name === 'Допы');

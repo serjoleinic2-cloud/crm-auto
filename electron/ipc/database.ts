@@ -214,14 +214,14 @@ export function initDatabase(): void {
     for (const s of DEFAULT_ORDER_STATUSES) ins.run(s.name, s.color, s.sort_order);
   }
 
-  const brandCount = (db.prepare('SELECT COUNT(*) as c FROM car_brands').get() as { c: number }).c;
-  if (brandCount === 0) {
-    const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
-    if (fs.existsSync(brandsFile)) {
-      const lines = fs.readFileSync(brandsFile, 'utf-8').split('\n').map(l => l.trim()).filter(Boolean);
-      const ins = db.prepare('INSERT OR IGNORE INTO car_brands (name,sort_order) VALUES (?,?)');
-      lines.forEach((name, i) => ins.run(name, i));
-    }
+  // Всегда синхронизируем марки с car_brands.txt (заменяем старый список)
+  const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
+  if (fs.existsSync(brandsFile)) {
+    const lines = fs.readFileSync(brandsFile, 'utf-8').split('\n').map(l => l.trim()).filter(Boolean);
+    db.prepare('DELETE FROM car_brands').run();
+    const ins = db.prepare('INSERT INTO car_brands (name,sort_order) VALUES (?,?)');
+    lines.forEach((name, i) => ins.run(name, i));
+    console.log('[DB] car_brands synced:', lines.length, 'марок');
   }
 
   const docTypeCount = (db.prepare('SELECT COUNT(*) as c FROM document_types').get() as { c: number }).c;

@@ -1,5 +1,5 @@
 Changan
-Hyunday
+Hyundai
 Geely
 KIA
 Mitsubishi
@@ -9,3 +9,9 @@ Opel
 Suzuki
 Chevrolet
 Toyota
+Fiat
+Jeep
+Mercedes Benz
+Peugeot
+RAM
+Lexus
