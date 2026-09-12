@@ -1023,7 +1023,7 @@ export default function ClientDetail() {
                         Подписан клиентом: {formatDate(order.signed_contract_date)}
                       </div>
                     )}
-                    {order.payment_deadline && (() => {
+                    {order.payment_deadline && order.payment_status !== 'paid' && (() => {
                       const overdue = order.payment_deadline < new Date().toISOString().split('T')[0];
                       return (
                         <div className={`text-xs mt-0.5 font-medium ${overdue ? 'text-red-600' : 'text-amber-600'}`}>
