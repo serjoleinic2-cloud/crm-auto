@@ -22,6 +22,53 @@ const STATUS_COLORS: Record<DocumentStatus, string> = {
   verified:      '#059669',
 };
 
+type StatusOption = { value: DocumentStatus; label: string };
+
+const DEFAULT_STATUS_OPTIONS: StatusOption[] = (Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[])
+  .map(value => ({ value, label: DOCUMENT_STATUS_LABELS[value] }));
+
+// Each document has only the statuses that describe its real movement.
+// This prevents a manager from choosing impossible combinations such as
+// «паспорт отправлен клиенту» or «чек проверен».
+const STATUS_OPTIONS_BY_DOCUMENT: Record<string, StatusOption[]> = {
+  consent: [
+    { value: 'not_required', label: 'Не требуется' },
+    { value: 'requested', label: 'Запрошен' },
+    { value: 'sent', label: 'Отправлен клиенту' },
+    { value: 'received', label: 'Получен' },
+  ],
+  snils: [
+    { value: 'not_required', label: 'Не требуется' },
+    { value: 'not_requested', label: 'Не запрошен' },
+    { value: 'requested', label: 'Запрошен' },
+    { value: 'received', label: 'Получен' },
+  ],
+  passport: [
+    { value: 'not_required', label: 'Не требуется' },
+    { value: 'not_requested', label: 'Не запрошен' },
+    { value: 'requested', label: 'Запрошен' },
+    { value: 'received', label: 'Получен' },
+  ],
+  inn: [
+    { value: 'not_required', label: 'Не требуется' },
+    { value: 'not_requested', label: 'Не запрошен' },
+    { value: 'requested', label: 'Запрошен' },
+    { value: 'received', label: 'Получен' },
+  ],
+  contract: [
+    { value: 'not_requested', label: 'Не отправлен' },
+    { value: 'sent', label: 'Отправлен' },
+  ],
+  contract_signed: [
+    { value: 'not_requested', label: 'Не получен' },
+    { value: 'received', label: 'Получен' },
+  ],
+  payment_proof: [
+    { value: 'not_requested', label: 'Не получен' },
+    { value: 'received', label: 'Получен' },
+  ],
+};
+
 export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteType }: Props) {
   const [comment, setComment] = useState(doc.comment ?? '');
   const [saving, setSaving] = useState(false);
@@ -109,14 +156,7 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
   };
 
   const color = STATUS_COLORS[doc.status];
-  const isContractToSign = doc.code === 'contract';
-  const isSignedContract = doc.code === 'contract_signed';
-  const isPaymentProof = doc.code === 'payment_proof';
-  const isSingleStepContract = isContractToSign || isSignedContract || isPaymentProof;
-  const singleStepStatus: DocumentStatus = isContractToSign ? 'sent' : 'received';
-  const singleStepDone = doc.status === singleStepStatus;
-  const singleStepLabel = isContractToSign ? 'Отправлен клиенту' : 'Получен';
-  const singleStepAction = isContractToSign ? 'Отметить отправленным' : 'Отметить полученным';
+  const statusOptions = STATUS_OPTIONS_BY_DOCUMENT[doc.code] ?? DEFAULT_STATUS_OPTIONS;
 
   return (
     <div className={`border border-gray-200 rounded-lg p-3 transition-all ${expanded ? 'col-span-2' : ''}`}>
@@ -139,36 +179,17 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
         )}
         {savedTick && <span className="text-xs text-green-600 shrink-0">✓ Сохранено</span>}
         {saving && !savedTick && <span className="text-xs text-gray-400 shrink-0">Сохранение…</span>}
-        {isSingleStepContract ? (
-          singleStepDone ? (
-            <span
-              className="text-xs border rounded-md px-2 py-1 font-medium shrink-0"
-              style={{ color: STATUS_COLORS[singleStepStatus], borderColor: STATUS_COLORS[singleStepStatus] }}
-            >
-              {singleStepLabel}
-            </span>
-          ) : (
-            <button
-              className="text-xs border border-primary-300 bg-primary-50 text-primary-700 rounded-md px-2 py-1 font-medium shrink-0 hover:bg-primary-100"
-              disabled={saving}
-              onClick={() => handleStatusChange(singleStepStatus)}
-            >
-              {singleStepAction}
-            </button>
-          )
-        ) : (
-          <select
-            className="text-xs border border-gray-200 rounded-md px-2 py-1 font-medium shrink-0"
-            style={{ color, borderColor: color }}
-            value={doc.status}
-            disabled={saving}
-            onChange={e => handleStatusChange(e.target.value as DocumentStatus)}
-          >
-            {(Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[]).map(s => (
-              <option key={s} value={s}>{DOCUMENT_STATUS_LABELS[s]}</option>
-            ))}
-          </select>
-        )}
+        <select
+          className="text-xs border border-gray-200 rounded-md px-2 py-1 font-medium shrink-0"
+          style={{ color, borderColor: color }}
+          value={doc.status}
+          disabled={saving}
+          onChange={e => handleStatusChange(e.target.value as DocumentStatus)}
+        >
+          {statusOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       </div>
 
       {expanded && (
