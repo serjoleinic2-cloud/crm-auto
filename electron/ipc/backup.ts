@@ -329,7 +329,8 @@ export function registerBackupHandlers(): void {
     try {
       fs.mkdirSync(gdriveDir, { recursive: true });
       const size = createFullBackupArchive(temporaryPath);
-      fs.renameSync(temporaryPath, archivePath);
+      fs.copyFileSync(temporaryPath, archivePath);
+      fs.unlinkSync(temporaryPath);
       saveSettings({ lastFullGdriveBackup: new Date().toISOString() });
       return { success: true, path: archivePath, size };
     } catch (err) {
