@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import type { Client, Extra, Order, Status } from '../types';
 import { ArrowLeft, Plus, Trash2, Check, X, Calendar, Clock } from 'lucide-react';
+import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
 
 export default function ExtrasDetail() {
   const { id: clientId } = useParams<{ id: string }>();
@@ -46,7 +47,7 @@ export default function ExtrasDetail() {
     await ipcService.extras.create({
       order_id: orders[0].id,
       name: form.name.trim(),
-      price: parseFloat(form.price) || 0,
+      price: parseMoneyInput(form.price) ?? 0,
     });
     setForm({ name: '', price: '' });
     setEditing(false);
@@ -142,7 +143,7 @@ export default function ExtrasDetail() {
         {editing && (
           <div className="flex items-center gap-2 mt-3">
             <input className="input text-sm flex-1" placeholder="Наименование" value={form.name} onChange={e => setForm({...form, name: e.target.value})} autoFocus />
-            <input className="input text-sm w-28" type="number" placeholder="Цена" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
+            <input className="input text-sm w-32" type="text" inputMode="numeric" placeholder="Цена" value={form.price} onChange={e => setForm({...form, price: formatMoneyInput(e.target.value)})} />
             <button onClick={handleAdd} className="text-green-600 hover:text-green-700"><Check size={18}/></button>
             <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
           </div>

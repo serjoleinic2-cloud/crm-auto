@@ -89,7 +89,7 @@ import { useReminders } from '../hooks/useReminders';
 import { useDocuments } from '../hooks/useDocuments';
 import StatusBadge from '../components/StatusBadge';
 import DocumentsPanel from '../components/DocumentsPanel';
-import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
+import { formatDate, formatPrice, formatMoneyInput, parseMoneyInput, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck } from 'lucide-react';
 import ContractTab from '../components/ContractTab';
 import ExtrasPanel from '../components/ExtrasPanel';
@@ -427,7 +427,7 @@ export default function ClientDetail() {
   const hasOrderWorkflow = orders.length > 0;
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-3 max-w-6xl mx-auto">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
         <ArrowLeft size={18} /> Назад
       </button>
@@ -726,7 +726,7 @@ export default function ClientDetail() {
             </div>
 
             {editingOrder && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+              <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
                 <h4 className="font-semibold text-sm">{editingOrder.id > 0 ? 'Редактирование заказа' : 'Новый заказ'}</h4>
 
                 <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
@@ -764,24 +764,26 @@ export default function ClientDetail() {
                     <label className="label text-xs">Модель</label>
                     <input className="input text-sm" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="label text-xs">Год</label>
                     <input type="number" className="input text-sm" value={orderForm.year || ''} onChange={e => setOrderForm({...orderForm, year: e.target.value ? parseInt(e.target.value) : null})} />
                   </div>
-                </div>
-
-                <div>
-                  <label className="label text-xs">Описание</label>
-                  <textarea className="input text-sm" rows={2} value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="label text-xs">Комплектация</label>
                     <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
                   </div>
                   <div>
                     <label className="label text-xs">Цена</label>
-                    <input type="number" className="input text-sm" value={orderForm.price || ''} onChange={e => setOrderForm({...orderForm, price: e.target.value ? parseFloat(e.target.value) : null})} />
+                    <input type="text" inputMode="numeric" className="input text-sm" value={formatMoneyInput(orderForm.price)} onChange={e => setOrderForm({...orderForm, price: parseMoneyInput(e.target.value)})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Описание</label>
+                    <input className="input text-sm" value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
                   </div>
                   <div>
                     <label className="label text-xs">Комментарий</label>
@@ -1162,7 +1164,7 @@ export default function ClientDetail() {
                         await ipcService.extras.create({
                           order_id: orders[0].id,
                           name: newExtra.name.trim(),
-                          price: parseFloat(newExtra.price) || 0,
+                          price: parseMoneyInput(newExtra.price) ?? 0,
                         });
                         setNewExtra({ name: '', price: '' });
                         fetchExtras(clientId);
@@ -1174,11 +1176,12 @@ export default function ClientDetail() {
                   <label className="label">Цена за работу (₽)</label>
                   <input
                     className="input text-sm"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="0"
                     min="0"
                     value={newExtra.price}
-                    onChange={e => setNewExtra(p => ({ ...p, price: e.target.value }))}
+                    onChange={e => setNewExtra(p => ({ ...p, price: formatMoneyInput(e.target.value) }))}
                   />
                 </div>
                 <button
@@ -1187,7 +1190,7 @@ export default function ClientDetail() {
                     await ipcService.extras.create({
                       order_id: orders[0].id,
                       name: newExtra.name.trim(),
-                      price: parseFloat(newExtra.price) || 0,
+                      price: parseMoneyInput(newExtra.price) ?? 0,
                     });
                     setNewExtra({ name: '', price: '' });
                     fetchExtras(clientId);

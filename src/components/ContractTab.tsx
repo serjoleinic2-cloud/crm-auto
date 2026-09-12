@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ipcService } from '../services/ipcService';
 import { FileText, Save, AlertTriangle, CheckCircle, FolderOpen, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Client, Order, ClientPassportData, ContractGenerateData } from '../types';
+import { formatMoneyInput } from '../utils/formatters';
 
 interface ContractTabProps {
   client: Client;
@@ -113,7 +114,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     const order = orders.find(o => o.id === selectedOrderId);
     if (order) {
       setCarForm({ ...order });
-      if (order.deal_amount) setDealAmount(order.deal_amount);
+      if (order.deal_amount) setDealAmount(formatMoneyInput(order.deal_amount));
       if (order.contract_number) setContractNumber(order.contract_number);
       if (order.contract_date) setContractDate(order.contract_date);
     }
@@ -319,7 +320,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
         <Field
           label="Сумма сделки (платёж по поручению)"
           value={dealAmount}
-          onChange={setDealAmount}
+          onChange={v => setDealAmount(formatMoneyInput(v))}
           required
           placeholder="Например: 2 100 000"
         />
