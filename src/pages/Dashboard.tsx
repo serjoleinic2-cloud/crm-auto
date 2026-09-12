@@ -9,6 +9,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [thinkingClients, setThinkingClients] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,12 +19,14 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [s, r] = await Promise.all([
+      const [s, r, leads] = await Promise.all([
         ipcService.dashboard.getStats(),
         ipcService.reminders.getAll({ today: true }),
+        ipcService.clients.getAll({ statusCategory: 'lead' }),
       ]);
       setStats(s);
       setReminders(r);
+      setThinkingClients(leads.filter(client => client.status_name === 'Думает').length);
     } finally {
       setLoading(false);
     }
@@ -34,7 +37,7 @@ export default function Dashboard() {
 
   const statCards = [
     { label: 'Активные клиенты', value: stats.activeClients, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', onClick: () => navigate('/clients') },
-    { label: 'Думает', value: stats.thinkingClients, icon: UserPlus, color: 'text-slate-600', bg: 'bg-slate-50', onClick: () => navigate('/clients?filter=thinking') },
+    { label: 'Думает', value: thinkingClients, icon: UserPlus, color: 'text-slate-600', bg: 'bg-slate-50', onClick: () => navigate('/clients?filter=thinking') },
     { label: 'Просроченные задачи', value: stats.needsAttention, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', onClick: () => navigate('/reminders?filter=overdue') },
     { label: 'Задачи на сегодня', value: stats.todayTasks, icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-50', onClick: () => navigate('/reminders?filter=today') },
     { label: 'Авто в пути', value: stats.carsInTransit, icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-50', onClick: () => navigate('/clients?filter=transit') },
