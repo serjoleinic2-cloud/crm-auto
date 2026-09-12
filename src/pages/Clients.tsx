@@ -6,9 +6,9 @@ import type { Status } from '../types';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 
-type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'arrived' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
+type Filter = 'leads' | 'thinking' | 'active' | 'extras' | 'transit' | 'arrived' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
 
-const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'arrived', 'payment_overdue', 'overdue', 'lost', 'archived'];
+const VALID_FILTERS: Filter[] = ['leads', 'thinking', 'active', 'extras', 'transit', 'arrived', 'payment_overdue', 'overdue', 'lost', 'archived'];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -37,11 +37,13 @@ export default function Clients() {
 
   const load = () => {
     const extrasStatus   = statuses.find(s => s.name === 'Допы');
+    const thinkingStatus = statuses.find(s => s.name === 'Думает');
     const transitStatus  = statuses.find(s => s.name === 'Автомобиль в пути');
     const arrivedStatus  = statuses.find(s => s.name === 'Автомобиль прибыл');
 
     if (filter === 'leads')           fetchClients({ statusCategory: 'lead' });
-    else if (filter === 'active')     fetchClients({ archived: false, statusCategories: ['lead', 'pipeline'], excludeStatusNames: ['Допы'] });
+    else if (filter === 'thinking')   fetchClients({ statusId: thinkingStatus?.id });
+    else if (filter === 'active')     fetchClients({ archived: false, statusCategories: ['lead', 'pipeline'], excludeStatusNames: ['Думает', 'Допы'] });
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
     else if (filter === 'arrived')    fetchClients({ statusId: arrivedStatus?.id });
@@ -53,6 +55,7 @@ export default function Clients() {
 
   const tabs: { key: Filter; label: string; hint?: string }[] = [
     { key: 'active',         label: 'В работе' },
+    { key: 'thinking',       label: 'Думает', hint: 'Залётные клиенты, которые пока не вошли в работу' },
     { key: 'extras',         label: 'Допы',       hint: 'Авто на дополнительном оборудовании' },
     { key: 'payment_overdue',label: 'Просрочена оплата', hint: 'Дедлайн оплаты прошёл' },
     { key: 'overdue',        label: 'Просрочено', hint: 'Просроченные задачи' },
@@ -94,6 +97,7 @@ export default function Clients() {
       ) : clients.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
           {filter === 'leads'          ? 'Нет потенциальных клиентов' :
+           filter === 'thinking'       ? 'Нет клиентов со статусом «Думает»' :
            filter === 'extras'         ? 'Нет авто на допах' :
            filter === 'payment_overdue'? 'Нет просроченных оплат' :
            filter === 'overdue'        ? 'Просроченных задач нет' :
