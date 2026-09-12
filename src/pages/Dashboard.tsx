@@ -60,7 +60,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map(card => (
-          <button key={card.label} onClick={card.onClick} className={`${card.bg} rounded-xl p-4 text-left hover:shadow-md transition-shadow`}>
+          <button key={card.label} onClick={card.onClick} className={`${card.bg} rounded-xl border border-gray-200 p-4 text-left hover:shadow-md transition-shadow`}>
             <div className="flex items-center justify-between mb-2">
               <card.icon size={20} className={card.color} />
               <span className="text-2xl font-bold text-gray-900">{card.value}</span>
@@ -74,7 +74,7 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Заказы</h2>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {orderCards.map(card => (
-            <button key={card.label} onClick={card.onClick} className={`${card.bg} rounded-xl p-4 text-left hover:shadow-md transition-shadow`}>
+            <button key={card.label} onClick={card.onClick} className={`${card.bg} rounded-xl border border-gray-200 p-4 text-left hover:shadow-md transition-shadow`}>
               <div className="flex items-center justify-between mb-2">
                 <card.icon size={20} className={card.color} />
                 <span className="text-2xl font-bold text-gray-900">{card.value}</span>
