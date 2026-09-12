@@ -62,7 +62,10 @@ export function registerRemindersHandlers(): void {
   ipcMain.handle('reminders:getStats', () => {
     const now = new Date().toISOString().split('T')[0];
     return {
-      overdue: (getDb().prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
+      overdue: (getDb().prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (
+        due_date < ?
+        OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime'))
+      )`).get(now, now) as { c: number }).c,
       today:   (getDb().prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
       total:   (getDb().prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0").get() as { c: number }).c,
     };
