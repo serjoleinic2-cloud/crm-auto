@@ -31,23 +31,23 @@ function getDocumentType(id: number) {
 
 function syncPaymentWhenProofMissing(clientId: number): void {
   const db = getDb();
-  // Do not roll a car back once delivery has started. In that case the
-  // payment has already been operationally accepted and only the document
-  // status needs attention.
+  // The payment proof is the source of truth even after the car has moved
+  // further through the workflow. The physical car stage is only rolled back
+  // when it has not moved beyond «Автомобиль в пути».
   const order = db.prepare(`
-    SELECT o.id
+    SELECT o.id, s.name AS status_name
     FROM orders o
     LEFT JOIN statuses s ON s.id=o.order_status_id
-    WHERE o.client_id=? AND o.payment_status='paid' AND s.name IN ('Оплачен','Автомобиль в пути')
+    WHERE o.client_id=? AND o.payment_status='paid'
     ORDER BY o.id DESC
     LIMIT 1
-  `).get(clientId) as { id: number } | undefined;
+  `).get(clientId) as { id: number; status_name: string | null } | undefined;
   if (!order) return;
 
   const waitingStatus = db.prepare(
     "SELECT id FROM statuses WHERE name='Ожидает оплату' AND is_active=1 ORDER BY id LIMIT 1"
   ).get() as { id: number } | undefined;
-  if (!waitingStatus) return;
+  const shouldRestoreStage = ['Оплачен', 'Автомобиль в пути'].includes(order.status_name ?? '');
 
   const restore = db.transaction(() => {
     db.prepare(`
@@ -58,12 +58,15 @@ function syncPaymentWhenProofMissing(clientId: number): void {
             WHEN signed_contract_date IS NOT NULL THEN date(signed_contract_date, '+3 days')
             ELSE payment_deadline
           END,
-          order_status_id=?,
+          order_status_id=CASE WHEN ? THEN ? ELSE order_status_id END,
           updated_at=datetime('now')
       WHERE id=?
-    `).run(waitingStatus.id, order.id);
-    db.prepare("UPDATE clients SET status_id=?, is_archived=0, updated_at=datetime('now') WHERE id=?")
-      .run(waitingStatus.id, clientId);
+    `).run(shouldRestoreStage && waitingStatus ? 1 : 0, waitingStatus?.id ?? null, order.id);
+
+    if (shouldRestoreStage && waitingStatus) {
+      db.prepare("UPDATE clients SET status_id=?, is_archived=0, updated_at=datetime('now') WHERE id=?")
+        .run(waitingStatus.id, clientId);
+    }
   });
   restore();
   writeHistory(clientId, 'payment_status', 'Оплата ожидается: документ/чек об оплате не получен');
