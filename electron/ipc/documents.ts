@@ -38,7 +38,7 @@ function syncPaymentWhenProofMissing(clientId: number): void {
     SELECT o.id
     FROM orders o
     LEFT JOIN statuses s ON s.id=o.order_status_id
-    WHERE o.client_id=? AND o.payment_status='paid' AND s.name='Оплачен'
+    WHERE o.client_id=? AND o.payment_status='paid' AND s.name IN ('Оплачен','Автомобиль в пути')
     ORDER BY o.id DESC
     LIMIT 1
   `).get(clientId) as { id: number } | undefined;
