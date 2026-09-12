@@ -7,14 +7,6 @@ export interface Status {
   is_active: number;
 }
 
-export interface OrderStatus {
-  id: number;
-  name: string;
-  color: string;
-  sort_order: number;
-  is_active: number;
-}
-
 export interface Client {
   id: number;
   full_name: string;
@@ -99,13 +91,10 @@ export interface Order {
   payment_date: string | null;
   payment_status: string | null;
   order_status_id: number | null;
-  broker_name: string | null;
-  broker_phone: string | null;
-  broker_comment: string | null;
-  broker_date: string | null;
   inspection_done: number;
   inspection_comment: string | null;
   issue_date: string | null;
+  planned_issue_date: string | null;
   delivery_term: number | null;
   delivery_term_unit: 'days' | 'weeks' | 'months' | null;
   payment_deadline: string | null;
@@ -162,6 +151,7 @@ export interface HistoryEntry {
 export interface Reminder {
   id: number;
   client_id: number;
+  order_id: number | null;
   client_name?: string;
   client_phone?: string | null;
   contract_number?: string | null;
@@ -327,9 +317,6 @@ export interface ElectronAPI {
   statuses: {
     getAll: () => Promise<Status[]>;
   };
-  orderStatuses: {
-    getAll: () => Promise<OrderStatus[]>;
-  };
   dashboard: {
     getStats: () => Promise<DashboardStats>;
   };
@@ -342,6 +329,7 @@ export interface ElectronAPI {
   };
   files: {
     openClientFolder: (clientId: number, clientName: string) => Promise<string>;
+    openBaseFolder:   () => Promise<string>;
     openFile:         (filePath: string) => Promise<true | { error: string }>;
     pickFiles:        (opts?: { multi?: boolean }) => Promise<string[]>;
     pickFolder:       () => Promise<string | null>;

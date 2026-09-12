@@ -42,8 +42,7 @@ export default function Dashboard() {
   const orderCards = [
     { label: 'Просрочена оплата', value: stats.overduePayment, icon: AlertTriangle, color: 'text-red-600', bg: stats.overduePayment > 0 ? 'bg-red-50' : 'bg-gray-50', onClick: () => navigate('/clients?filter=payment_overdue') },
     { label: 'Ожидают оплаты', value: stats.pendingPayment, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=payment_overdue') },
-    { label: 'На таможне', value: stats.atCustoms, icon: Package, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', onClick: () => navigate('/clients?filter=customs') },
-    { label: 'На площадке', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/clients?filter=plaza') },
+    { label: 'Автомобиль прибыл', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/clients?filter=arrived') },
     { label: 'Допы', value: stats.extrasCount ?? 0, icon: Wrench, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=extras') },
   ];
 

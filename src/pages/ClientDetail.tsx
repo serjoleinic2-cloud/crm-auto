@@ -90,23 +90,12 @@ import { useDocuments } from '../hooks/useDocuments';
 import StatusBadge from '../components/StatusBadge';
 import DocumentsPanel from '../components/DocumentsPanel';
 import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
-import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck, Phone, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck } from 'lucide-react';
 import ContractTab from '../components/ContractTab';
 import ExtrasPanel from '../components/ExtrasPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
-import type { Client, Status, Contact, Order, OrderStatus, CarBrand, Reminder, Extra } from '../types';
+import type { Client, Status, Contact, Order, CarBrand, Reminder, Extra } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
-
-const INSPECTION_ITEMS = [
-  { key: 'body', label: 'Кузов' },
-  { key: 'glass', label: 'Стёкла' },
-  { key: 'lights', label: 'Фары' },
-  { key: 'wheels', label: 'Колёса' },
-  { key: 'interior', label: 'Салон' },
-  { key: 'equipment', label: 'Комплектация' },
-  { key: 'documents', label: 'Документы' },
-  { key: 'defects', label: 'Другие дефекты' },
-];
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -118,7 +107,6 @@ export default function ClientDetail() {
   const [loadError, setLoadError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>([]);
   const [carBrands, setCarBrands] = useState<CarBrand[]>([]);
   const [activeTab, setActiveTab] = useState<'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras'>(
     (searchParams.get('tab') as 'main' | 'contacts' | 'orders' | 'documents' | 'history' | 'contract' | 'extras') || 'main'
@@ -147,7 +135,6 @@ export default function ClientDetail() {
 
     loadClient();
     ipcService.statuses.getAll().then(setStatuses);
-    ipcService.orderStatuses.getAll().then(setOrderStatuses);
     ipcService.carBrands.getAll().then(setCarBrands);
     fetchOrders(clientId);
     fetchContacts(clientId);
@@ -274,18 +261,15 @@ export default function ClientDetail() {
       description: '',
       price: null,
       comment: '',
-      payment_status: 'not_paid',
+      payment_status: 'pending',
       payment_date: null,
       delivery_date_est: null,
       delivery_date_actual: null,
       order_status_id: pendingStatus?.id ?? null,
-      broker_name: '',
-      broker_phone: '',
-      broker_comment: '',
-      broker_date: null,
       inspection_done: 0,
       inspection_comment: '',
       issue_date: null,
+      planned_issue_date: null,
       delivery_term: 2,
       delivery_term_unit: 'weeks',
       payment_deadline: null,
@@ -359,6 +343,7 @@ export default function ClientDetail() {
 
     setEditingOrder(null);
     setOrderForm({});
+    await loadClient();
     fetchOrders(clientId);
     fetchReminders({ clientId });
   };
@@ -407,12 +392,8 @@ export default function ClientDetail() {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
-  const showBrokerBlock = (statusName?: string) => {
-    return ['На таможне', 'Едет по РФ', 'На площадке', 'Допы', 'Выдан'].includes(statusName || '');
-  };
-
   const showInspectionBlock = (statusName?: string) => {
-    return ['На площадке', 'Допы', 'Выдан'].includes(statusName || '');
+    return ['Автомобиль прибыл', 'Допы', 'Подготовка к выдаче', 'Выдан'].includes(statusName || '');
   };
 
   const showIssueDate = (statusName?: string) => {
@@ -729,7 +710,7 @@ export default function ClientDetail() {
                 {/* Payment block */}
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><FileText size={12}/> Оплата</h5>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     <div>
                       <label className="label text-xs">Статус оплаты</label>
                       <select className="input text-sm" value={orderForm.payment_status || 'not_paid'} onChange={e => {
@@ -822,7 +803,7 @@ export default function ClientDetail() {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     <div>
                       <label className="label text-xs">Ориентировочная дата прибытия</label>
                       <input
@@ -835,6 +816,11 @@ export default function ClientDetail() {
                     <div>
                       <label className="label text-xs">Фактическая дата прибытия</label>
                       <input type="date" className="input text-sm" value={orderForm.delivery_date_actual?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, delivery_date_actual: e.target.value || null})} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Плановая дата выдачи</label>
+                      <input type="date" className="input text-sm" value={orderForm.planned_issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, planned_issue_date: e.target.value || null})} />
+                      <p className="text-[10px] text-gray-400 mt-0.5">Проверка авто будет поставлена за 2 дня</p>
                     </div>
                   </div>
                   {orderForm.delivery_date_est && (() => {
@@ -850,23 +836,15 @@ export default function ClientDetail() {
                   })()}
                 </div>
 
-                {/* Order status — меняет статус клиента напрямую */}
+                {/* Единый статус заказа и клиента; сохранение происходит только по кнопке. */}
                 <div className="border-t border-gray-200 pt-3">
-                  <label className="label text-xs">Статус клиента</label>
+                  <label className="label text-xs">Статус заказа</label>
                   <select
                     className="input text-sm"
                     value={orderForm.order_status_id || ''}
-                    onChange={async e => {
+                    onChange={e => {
                       const val = e.target.value ? parseInt(e.target.value) : null;
                       setOrderForm({...orderForm, order_status_id: val});
-                      // Сразу меняем статус клиента
-                      if (val && client) {
-                        const picked = statuses.find(s => s.id === val);
-                        if (picked) {
-                          await ipcService.clients.update(clientId, { status_id: val });
-                          setClient(prev => prev ? { ...prev, status_id: val, status_name: picked.name, status_color: picked.color } : prev);
-                        }
-                      }
                     }}
                   >
                     <option value="">—</option>
@@ -874,44 +852,11 @@ export default function ClientDetail() {
                   </select>
                 </div>
 
-                {/* Broker block */}
-                {showBrokerBlock(statuses.find(s => s.id === orderForm.order_status_id)?.name) && (
-                  <div className="border-t border-gray-200 pt-3">
-                    <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Phone size={12}/> Брокер</h5>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="label text-xs">ФИО / название</label>
-                        <input className="input text-sm" value={orderForm.broker_name || ''} onChange={e => setOrderForm({...orderForm, broker_name: e.target.value || null})} />
-                      </div>
-                      <div>
-                        <label className="label text-xs">Телефон</label>
-                        <input className="input text-sm" value={orderForm.broker_phone || ''} onChange={e => setOrderForm({...orderForm, broker_phone: e.target.value || null})} />
-                      </div>
-                    </div>
-                    <div className="mt-2">
-                      <label className="label text-xs">Комментарий</label>
-                      <textarea className="input text-sm" rows={2} value={orderForm.broker_comment || ''} onChange={e => setOrderForm({...orderForm, broker_comment: e.target.value || null})} />
-                    </div>
-                    <div className="mt-2">
-                      <label className="label text-xs">Дата передачи брокеру</label>
-                      <input type="date" className="input text-sm" value={orderForm.broker_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, broker_date: e.target.value || null})} />
-                    </div>
-                  </div>
-                )}
-
                 {/* Inspection block */}
                 {showInspectionBlock(statuses.find(s => s.id === orderForm.order_status_id)?.name) && (
                   <div className="border-t border-gray-200 pt-3">
-                    <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><ClipboardCheck size={12}/> Осмотр автомобиля</h5>
-                    <div className="grid grid-cols-2 gap-2">
-                      {INSPECTION_ITEMS.map(item => (
-                        <label key={item.key} className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" className="w-3.5 h-3.5 rounded accent-primary-600" />
-                          <span>{item.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-2">
+                    <h5 className="text-xs font-semibold text-gray-600 mb-2">Осмотр автомобиля</h5>
+                    <div>
                       <label className="label text-xs">Комментарий / дефекты</label>
                       <textarea className="input text-sm" rows={2} value={orderForm.inspection_comment || ''} onChange={e => setOrderForm({...orderForm, inspection_comment: e.target.value || null})} />
                     </div>
@@ -1001,25 +946,27 @@ export default function ClientDetail() {
                     <div className="flex gap-2 mt-2 flex-wrap">
                       <button onClick={e => { e.stopPropagation(); startEditOrder(order); }} className="text-xs text-primary-600 hover:underline">Редактировать</button>
                       <button onClick={e => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="text-xs text-red-500 hover:underline">Удалить</button>
-                      {status?.name !== 'Допы' && (
+                      {os?.name !== 'Допы' && (
                         <button onClick={async e => {
                           e.stopPropagation();
                           const extrasStatus = statuses.find(s => s.name === 'Допы');
                           if (extrasStatus) {
-                            await ipcService.clients.update(clientId, { status_id: extrasStatus.id });
+                            await updateOrder(order.id, { order_status_id: extrasStatus.id });
                             loadClient();
+                            fetchOrders(clientId);
                           }
                         }} className="text-xs text-orange-600 hover:underline">На допы</button>
                       )}
-                      {status?.name === 'Допы' && (
+                      {os?.name === 'Допы' && (
                         <button onClick={async e => {
                           e.stopPropagation();
-                          const yardStatus = statuses.find(s => s.name === 'На площадке');
-                          if (yardStatus) {
-                            await ipcService.clients.update(clientId, { status_id: yardStatus.id });
+                          const arrivedStatus = statuses.find(s => s.name === 'Автомобиль прибыл');
+                          if (arrivedStatus) {
+                            await updateOrder(order.id, { order_status_id: arrivedStatus.id });
                             loadClient();
+                            fetchOrders(clientId);
                           }
-                        }} className="text-xs text-green-600 hover:underline">С допов → На площадке</button>
+                        }} className="text-xs text-green-600 hover:underline">С допов → Автомобиль прибыл</button>
                       )}
                     </div>
                   </div>
@@ -1036,73 +983,6 @@ export default function ClientDetail() {
           <DocumentsPanel clientId={clientId} />
         </div>
       )}
-
-      {activeTab === ('officers' as string) && client && (() => {
-        // Documents needed by officers
-        const officerDocs = [
-          { code: 'inn',             label: 'ИНН' },
-          { code: 'snils',           label: 'СНИЛС' },
-          { code: 'contract_signed', label: 'Договор (скан подписанный клиентом)' },
-          { code: 'contract',        label: 'Договор (файл Word)' },
-          { code: 'consent',         label: 'Согласие на обработку ПД' },
-        ];
-        return (
-          <div className="card space-y-4">
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-1">📋 Пакет документов для оформителей</h3>
-              <p className="text-sm text-gray-500">Документы которые нужно передать оформителям для оформления сделки</p>
-            </div>
-
-            <div className="space-y-2">
-              {officerDocs.map(d => {
-                const docInStore = (documents as {code: string; status: string; files: unknown[]}[]).find(doc => doc.code === d.code);
-                const hasFile = docInStore && docInStore.files && (docInStore.files as unknown[]).length > 0;
-                const isReceived = docInStore && (docInStore.status === 'received' || docInStore.status === 'verified');
-                return (
-                  <div key={d.code} className={`flex items-center gap-3 p-2.5 rounded-lg border ${
-                    hasFile ? 'border-green-200 bg-green-50' : isReceived ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'
-                  }`}>
-                    <span className="text-lg">{hasFile ? '✅' : isReceived ? '📄' : '❌'}</span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-800">{d.label}</div>
-                      <div className="text-xs text-gray-500">
-                        {hasFile ? 'Файл загружен' : isReceived ? 'Получен (файл не загружен)' : 'Отсутствует'}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Client data for broker */}
-            <div className="border-t border-gray-200 pt-4">
-              <h4 className="font-semibold text-gray-800 mb-2 text-sm">📞 Данные клиента для брокера</h4>
-              <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-sm">
-                <div><span className="text-gray-500">ФИО:</span> <span className="font-medium">{client.full_name}</span></div>
-                {client.phone && <div><span className="text-gray-500">Телефон:</span> <span className="font-medium">{client.phone}</span></div>}
-                {client.email && <div><span className="text-gray-500">Email:</span> <span className="font-medium">{client.email}</span></div>}
-                {orders[0]?.contract_number && <div><span className="text-gray-500">№ договора:</span> <span className="font-medium">{orders[0].contract_number}</span></div>}
-                {orders[0]?.brand && <div><span className="text-gray-500">Авто:</span> <span className="font-medium">{orders[0].brand} {orders[0].model} {orders[0].year}</span></div>}
-              </div>
-              <button
-                onClick={() => {
-                  const text = [
-                    `ФИО: ${client.full_name}`,
-                    client.phone ? `Телефон: ${client.phone}` : '',
-                    client.email ? `Email: ${client.email}` : '',
-                    orders[0]?.contract_number ? `№ договора: ${orders[0].contract_number}` : '',
-                    orders[0]?.brand ? `Авто: ${orders[0].brand} ${orders[0].model} ${orders[0].year || ''}` : '',
-                  ].filter(Boolean).join('\n');
-                  navigator.clipboard.writeText(text);
-                }}
-                className="mt-2 text-xs text-primary-600 hover:underline"
-              >
-                📋 Скопировать данные
-              </button>
-            </div>
-          </div>
-        );
-      })()}
 
       {activeTab === 'contract' && client && (
         <ErrorBoundary label="Договор">

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getBasePath } from './storagePaths';
+import { getDatabasePath, getDb } from './database';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,10 @@ function pruneFiles(dir: string, prefix: string, keep: number) {
       try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
     }
   } catch (_) {}
+}
+
+function checkpointDatabase() {
+  getDb().pragma('wal_checkpoint(TRUNCATE)');
 }
 
 // ── settings ───────────────────────────────────────────────────────────────
@@ -84,7 +89,7 @@ export function registerBackupHandlers(): void {
   // Manual backup → save dialog
   ipcMain.handle('backup:create', async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
-    const dbPath = path.join(getBasePath(), 'crm.db');
+    const dbPath = getDatabasePath();
     if (!fs.existsSync(dbPath)) return { error: 'База данных не найдена' };
 
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -95,6 +100,7 @@ export function registerBackupHandlers(): void {
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     try {
+      checkpointDatabase();
       fs.copyFileSync(dbPath, result.filePath);
       return { success: true, path: result.filePath };
     } catch (err) {
@@ -106,7 +112,7 @@ export function registerBackupHandlers(): void {
   ipcMain.handle('backup:restore', async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
     const basePath = getBasePath();
-    const dbPath = path.join(basePath, 'crm.db');
+    const dbPath = getDatabasePath();
 
     const result = await dialog.showOpenDialog(win as BrowserWindow, {
       title: 'Выбрать резервную копию',
@@ -174,7 +180,7 @@ export function registerBackupHandlers(): void {
     if (!settings.gmailEmail || !settings.gmailAppPassword) {
       return { error: 'Email и пароль приложения не настроены' };
     }
-    const dbPath = path.join(getBasePath(), 'crm.db');
+    const dbPath = getDatabasePath();
     if (!fs.existsSync(dbPath)) return { error: 'База данных не найдена' };
 
     try {
@@ -261,7 +267,7 @@ export function registerBackupHandlers(): void {
     if (!s.gdrivePath) return { error: 'Папка Google Drive не настроена' };
     if (!fs.existsSync(s.gdrivePath)) return { error: `Папка не найдена: ${s.gdrivePath}` };
 
-    const dbPath = path.join(getBasePath(), 'crm.db');
+    const dbPath = getDatabasePath();
     if (!fs.existsSync(dbPath)) return { error: 'База данных не найдена' };
 
     try {

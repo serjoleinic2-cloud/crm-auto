@@ -61,9 +61,9 @@ export default function ExtrasDetail() {
 
   const handleStatusChange = async (statusName: string) => {
     const status = statuses.find(s => s.name === statusName);
-    if (status && client) {
-      await ipcService.clients.update(client.id, { status_id: status.id });
-      if (statusName === 'На площадке') {
+    if (status && client && orders[0]) {
+      await ipcService.orders.update(orders[0].id, { order_status_id: status.id });
+      if (statusName === 'Автомобиль прибыл') {
         navigate('/clients');
       } else {
         load();
@@ -171,8 +171,8 @@ export default function ExtrasDetail() {
       <div className="card">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Статус</h2>
         <div className="flex gap-2">
-          <button onClick={() => handleStatusChange('На площадке')} className="btn-primary flex-1 text-sm">
-            <Check size={14} className="inline mr-1"/> Готов → На площадку
+          <button onClick={() => handleStatusChange('Автомобиль прибыл')} className="btn-primary flex-1 text-sm">
+            <Check size={14} className="inline mr-1"/> Допы готовы → Автомобиль прибыл
           </button>
         </div>
       </div>

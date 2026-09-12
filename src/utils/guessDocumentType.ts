@@ -8,7 +8,6 @@ const KEYWORDS: Record<string, string[]> = {
   contract_signed: ['подпис', 'signed', 'podpis'],
   contract: ['договор', 'contract', 'dogovor'],
   payment_proof: ['чек', 'оплат', 'payment', 'receipt', 'kvitanciya', 'квитанц', 'chek', 'oplat'],
-  broker_poa: ['доверенност', 'poa', 'broker', 'doverennost'],
 };
 
 /** Guesses a document type id for a filename by matching keywords against known codes.
@@ -17,7 +16,7 @@ export function guessDocumentTypeId(fileName: string, types: DocumentType[]): nu
   const lower = fileName.toLowerCase();
 
   // contract_signed must be checked before contract (both share "договор")
-  for (const code of ['contract_signed', 'consent', 'passport', 'snils', 'inn', 'payment_proof', 'broker_poa', 'contract']) {
+  for (const code of ['contract_signed', 'consent', 'passport', 'snils', 'inn', 'payment_proof', 'contract']) {
     const words = KEYWORDS[code];
     if (words && words.some(w => lower.includes(w))) {
       const t = types.find(t => t.code === code);

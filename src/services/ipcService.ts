@@ -36,7 +36,6 @@ export const ipcService = {
   },
   history:      { getByClientId: (id: number) => api().history.getByClientId(id) },
   statuses:     { getAll: () => api().statuses.getAll() },
-  orderStatuses:{ getAll: () => api().orderStatuses.getAll() },
   dashboard:    { getStats: () => api().dashboard.getStats() },
   carBrands:    { getAll: () => api().carBrands.getAll() },
   settings: {
@@ -45,6 +44,7 @@ export const ipcService = {
   },
   files: {
     openClientFolder: (clientId: number, clientName: string) => api().files.openClientFolder(clientId, clientName),
+    openBaseFolder:   () => api().files.openBaseFolder(),
     openFile:         (filePath: string) => api().files.openFile(filePath),
     pickFiles:        (opts?: { multi?: boolean }) => api().files.pickFiles(opts),
     pickFolder:       () => api().files.pickFolder(),

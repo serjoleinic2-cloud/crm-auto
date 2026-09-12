@@ -2,11 +2,15 @@ import Database from 'better-sqlite3';
 import { ipcMain, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { CREATE_TABLES_SQL, DEFAULT_STATUSES, DEFAULT_DOCUMENT_TYPES, DEFAULT_ORDER_STATUSES } from '../schema';
+import { CREATE_TABLES_SQL, DEFAULT_STATUSES, DEFAULT_DOCUMENT_TYPES } from '../schema';
 
 let db: Database.Database;
 
 export function getDb(): Database.Database { return db; }
+
+export function getDatabasePath(): string {
+  return path.join(app.getPath('userData'), 'crm-auto.db');
+}
 
 export function getSetting(key: string): string | null {
   const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key) as { value: string } | undefined;
@@ -32,9 +36,93 @@ function safeAlter(table: string, col: string, def: string) {
   }
 }
 
+function getCanonicalStatusId(name: string): number | null {
+  const row = db.prepare('SELECT MIN(id) AS id FROM statuses WHERE name=? AND is_active=1').get(name) as { id: number | null };
+  return row?.id ?? null;
+}
+
+function migrateLegacyOrderStatuses(): void {
+  const map: Record<string, string> = {
+    'Новый заказ': 'Думает',
+    'Ожидает оплату': 'Ожидает оплату',
+    'Оплачен': 'Оплачен',
+    'Автомобиль заказан': 'Автомобиль в пути',
+    'Автомобиль в пути': 'Автомобиль в пути',
+    'На таможне': 'Автомобиль в пути',
+    'Таможенное оформление': 'Автомобиль в пути',
+    'Едет по РФ': 'Автомобиль в пути',
+    'Прибыл в офис': 'Автомобиль прибыл',
+    'Выдан клиенту': 'Выдан',
+    'Отменён': 'Отказ',
+  };
+  const hasLegacyTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='order_statuses'").get();
+  if (!hasLegacyTable) return;
+  const legacyNames = new Map((db.prepare('SELECT id,name FROM order_statuses').all() as { id: number; name: string }[])
+    .map(status => [status.id, status.name]));
+  const orders = db.prepare('SELECT id,order_status_id FROM orders WHERE order_status_id IS NOT NULL').all() as { id: number; order_status_id: number }[];
+  const currentStatusName = db.prepare('SELECT name FROM statuses WHERE id=?').pluck();
+  const update = db.prepare('UPDATE orders SET order_status_id=? WHERE id=?');
+  for (const order of orders) {
+    // The current UI wrote client-status ids into orders. Prefer that meaning
+    // when it is available; otherwise translate an old order-status id.
+    const currentName = currentStatusName.get(order.order_status_id) as string | undefined;
+    const targetName = currentName ?? map[legacyNames.get(order.order_status_id) ?? ''];
+    const statusId = targetName ? getCanonicalStatusId(targetName) : null;
+    if (statusId !== null) update.run(statusId, order.id);
+  }
+}
+
+function mergeDuplicateStatuses(): void {
+  const groups = db.prepare(`
+    SELECT name, MIN(id) AS canonical_id
+    FROM statuses
+    WHERE is_active=1
+    GROUP BY name
+    HAVING COUNT(*) > 1
+  `).all() as { name: string; canonical_id: number }[];
+  const merge = db.transaction(() => {
+    for (const group of groups) {
+      const duplicateIds = db.prepare('SELECT id FROM statuses WHERE name=? AND is_active=1 AND id<>?')
+        .all(group.name, group.canonical_id) as { id: number }[];
+      for (const duplicate of duplicateIds) {
+        db.prepare('UPDATE clients SET status_id=? WHERE status_id=?').run(group.canonical_id, duplicate.id);
+        db.prepare('UPDATE orders SET order_status_id=? WHERE order_status_id=?').run(group.canonical_id, duplicate.id);
+        db.prepare('DELETE FROM statuses WHERE id=?').run(duplicate.id);
+      }
+    }
+  });
+  merge();
+}
+
+function syncClientStatusFromOrder(clientId: number, statusId: unknown): void {
+  if (typeof statusId === 'number') {
+    db.prepare("UPDATE clients SET status_id=?, updated_at=datetime('now') WHERE id=?").run(statusId, clientId);
+  }
+}
+
+function syncInspectionReminder(clientId: number, orderId: number, plannedIssueDate: unknown, carName: string): void {
+  const title = 'Проверить автомобиль перед выдачей';
+  if (typeof plannedIssueDate !== 'string' || !plannedIssueDate) {
+    db.prepare('DELETE FROM reminders WHERE order_id=? AND title=? AND auto_created=1 AND is_completed=0').run(orderId, title);
+    return;
+  }
+
+  const description = `Проверить ${carName || 'автомобиль'} за 2 дня до плановой выдачи.`;
+  const changed = db.prepare(`
+    UPDATE reminders
+    SET due_date=date(?, '-2 days'), description=?
+    WHERE order_id=? AND title=? AND auto_created=1 AND is_completed=0
+  `).run(plannedIssueDate, description, orderId, title).changes;
+  if (!changed) {
+    db.prepare(`
+      INSERT INTO reminders (client_id,order_id,title,description,due_date,auto_created)
+      VALUES (?, ?, ?, ?, date(?, '-2 days'), 1)
+    `).run(clientId, orderId, title, description, plannedIssueDate);
+  }
+}
+
 export function initDatabase(): void {
-  const userDataPath = app.getPath('userData');
-  const dbPath = path.join(userDataPath, 'crm-auto.db');
+  const dbPath = getDatabasePath();
   console.log('[DB] Opening database at:', dbPath);
   db = new Database(dbPath);
   console.log('[DB] Setting pragmas...');
@@ -51,13 +139,10 @@ export function initDatabase(): void {
 
   // Orders new fields (no REFERENCES in ALTER TABLE)
   safeAlter('orders', 'order_status_id',    'INTEGER');
-  safeAlter('orders', 'broker_name',          'TEXT');
-  safeAlter('orders', 'broker_phone',         'TEXT');
-  safeAlter('orders', 'broker_comment',       'TEXT');
-  safeAlter('orders', 'broker_date',          'TEXT');
   safeAlter('orders', 'inspection_done',      'INTEGER NOT NULL DEFAULT 0');
   safeAlter('orders', 'inspection_comment',   'TEXT');
   safeAlter('orders', 'issue_date',           'TEXT');
+  safeAlter('orders', 'planned_issue_date',   'TEXT');
 
   // Delivery term fields
   safeAlter('orders', 'delivery_term',       'INTEGER');
@@ -65,6 +150,7 @@ export function initDatabase(): void {
 
   // Reminder time field
   safeAlter('reminders', 'due_time', 'TEXT');
+  safeAlter('reminders', 'order_id', 'INTEGER');
 
   // Make reminders.client_id nullable (for personal tasks without client)
   console.log('[DB] Checking reminders.client_id nullability...');
@@ -100,39 +186,10 @@ export function initDatabase(): void {
   safeAlter('orders', 'payment_deadline', 'TEXT');
   safeAlter('orders', 'signed_contract_date', 'TEXT');
 
-  // Migrate order statuses
-  const existingOrderStatuses = (db.prepare('SELECT name FROM order_statuses').all() as {name:string}[]).map(s => s.name);
-  const newOrderStatuses = [
-    { name: 'Новый заказ',           color: '#6b7280', sort_order: 1 },
-    { name: 'Ожидает оплату',        color: '#f59e0b', sort_order: 2 },
-    { name: 'Оплачен',               color: '#3b82f6', sort_order: 3 },
-    { name: 'Автомобиль заказан',    color: '#8b5cf6', sort_order: 4 },
-    { name: 'Автомобиль в пути',     color: '#06b6d4', sort_order: 5 },
-    { name: 'На таможне',            color: '#d946ef', sort_order: 6 },
-    { name: 'Таможенное оформление', color: '#ec4899', sort_order: 7 },
-    { name: 'Едет по РФ',            color: '#14b8a6', sort_order: 8 },
-    { name: 'Прибыл в офис',         color: '#22c55e', sort_order: 9 },
-    { name: 'Выдан клиенту',         color: '#10b981', sort_order: 10 },
-    { name: 'Отменён',               color: '#ef4444', sort_order: 11 },
-  ];
-  for (const s of newOrderStatuses) {
-    if (!existingOrderStatuses.includes(s.name)) {
-      db.prepare('INSERT INTO order_statuses (name,color,sort_order,is_active) VALUES (?,?,?,1)').run(s.name, s.color, s.sort_order);
-    }
-  }
-  // Hide obsolete "Ожидает доверенность" and "Готов к выдаче" order status
-  db.prepare("UPDATE order_statuses SET is_active=0 WHERE name IN ('Ожидает доверенность','Готов к выдаче') AND is_active=1").run();
-
-  // Migrate statuses to match real process (v5)
-  // Rename old statuses
+  // Rename old statuses before deduplicating existing databases.
   db.prepare("UPDATE statuses SET name='Договор подписан' WHERE name='Договор отправлен' AND is_active=1").run();
-  db.prepare("UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче' AND is_active=1").run();
-
-  // Remove broker_poa and customs-related document types
-  // First delete documents with broker_poa type (via document_type_id)
-  db.prepare(`DELETE FROM documents WHERE document_type_id IN (SELECT id FROM document_types WHERE code='broker_poa')`).run();
-  db.prepare("DELETE FROM document_types WHERE code='broker_poa'").run();
-  db.prepare("DELETE FROM document_types WHERE name LIKE '%таможн%' OR name LIKE '%ТАМОЖН%' OR folder_name LIKE '%таможн%' OR folder_name LIKE '%ТАМОЖН%'").run();
+  db.prepare("UPDATE statuses SET name='Автомобиль прибыл' WHERE name IN ('Готов к выдаче','На площадке') AND is_active=1").run();
+  db.prepare("UPDATE statuses SET name='Автомобиль в пути' WHERE name IN ('На таможне','Едет по РФ') AND is_active=1").run();
 
   const existingStatuses = (db.prepare('SELECT name FROM statuses').all() as {name:string}[]).map(s => s.name);
   const newStatuses = [
@@ -141,10 +198,10 @@ export function initDatabase(): void {
     { name: 'Договор подписан',   color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
     { name: 'Ожидает оплату',     color: '#f59e0b', category: 'pipeline', sort_order: 3 },
     { name: 'Оплачен',            color: '#3b82f6', category: 'pipeline', sort_order: 4 },
-    { name: 'На таможне',         color: '#d946ef', category: 'pipeline', sort_order: 5 },
-    { name: 'Едет по РФ',         color: '#14b8a6', category: 'pipeline', sort_order: 6 },
-    { name: 'На площадке',        color: '#22c55e', category: 'pipeline', sort_order: 7 },
-    { name: 'Допы',               color: '#f97316', category: 'pipeline', sort_order: 8 },
+    { name: 'Автомобиль в пути',  color: '#06b6d4', category: 'pipeline', sort_order: 5 },
+    { name: 'Автомобиль прибыл',  color: '#22c55e', category: 'pipeline', sort_order: 6 },
+    { name: 'Допы',               color: '#f97316', category: 'pipeline', sort_order: 7 },
+    { name: 'Подготовка к выдаче',color: '#0ea5e9', category: 'pipeline', sort_order: 8 },
     { name: 'Выдан',              color: '#10b981', category: 'done',     sort_order: 9 },
     { name: 'Завершён',           color: '#6b7280', category: 'done',     sort_order: 10 },
     { name: 'Отказ',              color: '#ef4444', category: 'lost',     sort_order: 11 },
@@ -202,21 +259,16 @@ export function initDatabase(): void {
 
   // ── Seed data ──────────────────────────────────────────────────────────────
 
-  const statusCount = (db.prepare('SELECT COUNT(*) as c FROM statuses').get() as { c: number }).c;
-  if (statusCount === 0) {
-    const ins = db.prepare('INSERT INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
-    for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
-  } else {
-    // Добавляем только отсутствующие статусы, дубли НЕ трогаем (они привязаны к клиентам)
-    const ins = db.prepare('INSERT OR IGNORE INTO statuses (name,color,category,sort_order) VALUES (?,?,?,?)');
-    for (const s of DEFAULT_STATUSES) ins.run(s.name, s.color, s.category, s.sort_order);
+  const existingStatusNames = new Set((db.prepare('SELECT name FROM statuses').all() as { name: string }[]).map(s => s.name));
+  const statusInsert = db.prepare('INSERT INTO statuses (name,color,category,sort_order,is_active) VALUES (?,?,?,?,1)');
+  for (const s of DEFAULT_STATUSES) {
+    if (!existingStatusNames.has(s.name)) statusInsert.run(s.name, s.color, s.category, s.sort_order);
   }
 
-  const orderStatusCount = (db.prepare('SELECT COUNT(*) as c FROM order_statuses').get() as { c: number }).c;
-  if (orderStatusCount === 0) {
-    const ins = db.prepare('INSERT INTO order_statuses (name,color,sort_order) VALUES (?,?,?)');
-    for (const s of DEFAULT_ORDER_STATUSES) ins.run(s.name, s.color, s.sort_order);
-  }
+  // One status dictionary is shared by clients and orders. Old order statuses
+  // are translated by name, then duplicate client statuses are merged safely.
+  migrateLegacyOrderStatuses();
+  mergeDuplicateStatuses();
 
   // Всегда синхронизируем марки с car_brands.txt (заменяем старый список)
   const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
@@ -437,10 +489,10 @@ export function registerDatabaseHandlers(): void {
   ipcMain.handle('orders:getAll', () => {
     return db.prepare(`
       SELECT o.*, c.full_name as client_name,
-             os.name as order_status_name, os.color as order_status_color
+             s.name as order_status_name, s.color as order_status_color
       FROM orders o
       JOIN clients c ON c.id=o.client_id
-      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      LEFT JOIN statuses s ON s.id=o.order_status_id
       WHERE c.is_deleted=0 AND c.is_archived=0
       ORDER BY o.id DESC
     `).all();
@@ -448,9 +500,9 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle('orders:getByClientId', (_e, clientId: number) =>
     db.prepare(`
-      SELECT o.*, os.name as order_status_name, os.color as order_status_color
+      SELECT o.*, s.name as order_status_name, s.color as order_status_color
       FROM orders o
-      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      LEFT JOIN statuses s ON s.id=o.order_status_id
       WHERE o.client_id=?
       ORDER BY o.id
     `).all(clientId)
@@ -458,17 +510,17 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle('orders:getById', (_e, id: number) =>
     db.prepare(`
-      SELECT o.*, os.name as order_status_name, os.color as order_status_color
+      SELECT o.*, s.name as order_status_name, s.color as order_status_color
       FROM orders o
-      LEFT JOIN order_statuses os ON os.id=o.order_status_id
+      LEFT JOIN statuses s ON s.id=o.order_status_id
       WHERE o.id=?
     `).get(id)
   );
 
   ipcMain.handle('orders:create', (_e, data: Record<string, unknown>) => {
     const result = db.prepare(`
-      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,broker_name,broker_phone,broker_comment,broker_date,inspection_done,inspection_comment,issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
-      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@broker_name,@broker_phone,@broker_comment,@broker_date,@inspection_done,@inspection_comment,@issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
+      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,inspection_done,inspection_comment,issue_date,planned_issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
+      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@inspection_done,@inspection_comment,@issue_date,@planned_issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
     `).run({
       client_id: data.client_id, contract_number: data.contract_number ?? null,
       brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
@@ -477,16 +529,16 @@ export function registerDatabaseHandlers(): void {
       delivery_date_est: data.delivery_date_est ?? null, delivery_date_actual: data.delivery_date_actual ?? null,
       payment_date: data.payment_date ?? null, payment_status: data.payment_status ?? null,
       order_status_id: data.order_status_id ?? null,
-      broker_name: data.broker_name ?? null, broker_phone: data.broker_phone ?? null,
-      broker_comment: data.broker_comment ?? null, broker_date: data.broker_date ?? null,
       inspection_done: data.inspection_done ?? 0, inspection_comment: data.inspection_comment ?? null,
-      issue_date: data.issue_date ?? null,
+      issue_date: data.issue_date ?? null, planned_issue_date: data.planned_issue_date ?? null,
       delivery_term: data.delivery_term ?? null,
       delivery_term_unit: data.delivery_term_unit ?? null,
       payment_deadline: data.payment_deadline ?? null,
       signed_contract_date: data.signed_contract_date ?? null,
     });
     const orderId = result.lastInsertRowid as number;
+    syncClientStatusFromOrder(data.client_id as number, data.order_status_id);
+    syncInspectionReminder(data.client_id as number, orderId, data.planned_issue_date, [data.brand, data.model].filter(Boolean).join(' '));
     _writeHistory(data.client_id as number, 'order_create',
       `Создан заказ: ${[data.brand, data.model].filter(Boolean).join(' ')}`);
     return orderId;
@@ -516,19 +568,11 @@ export function registerDatabaseHandlers(): void {
           `Статус оплаты: ${labels[old.payment_status as string] ?? old.payment_status} → ${labels[data.payment_status as string] ?? data.payment_status}`);
       }
       if ('order_status_id' in data && old.order_status_id !== data.order_status_id) {
-        const oldStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(old.order_status_id as number) as { name: string } | undefined;
-        const newStatus = db.prepare('SELECT name FROM order_statuses WHERE id=?').get(data.order_status_id as number) as { name: string } | undefined;
+        const oldStatus = db.prepare('SELECT name FROM statuses WHERE id=?').get(old.order_status_id as number) as { name: string } | undefined;
+        const newStatus = db.prepare('SELECT name FROM statuses WHERE id=?').get(data.order_status_id as number) as { name: string } | undefined;
         _writeHistory(clientId, 'order_status',
           `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
-
-        if (newStatus?.name === 'На таможне') {
-          db.prepare(`INSERT INTO reminders (client_id, title, description, due_date, auto_created) VALUES (?, ?, ?, date('now'), 1)`)
-            .run(clientId, 'Позвонить клиенту — авто на таможне', `Связать клиента с брокером`);
-        }
-        if (newStatus?.name === 'Прибыл в офис') {
-          db.prepare(`INSERT INTO reminders (client_id, title, description, due_date, auto_created) VALUES (?, ?, ?, date('now'), 1)`)
-            .run(clientId, 'Позвонить клиенту', 'Сообщить о прибытии автомобиля в офис');
-        }
+        syncClientStatusFromOrder(clientId, data.order_status_id);
       }
       if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
         _writeHistory(clientId, 'arrival', 'Автомобиль прибыл в офис');
@@ -536,12 +580,16 @@ export function registerDatabaseHandlers(): void {
       if ('issue_date' in data && !old.issue_date && data.issue_date) {
         _writeHistory(clientId, 'issue', 'Автомобиль выдан клиенту');
       }
+      const plannedIssueDate = 'planned_issue_date' in data ? data.planned_issue_date : old.planned_issue_date;
+      const carName = [data.brand ?? old.brand, data.model ?? old.model].filter(Boolean).join(' ');
+      syncInspectionReminder(clientId, id, plannedIssueDate, carName);
     }
     return true;
   });
 
   ipcMain.handle('orders:delete', (_e, id: number) => {
     const order = db.prepare('SELECT * FROM orders WHERE id=?').get(id) as Record<string, unknown> | undefined;
+    db.prepare('DELETE FROM reminders WHERE order_id=?').run(id);
     db.prepare('DELETE FROM orders WHERE id=?').run(id);
     if (order) _writeHistory(order.client_id as number, 'order_delete',
       `Заказ удалён: ${[order.brand, order.model].filter(Boolean).join(' ')}`);
@@ -623,15 +671,15 @@ export function registerDatabaseHandlers(): void {
       activeClients:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.category IN ('lead','pipeline') AND s.name NOT IN ('Допы','Отказ')`).get() as { c: number }).c,
       needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
-      carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name IN ('Едет по РФ','На таможне','Автомобиль в пути')`).get() as { c: number }).c,
+      carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name='Автомобиль в пути'`).get() as { c: number }).c,
       newClientsThisWeek:(db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo) as { c: number }).c,
       pendingConsent:    (db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get() as { c: number }).c,
       trashCount:        (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get() as { c: number }).c,
       overdueReminders:  (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
       pendingPayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_status='pending'").get() as { c: number }).c,
       overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND o.payment_status != 'paid' AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
-      atCustoms:         (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='На таможне'`).get() as { c: number }).c,
-      inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='На площадке'`).get() as { c: number }).c,
+      atCustoms:         0,
+      inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Автомобиль прибыл'`).get() as { c: number }).c,
       extrasCount:       (db.prepare("SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Допы'").get() as { c: number }).c,
       leadClients:       (db.prepare("SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.category='lead'").get() as { c: number }).c,
     };

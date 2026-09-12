@@ -7,10 +7,10 @@ import { Truck, Clock, AlertTriangle } from 'lucide-react';
 
 interface OrderWithClient extends Order { client_name?: string; }
 
-const TRANSIT_STATUSES = ['Автомобиль в пути', 'На таможне', 'Таможенное оформление', 'Едет по РФ'];
-const ALL_ACTIVE = [...TRANSIT_STATUSES, 'Автомобиль заказан', 'Прибыл в офис'];
+const TRANSIT_STATUSES = ['Автомобиль в пути'];
+const ALL_ACTIVE = ['Ожидает оплату', 'Оплачен', 'Автомобиль в пути', 'Автомобиль прибыл', 'Допы', 'Подготовка к выдаче'];
 
-type Filter = 'active' | 'transit' | 'customs' | 'office';
+type Filter = 'active' | 'transit' | 'arrived' | 'ready';
 
 function todayISO() { return new Date().toISOString().split('T')[0]; }
 
@@ -34,16 +34,16 @@ export default function Orders() {
 
   const filtered = useMemo(() => {
     if (filter === 'transit')  return orders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
-    if (filter === 'customs')  return orders.filter(o => ['На таможне','Таможенное оформление'].includes(o.order_status_name ?? ''));
-    if (filter === 'office')   return orders.filter(o => o.order_status_name === 'Прибыл в офис');
+    if (filter === 'arrived')  return orders.filter(o => ['Автомобиль прибыл', 'Допы'].includes(o.order_status_name ?? ''));
+    if (filter === 'ready')    return orders.filter(o => o.order_status_name === 'Подготовка к выдаче');
     return orders.filter(o => ALL_ACTIVE.includes(o.order_status_name ?? ''));
   }, [orders, filter]);
 
   const tabs: { key: Filter; label: string }[] = [
     { key: 'active',  label: 'Все активные' },
     { key: 'transit', label: '🚗 В пути' },
-    { key: 'customs', label: '📦 На таможне' },
-    { key: 'office',  label: '🏢 В офисе' },
+    { key: 'arrived', label: '🏢 Автомобиль прибыл' },
+    { key: 'ready',   label: '✅ К выдаче' },
   ];
 
   return (

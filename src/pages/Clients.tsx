@@ -6,9 +6,9 @@ import type { Status } from '../types';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 
-type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'customs' | 'plaza' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
+type Filter = 'leads' | 'active' | 'extras' | 'transit' | 'arrived' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
 
-const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'customs', 'plaza', 'payment_overdue', 'overdue', 'lost', 'archived'];
+const VALID_FILTERS: Filter[] = ['leads', 'active', 'extras', 'transit', 'arrived', 'payment_overdue', 'overdue', 'lost', 'archived'];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -37,16 +37,14 @@ export default function Clients() {
 
   const load = () => {
     const extrasStatus   = statuses.find(s => s.name === 'Допы');
-    const transitStatus  = statuses.find(s => s.name === 'Едет по РФ');
-    const customsStatus  = statuses.find(s => s.name === 'На таможне');
-    const plazaStatus    = statuses.find(s => s.name === 'На площадке');
+    const transitStatus  = statuses.find(s => s.name === 'Автомобиль в пути');
+    const arrivedStatus  = statuses.find(s => s.name === 'Автомобиль прибыл');
 
     if (filter === 'leads')           fetchClients({ statusCategory: 'lead' });
     else if (filter === 'active')     fetchClients({ archived: false, statusCategories: ['lead', 'pipeline'], excludeStatusNames: ['Допы'] });
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
-    else if (filter === 'customs')    fetchClients({ statusId: customsStatus?.id });
-    else if (filter === 'plaza')      fetchClients({ statusId: plazaStatus?.id });
+    else if (filter === 'arrived')    fetchClients({ statusId: arrivedStatus?.id });
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
     else if (filter === 'overdue')    fetchClients({ overdue: true });
     else if (filter === 'lost')       fetchClients({ statusCategory: 'lost' });

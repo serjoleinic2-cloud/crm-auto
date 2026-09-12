@@ -141,7 +141,7 @@ export default function Settings() {
         <h3 className="font-semibold text-gray-900">Папка данных</h3>
         <p className="text-sm text-gray-500">База данных, документы клиентов и резервные копии.</p>
         <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600 font-mono break-all">{basePath || '...'}</div>
-        <button onClick={() => ipcService.files.openClientFolder(0, '')} className="btn-secondary text-sm flex items-center gap-1.5">
+        <button onClick={() => ipcService.files.openBaseFolder()} className="btn-secondary text-sm flex items-center gap-1.5">
           <FolderOpen size={14}/> Открыть в проводнике
         </button>
       </div>
