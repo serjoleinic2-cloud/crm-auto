@@ -1,15 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClients } from '../hooks/useClients';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 import { ArrowLeft } from 'lucide-react';
+import { ipcService } from '../services/ipcService';
+import type { Status } from '../types';
 
 export default function Archive() {
   const navigate = useNavigate();
   const { clients, loading, fetchClients, searchClients } = useClients();
+  const [statuses, setStatuses] = useState<Status[]>([]);
 
-  useEffect(() => { fetchClients({ archived: true }); }, [fetchClients]);
+  useEffect(() => {
+    fetchClients({ archived: true });
+    ipcService.statuses.getAll().then(setStatuses);
+  }, [fetchClients]);
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -26,7 +32,7 @@ export default function Archive() {
         <div className="text-center py-8 text-gray-500">Архив пуст</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.map(c => <ClientCard key={c.id} client={c} statuses={[]} />)}
+          {clients.map(c => <ClientCard key={c.id} client={c} statuses={statuses} onStatusChanged={() => fetchClients({ archived: true })} />)}
         </div>
       )}
     </div>
