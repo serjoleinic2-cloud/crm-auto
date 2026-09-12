@@ -216,7 +216,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
         >
           {saving ? 'Сохранение...' : 'Создать задачу'}
         </button>
-        <button onClick={onCancel} className="btn-secondary text-sm">Отмена</button>
+        <button onClick={onCancel} className="btn-cancel text-sm">Отмена</button>
       </div>
     </div>
   );
