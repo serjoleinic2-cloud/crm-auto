@@ -59,7 +59,13 @@ export default function Settings() {
 
   const handleManualBackup = async () => {
     const r = await api().backup.create();
-    if (r?.success) flash('ok', `Копия сохранена: ${r.path}`);
+    if (r?.success) flash('ok', `Копия базы сохранена: ${r.path}`);
+    else if (!r?.canceled) flash('err', r?.error ?? 'Ошибка');
+  };
+
+  const handleFullBackup = async () => {
+    const r = await api().backup.createFull();
+    if (r?.success) flash('ok', `Полная копия (база и документы) сохранена: ${r.path}`);
     else if (!r?.canceled) flash('err', r?.error ?? 'Ошибка');
   };
 
@@ -118,7 +124,16 @@ export default function Settings() {
     setGdriveBackingUp(true);
     try {
       const r = await api().backup.copyToGdrive();
-      if (r?.success) { flash('ok', `Копия скопирована в Google Drive`); load(); }
+      if (r?.success) { flash('ok', 'Копия базы скопирована в Google Drive'); load(); }
+      else flash('err', r?.error ?? 'Ошибка');
+    } finally { setGdriveBackingUp(false); }
+  };
+
+  const handleFullGdriveBackup = async () => {
+    setGdriveBackingUp(true);
+    try {
+      const r = await api().backup.copyFullToGdrive();
+      if (r?.success) { flash('ok', 'Полная копия с документами сохранена в Google Drive'); load(); }
       else flash('err', r?.error ?? 'Ошибка');
     } finally { setGdriveBackingUp(false); }
   };
@@ -153,7 +168,7 @@ export default function Settings() {
           <button onClick={load} className="text-gray-400 hover:text-gray-600"><RefreshCw size={14}/></button>
         </div>
         <p className="text-sm text-gray-500">
-          При каждом запуске CRM создаёт копию автоматически.
+          Полная копия сохраняет базу и все документы клиентов в одном ZIP-файле.
         </p>
         {stats && (
           <div className="grid grid-cols-3 gap-2">
@@ -170,9 +185,12 @@ export default function Settings() {
             ))}
           </div>
         )}
-        <div className="flex gap-2">
-          <button onClick={handleManualBackup} className="btn-save text-sm flex items-center gap-1.5">
-            <Download size={14}/> Сохранить копию
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleFullBackup} className="btn-save text-sm flex items-center gap-1.5">
+            <HardDrive size={14}/> Полная копия (ZIP)
+          </button>
+          <button onClick={handleManualBackup} className="btn-secondary text-sm flex items-center gap-1.5">
+            <Download size={14}/> Только база
           </button>
           <button onClick={handleRestore} className="btn-secondary text-sm flex items-center gap-1.5">
             <Upload size={14}/> Восстановить
@@ -200,27 +218,34 @@ export default function Settings() {
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
-                onClick={handleGdriveBackup}
+                onClick={handleFullGdriveBackup}
                 disabled={gdriveBackingUp}
-                className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-50"
+                className="btn-save text-sm flex items-center gap-1.5 disabled:opacity-50"
               >
                 {gdriveBackingUp
-                  ? <><RefreshCw size={14} className="animate-spin"/> Копирование...</>
-                  : <><HardDrive size={14}/> Скопировать сейчас</>}
+                  ? <><RefreshCw size={14} className="animate-spin"/> Упаковка...</>
+                  : <><HardDrive size={14}/> Полная копия с файлами</>}
+              </button>
+              <button
+                onClick={handleGdriveBackup}
+                disabled={gdriveBackingUp}
+                className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Download size={14}/> Только база
               </button>
               <button onClick={handlePickGdrive} className="btn-secondary text-sm flex items-center gap-1.5">
                 <FolderInput size={14}/> Сменить папку
               </button>
             </div>
             <p className="text-xs text-gray-400">
-              Копии сохраняются в папку <code className="bg-gray-100 px-1 rounded">CRM Auto Backups</code> внутри выбранной директории.
-              Google Drive автоматически синхронизирует их в облако.
+              Полная копия — один ZIP с базой и всеми папками клиентов. Она обновляет файл
+              <code className="bg-gray-100 px-1 rounded ml-1">crm-full-backup-latest.zip</code> в папке CRM Auto Backups.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-500">
-              Укажи папку Google Drive — CRM будет автоматически копировать резервные копии туда при каждом запуске. Google Drive синхронизирует их в облако.
+              Укажи папку Google Drive, затем нажимай «Полная копия с файлами». Google Drive синхронизирует её в облако.
             </p>
             <div className="flex gap-2 flex-wrap">
               <button
