@@ -58,7 +58,7 @@ export default function BulkUploadAssignModal({ filePaths, documentTypes, onConf
           <button onClick={handleConfirm} disabled={submitting} className="flex-1 btn-primary font-semibold">
             {submitting ? 'Добавление...' : 'Добавить документы'}
           </button>
-          <button onClick={onCancel} className="flex-1 btn-secondary">Отмена</button>
+          <button onClick={onCancel} className="flex-1 btn-cancel">Отмена</button>
         </div>
       </div>
     </div>
