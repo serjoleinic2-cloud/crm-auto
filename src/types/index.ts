@@ -343,7 +343,7 @@ export interface ElectronAPI {
   };
   documents: {
     getByClientId: (clientId: number) => Promise<ClientDocument[]>;
-    updateStatus:  (clientId: number, documentTypeId: number, status: DocumentStatus) => Promise<boolean>;
+    updateStatus:  (clientId: number, documentTypeId: number, status: DocumentStatus, receivedDate?: string | null) => Promise<boolean>;
     updateComment: (clientId: number, documentTypeId: number, comment: string) => Promise<boolean>;
     addFiles:      (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
       Promise<{ document_id: number; files: DocumentFile[] } | { error: string }>;
