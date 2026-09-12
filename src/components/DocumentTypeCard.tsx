@@ -155,7 +155,11 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
     }
   };
 
-  const color = STATUS_COLORS[doc.status];
+  // For the contract being sent, «Отправлен» is a completed manager action,
+  // not a waiting state. It should be as clearly positive as «Получен».
+  const color = doc.code === 'contract' && doc.status === 'sent'
+    ? STATUS_COLORS.received
+    : STATUS_COLORS[doc.status];
   const statusOptions = STATUS_OPTIONS_BY_DOCUMENT[doc.code] ?? DEFAULT_STATUS_OPTIONS;
 
   return (
