@@ -155,6 +155,10 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
       // card and its order leave the working lists together.
       if (statuses.find(status => status.id === statusId)?.name === 'Выдан') {
         await ipcService.clients.archive(client.id);
+      } else if (client.is_archived) {
+        // A different status means the deal is back in work, so return it
+        // from the archive together with the newly selected status.
+        await ipcService.clients.update(client.id, { is_archived: 0 });
       }
       onStatusChanged?.();
     } finally {
