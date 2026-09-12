@@ -132,7 +132,7 @@ export default function DocumentsPanel({ clientId }: Props) {
   const renderGroup = (group: { title: string; items: ClientDocument[] }) => (
     <div key={group.title} className="card">
       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{group.title}</h3>
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2 ${group.items.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {group.items.map(doc => (
           <DocumentTypeCard
             key={doc.document_type_id}
