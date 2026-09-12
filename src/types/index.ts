@@ -176,6 +176,7 @@ export interface Extra {
 
 export interface DashboardStats {
   activeClients: number;
+  thinkingClients: number;
   needsAttention: number;
   todayTasks: number;
   carsInTransit: number;
