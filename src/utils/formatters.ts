@@ -20,7 +20,19 @@ export function formatDateTime(dateStr: string | null | undefined): string {
 
 export function formatPrice(price: number | null | undefined): string {
   if (price == null) return '';
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(price);
+  return `${formatMoneyInput(price)} ₽`;
+}
+
+/** Formats a whole-ruble amount while it is being typed: 2300000 → 2 300 000. */
+export function formatMoneyInput(value: string | number | null | undefined): string {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/** Parses the formatted amount back to a database number. */
+export function parseMoneyInput(value: string | number | null | undefined): number | null {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? Number(digits) : null;
 }
 
 export function getContactLink(type: string, value: string): string {

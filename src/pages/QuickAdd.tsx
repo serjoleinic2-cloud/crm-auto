@@ -4,6 +4,7 @@ import { ipcService } from '../services/ipcService';
 import { useClients } from '../hooks/useClients';
 import type { CarBrand, Status } from '../types';
 import { ArrowLeft } from 'lucide-react';
+import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 15 }, (_, i) => CURRENT_YEAR - i);
@@ -94,7 +95,7 @@ export default function QuickAdd() {
           year: form.year ? parseInt(form.year) : null,
           configuration: form.configuration || null,
           description: null,
-          price: form.price ? parseFloat(form.price) : null,
+          price: parseMoneyInput(form.price),
           comment: null,
           delivery_date_est: null, delivery_date_actual: null,
           payment_date: null, payment_status: null,
@@ -289,9 +290,10 @@ export default function QuickAdd() {
                 <label className="label">Цена (₽)</label>
                 <input
                   className="input bg-white"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={form.price}
-                  onChange={e => set('price', e.target.value)}
+                  onChange={e => set('price', formatMoneyInput(e.target.value))}
                   placeholder="0"
                   min="0"
                 />

@@ -89,7 +89,7 @@ import { useReminders } from '../hooks/useReminders';
 import { useDocuments } from '../hooks/useDocuments';
 import StatusBadge from '../components/StatusBadge';
 import DocumentsPanel from '../components/DocumentsPanel';
-import { formatDate, formatPrice, getContactLink, getContactIcon } from '../utils/formatters';
+import { formatDate, formatPrice, formatMoneyInput, parseMoneyInput, getContactLink, getContactIcon } from '../utils/formatters';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Star, AlertTriangle, FolderOpen, FileText, Check, X, Calendar, Truck } from 'lucide-react';
 import ContractTab from '../components/ContractTab';
 import ExtrasPanel from '../components/ExtrasPanel';
@@ -120,6 +120,7 @@ export default function ClientDetail() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [orderForm, setOrderForm] = useState<Partial<Order>>({});
   const [nextContractNum, setNextContractNum] = useState('');
+  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'payment' | 'delivery'>('car');
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -177,8 +178,6 @@ export default function ClientDetail() {
     }
   };
 
-  const [archivePrompt, setArchivePrompt] = useState(false);
-
   const handleSave = async () => {
     // Strip computed fields from getById that don't exist in clients table
     const {
@@ -200,18 +199,27 @@ export default function ClientDetail() {
     if (success) {
       setIsEditing(false);
       loadClient();
-      // Suggest archive when status is done or lost
+      // A completed or lost client is always moved to the visible Archive.
+      // This avoids a card disappearing from the working list with no place to find it.
       const newStatus = statuses.find(s => s.id === (cleanData.status_id as number));
       if (newStatus && (newStatus.category === 'done' || newStatus.category === 'lost')) {
-        setArchivePrompt(true);
+        await ipcService.clients.update(clientId, { is_archived: 1 });
+        navigate('/archive');
       }
     }
   };
 
-  const handleArchive = async () => {
-    await ipcService.clients.update(clientId, { is_archived: 1 });
-    setArchivePrompt(false);
-    navigate('/clients');
+  const toggleClientEditing = () => {
+    setActiveTab('main');
+    if (isEditing) {
+      setIsEditing(false);
+      setEditData({});
+      return;
+    }
+    // Start with the values already saved in the client card. Without this,
+    // the edit form looks empty and a manager can accidentally overwrite data.
+    setEditData({ ...client });
+    setIsEditing(true);
   };
 
   const handleAddContact = () => {
@@ -275,11 +283,13 @@ export default function ClientDetail() {
       payment_deadline: null,
       signed_contract_date: null,
     });
+    setOrderEditorTab('car');
     setEditingOrder({ id: 0 } as Order);
   };
 
   const startEditOrder = (order: Order) => {
     setOrderForm({ ...order });
+    setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'payment' : 'car');
     setEditingOrder(order);
   };
 
@@ -294,6 +304,12 @@ export default function ClientDetail() {
       orderForm.payment_date = new Date().toISOString().split('T')[0];
     }
 
+    const currentOrderStatus = statuses.find(s => s.id === orderForm.order_status_id)?.name;
+    const prePaymentStatuses = ['Думает', 'Документы получены', 'Договор подписан', 'Ожидает оплату'];
+    if (orderForm.payment_status === 'paid' && (!currentOrderStatus || prePaymentStatuses.includes(currentOrderStatus))) {
+      orderForm.order_status_id = statuses.find(s => s.name === 'Оплачен')?.id ?? orderForm.order_status_id;
+    }
+
     // Auto-set payment deadline (+3 days) when signed_contract_date is set for first time
     const prevOrder = editingOrder && editingOrder.id > 0 ? orders.find(o => o.id === editingOrder.id) : null;
     const signedContractJustSet = orderForm.signed_contract_date &&
@@ -303,6 +319,9 @@ export default function ClientDetail() {
       const deadline = new Date(orderForm.signed_contract_date);
       deadline.setDate(deadline.getDate() + 3);
       orderForm.payment_deadline = deadline.toISOString().split('T')[0];
+      if (orderForm.payment_status !== 'paid') {
+        orderForm.order_status_id = statuses.find(s => s.name === 'Ожидает оплату')?.id ?? orderForm.order_status_id;
+      }
     }
 
     if (editingOrder && editingOrder.id > 0) {
@@ -326,12 +345,6 @@ export default function ClientDetail() {
     if (signedContractJustSet && orderForm.signed_contract_date && client) {
       const deadline = new Date(orderForm.signed_contract_date);
       deadline.setDate(deadline.getDate() + 3);
-      // Set client status to "Ожидает оплату"
-      const awaitPayStatus = statuses.find(s => s.name === 'Ожидает оплату');
-      if (awaitPayStatus && client.status_id !== awaitPayStatus.id) {
-        await ipcService.clients.update(clientId, { status_id: awaitPayStatus.id });
-        setClient(prev => prev ? { ...prev, status_id: awaitPayStatus.id } : prev);
-      }
       await createReminder({
         client_id: clientId,
         title: `Дедлайн оплаты — ${client.full_name}`,
@@ -341,11 +354,15 @@ export default function ClientDetail() {
       });
     }
 
+    const finalOrderStatus = statuses.find(s => s.id === orderForm.order_status_id);
     setEditingOrder(null);
     setOrderForm({});
     await loadClient();
     fetchOrders(clientId);
     fetchReminders({ clientId });
+    if (finalOrderStatus && (finalOrderStatus.category === 'done' || finalOrderStatus.category === 'lost')) {
+      navigate('/archive');
+    }
   };
 
   const handleDeleteOrder = async (orderId: number) => {
@@ -405,9 +422,10 @@ export default function ClientDetail() {
   if (!client) return <div className="p-4 text-gray-500">Клиент не найден.</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
+  const hasOrderWorkflow = orders.length > 0;
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-3 max-w-6xl mx-auto">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
         <ArrowLeft size={18} /> Назад
       </button>
@@ -437,10 +455,46 @@ export default function ClientDetail() {
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
               <Trash2 size={16} />
             </button>
-            <button onClick={() => { setActiveTab('main'); setIsEditing(!isEditing); }} className="btn-secondary text-sm">
+            <button onClick={toggleClientEditing} className="btn-secondary text-sm">
               {isEditing ? 'Отмена' : 'Редактировать'}
             </button>
           </div>
+        </div>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'documents' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">1. Собрать</span>
+            <span className="font-medium">Документы</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('contract')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'contract' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">2. Оформить</span>
+            <span className="font-medium">Договор</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'orders' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">3. Принять</span>
+            <span className="font-medium">Оплату</span>
+          </button>
+          <button
+            onClick={() => navigate('/orders')}
+            className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-primary-300"
+          >
+            <span className="block text-xs text-gray-500">4. Контролировать</span>
+            <span className="font-medium">Доставку</span>
+          </button>
         </div>
       </div>
 
@@ -478,13 +532,20 @@ export default function ClientDetail() {
                 <div className="space-y-3">
                   <div>
                     <label className="label">Статус</label>
-                    <select className="input" value={editData.status_id || ''} onChange={e => {
-                      const val = e.target.value;
-                      setEditData({...editData, status_id: val ? parseInt(val) : null});
-                    }}>
-                      <option value="">—</option>
-                      {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    {hasOrderWorkflow ? (
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                        {status?.name || '—'}
+                        <span className="block mt-0.5 text-xs text-gray-500">Меняется в заказе — в поле «Этап заказа и клиента».</span>
+                      </div>
+                    ) : (
+                      <select className="input" value={editData.status_id || ''} onChange={e => {
+                        const val = e.target.value;
+                        setEditData({...editData, status_id: val ? parseInt(val) : null});
+                      }}>
+                        <option value="">—</option>
+                        {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="label">ФИО</label>
@@ -663,10 +724,29 @@ export default function ClientDetail() {
             </div>
 
             {editingOrder && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+              <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
                 <h4 className="font-semibold text-sm">{editingOrder.id > 0 ? 'Редактирование заказа' : 'Новый заказ'}</h4>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
+                  {([
+                    ['car', '1. Автомобиль'],
+                    ['payment', '2. Договор и оплата'],
+                    ['delivery', '3. Доставка и выдача'],
+                  ] as const).map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      onClick={() => setOrderEditorTab(tab)}
+                      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
+                        orderEditorTab === tab ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {orderEditorTab === 'car' && <>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="label text-xs">Номер договора</label>
                     <input className="input text-sm" value={orderForm.contract_number || ''} onChange={e => setOrderForm({...orderForm, contract_number: e.target.value})} placeholder={nextContractNum} />
@@ -682,32 +762,36 @@ export default function ClientDetail() {
                     <label className="label text-xs">Модель</label>
                     <input className="input text-sm" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="label text-xs">Год</label>
                     <input type="number" className="input text-sm" value={orderForm.year || ''} onChange={e => setOrderForm({...orderForm, year: e.target.value ? parseInt(e.target.value) : null})} />
                   </div>
-                </div>
-
-                <div>
-                  <label className="label text-xs">Комплектация</label>
-                  <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
-                </div>
-                <div>
-                  <label className="label text-xs">Описание</label>
-                  <textarea className="input text-sm" rows={2} value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Комплектация</label>
+                    <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
+                  </div>
                   <div>
                     <label className="label text-xs">Цена</label>
-                    <input type="number" className="input text-sm" value={orderForm.price || ''} onChange={e => setOrderForm({...orderForm, price: e.target.value ? parseFloat(e.target.value) : null})} />
+                    <input type="text" inputMode="numeric" className="input text-sm" value={formatMoneyInput(orderForm.price)} onChange={e => setOrderForm({...orderForm, price: parseMoneyInput(e.target.value)})} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label text-xs">Описание</label>
+                    <input className="input text-sm" value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
                   </div>
                   <div>
                     <label className="label text-xs">Комментарий</label>
                     <input className="input text-sm" value={orderForm.comment || ''} onChange={e => setOrderForm({...orderForm, comment: e.target.value || null})} />
                   </div>
                 </div>
+                </>}
 
                 {/* Payment block */}
+                {orderEditorTab === 'payment' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><FileText size={12}/> Оплата</h5>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -715,10 +799,12 @@ export default function ClientDetail() {
                       <label className="label text-xs">Статус оплаты</label>
                       <select className="input text-sm" value={orderForm.payment_status || 'not_paid'} onChange={e => {
                         const status = e.target.value;
+                        const paidStatusId = status === 'paid' ? statuses.find(s => s.name === 'Оплачен')?.id : undefined;
                         setOrderForm(prev => ({
                           ...prev,
                           payment_status: status,
                           payment_date: status === 'paid' && !prev.payment_date ? new Date().toISOString().split('T')[0] : prev.payment_date,
+                          order_status_id: paidStatusId ?? prev.order_status_id,
                         }));
                       }}>
                         {Object.entries(PAYMENT_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -765,8 +851,10 @@ export default function ClientDetail() {
                     </div>
                   </div>
                 </div>
+                </>}
 
                 {/* Delivery block */}
+                {orderEditorTab === 'delivery' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Truck size={12}/> Срок доставки</h5>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -838,7 +926,7 @@ export default function ClientDetail() {
 
                 {/* Единый статус заказа и клиента; сохранение происходит только по кнопке. */}
                 <div className="border-t border-gray-200 pt-3">
-                  <label className="label text-xs">Статус заказа</label>
+                  <label className="label text-xs">Этап заказа и клиента</label>
                   <select
                     className="input text-sm"
                     value={orderForm.order_status_id || ''}
@@ -875,6 +963,7 @@ export default function ClientDetail() {
                     <input type="date" className="input text-sm" value={orderForm.issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, issue_date: e.target.value || null})} />
                   </div>
                 )}
+                </>}
 
                 <div className="flex gap-2 pt-2">
                   <button onClick={saveOrder} className="btn-primary text-sm">Сохранить</button>
@@ -1073,7 +1162,7 @@ export default function ClientDetail() {
                         await ipcService.extras.create({
                           order_id: orders[0].id,
                           name: newExtra.name.trim(),
-                          price: parseFloat(newExtra.price) || 0,
+                          price: parseMoneyInput(newExtra.price) ?? 0,
                         });
                         setNewExtra({ name: '', price: '' });
                         fetchExtras(clientId);
@@ -1085,11 +1174,12 @@ export default function ClientDetail() {
                   <label className="label">Цена за работу (₽)</label>
                   <input
                     className="input text-sm"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="0"
                     min="0"
                     value={newExtra.price}
-                    onChange={e => setNewExtra(p => ({ ...p, price: e.target.value }))}
+                    onChange={e => setNewExtra(p => ({ ...p, price: formatMoneyInput(e.target.value) }))}
                   />
                 </div>
                 <button
@@ -1098,7 +1188,7 @@ export default function ClientDetail() {
                     await ipcService.extras.create({
                       order_id: orders[0].id,
                       name: newExtra.name.trim(),
-                      price: parseFloat(newExtra.price) || 0,
+                      price: parseMoneyInput(newExtra.price) ?? 0,
                     });
                     setNewExtra({ name: '', price: '' });
                     fetchExtras(clientId);
@@ -1165,28 +1255,6 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {archivePrompt && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-xl">🏁</div>
-              <div>
-                <div className="font-semibold text-gray-900">Переместить в Архив?</div>
-                <div className="text-sm text-gray-500 mt-0.5">{client?.full_name}</div>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600 mb-5">
-              Клиент завершил работу с вами. Переместить его в Архив? Все данные сохранятся — при необходимости можно вернуть в работу.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={handleArchive} className="flex-1 bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg font-semibold text-sm transition-colors">
-                В Архив
-              </button>
-              <button onClick={() => setArchivePrompt(false)} className="flex-1 btn-secondary">Не сейчас</button>
-            </div>
-          </div>
-        </div>
-      )}
       {contactModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">

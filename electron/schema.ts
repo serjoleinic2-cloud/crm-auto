@@ -200,7 +200,7 @@ export const DEFAULT_DOCUMENT_TYPES = [
   { code: 'passport',       name: 'Паспорт',                    folder_name: 'Паспорт',             sort_order: 2, is_system: 1 },
   { code: 'snils',          name: 'СНИЛС',                      folder_name: 'СНИЛС',               sort_order: 3, is_system: 1 },
   { code: 'inn',            name: 'ИНН',                        folder_name: 'ИНН',                 sort_order: 4, is_system: 1 },
-  { code: 'contract',       name: 'Договор',                    folder_name: 'Договор',              sort_order: 5, is_system: 1 },
+  { code: 'contract',       name: 'Договор на подпись',         folder_name: 'Договор',              sort_order: 5, is_system: 1 },
   { code: 'contract_signed',name: 'Подписанный договор',        folder_name: 'Договор',              sort_order: 6, is_system: 1 },
   { code: 'payment_proof',  name: 'Документ/чек об оплате',     folder_name: 'Оплата',               sort_order: 7, is_system: 1 },
   { code: 'other',          name: 'Другой документ',            folder_name: 'Прочее',               sort_order: 9, is_system: 1 },

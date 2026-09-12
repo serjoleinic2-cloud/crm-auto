@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ipcService } from '../services/ipcService';
 import { FileText, Save, AlertTriangle, CheckCircle, FolderOpen, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Client, Order, ClientPassportData, ContractGenerateData } from '../types';
+import { formatMoneyInput } from '../utils/formatters';
 
 interface ContractTabProps {
   client: Client;
@@ -79,6 +80,8 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [errorMsg, setErrorMsg] = useState('');
   const [savingPassport, setSavingPassport] = useState(false);
   const [savingCar, setSavingCar] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   // Load passport data and next contract number
   useEffect(() => {
@@ -111,7 +114,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     const order = orders.find(o => o.id === selectedOrderId);
     if (order) {
       setCarForm({ ...order });
-      if (order.deal_amount) setDealAmount(order.deal_amount);
+      if (order.deal_amount) setDealAmount(formatMoneyInput(order.deal_amount));
       if (order.contract_number) setContractNumber(order.contract_number);
       if (order.contract_date) setContractDate(order.contract_date);
     }
@@ -151,6 +154,24 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     }
   }, [selectedOrderId, carForm]);
 
+  const saveDraft = useCallback(async () => {
+    if (!selectedOrderId) return;
+    setSavingDraft(true);
+    try {
+      await ipcService.orders.update(selectedOrderId, {
+        contract_number: contractNumber || null,
+        contract_date: contractDate || null,
+        deal_amount: dealAmount || null,
+      });
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 2500);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [selectedOrderId, contractNumber, contractDate, dealAmount]);
+
   // ── validation ─────────────────────────────────────────────────────────────
 
   const getMissing = (): MissingField[] => {
@@ -187,7 +208,11 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
     let res: Awaited<ReturnType<typeof ipcService.contracts.generate>>;
     try {
-      // Save car form first
+      // The final action saves every entered value. Managers may still use the
+      // separate draft buttons when they need to stop before generating.
+      await ipcService.contracts.savePassportData(client.id, passport);
+
+      // Save car and contract requisites before creating the Word file.
       if (selectedOrderId) {
         await ipcService.orders.update(selectedOrderId, {
           ...carForm,
@@ -295,7 +320,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
         <Field
           label="Сумма сделки (платёж по поручению)"
           value={dealAmount}
-          onChange={setDealAmount}
+          onChange={v => setDealAmount(formatMoneyInput(v))}
           required
           placeholder="Например: 2 100 000"
         />
@@ -305,6 +330,22 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
           onChange={setAgentFee}
           placeholder="100 000 (сто тысяч) рублей"
         />
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary text-sm flex items-center gap-1"
+            onClick={saveDraft}
+            disabled={savingDraft || !selectedOrderId}
+          >
+            <Save size={14} />
+            {savingDraft ? 'Сохранение...' : 'Сохранить черновик'}
+          </button>
+          {draftSaved && (
+            <span className="text-green-600 text-sm flex items-center gap-1">
+              <CheckCircle size={14} /> Сохранено в заказе
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">При создании договора все внесённые здесь и ниже данные сохранятся автоматически.</p>
       </div>
 
       {/* ── PASSPORT DATA ─────────────────────────────────────────────── */}

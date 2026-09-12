@@ -117,6 +117,10 @@ export function registerDocumentsHandlers(): void {
 
   ipcMain.handle('documents:updateStatus', (_e, clientId: number, documentTypeId: number, status: DocStatus) => {
     const db = getDb();
+    const type = getDocumentType(documentTypeId);
+    if (!type) return false;
+    if (type.code === 'contract' && status !== 'sent') return false;
+    if (['contract_signed', 'payment_proof'].includes(type.code) && status !== 'received') return false;
     const docId = ensureDocumentRow(clientId, documentTypeId);
     const current = db.prepare('SELECT * FROM documents WHERE id=?').get(docId) as
       { status: string; requested_date: string | null; received_date: string | null };
@@ -132,7 +136,6 @@ export function registerDocumentsHandlers(): void {
     const set = fields.map(f => `${f}=@${f}`).join(', ');
     db.prepare(`UPDATE documents SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...updates, __id: docId });
 
-    const type = getDocumentType(documentTypeId);
     const oldLabel = DOCUMENT_STATUS_LABELS[current.status] ?? current.status;
     const newLabel = DOCUMENT_STATUS_LABELS[status] ?? status;
     writeHistory(clientId, 'document_status',
@@ -175,7 +178,12 @@ export function registerDocumentsHandlers(): void {
       }
       if (attached.length) {
         const current = db.prepare('SELECT status, received_date FROM documents WHERE id=?').get(docId) as { status: string; received_date: string | null };
-        if (current.status !== 'verified') {
+        if (type.code === 'contract') {
+          db.prepare(`
+            UPDATE documents SET status='sent', received_date=NULL, updated_at=datetime('now')
+            WHERE id=?
+          `).run(docId);
+        } else if (current.status !== 'verified') {
           db.prepare(`
             UPDATE documents SET status='received', received_date=COALESCE(received_date, date('now')), updated_at=datetime('now')
             WHERE id=?
@@ -221,7 +229,12 @@ export function registerDocumentsHandlers(): void {
         }
         if (attached.length) {
           const current = db.prepare('SELECT status FROM documents WHERE id=?').get(docId) as { status: string };
-          if (current.status !== 'verified') {
+          if (type.code === 'contract') {
+            db.prepare(`
+              UPDATE documents SET status='sent', received_date=NULL, updated_at=datetime('now')
+              WHERE id=?
+            `).run(docId);
+          } else if (current.status !== 'verified') {
             db.prepare(`
               UPDATE documents SET status='received', received_date=COALESCE(received_date, date('now')), updated_at=datetime('now')
               WHERE id=?

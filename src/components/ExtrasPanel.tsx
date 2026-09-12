@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ipcService } from '../services/ipcService';
 import type { Extra } from '../types';
 import { Plus, Trash2, Check, X } from 'lucide-react';
+import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
 
 interface Props {
   orderId: number;
@@ -26,7 +27,7 @@ export default function ExtrasPanel({ orderId }: Props) {
     await ipcService.extras.create({
       order_id: orderId,
       name: form.name.trim(),
-      price: parseFloat(form.price) || 0,
+      price: parseMoneyInput(form.price) ?? 0,
     });
     setForm({ name: '', price: '' });
     setEditing(false);
@@ -95,10 +96,11 @@ export default function ExtrasPanel({ orderId }: Props) {
               <label className="text-[10px] font-semibold text-blue-800 uppercase tracking-wide">Цена (₽)</label>
               <input
                 className="input text-sm w-28"
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
                 value={form.price}
-                onChange={e => setForm({...form, price: e.target.value})}
+                onChange={e => setForm({...form, price: formatMoneyInput(e.target.value)})}
               />
             </div>
           </div>

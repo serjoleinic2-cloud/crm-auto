@@ -37,6 +37,20 @@ function formatDateDot(iso: string): string {
   return `${padZero(d.getDate())}.${padZero(d.getMonth()+1)}.${d.getFullYear()}`;
 }
 
+function getContractDateParts(iso: string): { day: string; month: string; year2: string } {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { day: '', month: '', year2: '' };
+  const months = [
+    'Января','Февраля','Марта','Апреля','Мая','Июня',
+    'Июля','Августа','Сентября','Октября','Ноября','Декабря',
+  ];
+  return {
+    day: padZero(d.getDate()),
+    month: months[d.getMonth()],
+    year2: String(d.getFullYear()).slice(-2),
+  };
+}
+
 /** Get initials from full name: "Иванова Мария Петровна" → "М.П. Иванова" */
 function getInitials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
@@ -46,6 +60,12 @@ function getInitials(fullName: string): string {
   const firstInit = parts[1] ? parts[1][0] + '.' : '';
   const middleInit = parts[2] ? parts[2][0] + '.' : '';
   return `${firstInit}${middleInit} ${lastName}`.trim();
+}
+
+function getClientDetails(client: { full_name: string }, passport?: Record<string, string>): string {
+  const birthDate = passport?.birth_date ? formatDateDot(passport.birth_date) : '';
+  const passportIssueDate = passport?.passport_issue_date ? formatDateDot(passport.passport_issue_date) : '';
+  return `${client.full_name}, ${birthDate} года рождения, паспорт ${passport?.passport_number || ''} выдан ${passport?.passport_issued_by || ''} дата выдачи ${passportIssueDate}, код подразделения: ${passport?.passport_code || ''}, зарегистрированный (ая) по адресу: ${passport?.registration_address || ''}`;
 }
 
 // ── contract data interface ───────────────────────────────────────────────────
@@ -135,11 +155,17 @@ export function registerContractsHandlers(): void {
 
       // Build variable map
       const contractDateFormatted = formatDateRussian(contractData.contractDate);
+      const contractDateParts = getContractDateParts(contractData.contractDate);
 
       const variables: Record<string, string> = {
         CONTRACT_NUMBER:    contractData.contractNumber,
         CONTRACT_DATE:      contractDateFormatted,
+        CONTRACT_DAY:       contractDateParts.day,
+        CONTRACT_MONTH:     contractDateParts.month,
+        CONTRACT_YEAR_2:    contractDateParts.year2,
         CLIENT_FULL_NAME:   client.full_name,
+        CLIENT_DETAILS:     getClientDetails(client, passport),
+        CLIENT_SEPARATOR:   '\u00A0',
         CLIENT_PHONE:       client.phone || '',
         CLIENT_EMAIL:       client.email || '',
         CLIENT_INITIALS:    getInitials(client.full_name),
@@ -211,11 +237,11 @@ export function registerContractsHandlers(): void {
         if (!docRow) {
           const ins = db.prepare(`
             INSERT INTO documents (client_id, document_type_id, order_id, status)
-            VALUES (?, ?, ?, 'received')
+            VALUES (?, ?, ?, 'sent')
           `).run(contractData.clientId, contractTypeRow.id, contractData.orderId);
           docRow = { id: ins.lastInsertRowid as number };
         } else {
-          db.prepare(`UPDATE documents SET status='received', updated_at=datetime('now') WHERE id=?`).run(docRow.id);
+          db.prepare(`UPDATE documents SET status='sent', received_date=NULL, updated_at=datetime('now') WHERE id=?`).run(docRow.id);
         }
         const stat = fs.statSync(filePath);
         db.prepare(`
