@@ -54,13 +54,14 @@ export default function Orders() {
   };
 
   const filtered = useMemo(() => {
-    const paidOrders = orders.filter(o =>
-      o.payment_status === 'paid' || PAID_STATUSES.includes(o.order_status_name ?? '')
-    );
+    // Delivery starts only after a real payment is recorded. The order status
+    // is used to split the paid cars into stages, but must not put old/test
+    // cars here on its own.
+    const paidOrders = orders.filter(o => o.payment_status === 'paid');
     if (filter === 'transit')  return paidOrders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
     if (filter === 'arrived')  return paidOrders.filter(o => ARRIVED_STATUSES.includes(o.order_status_name ?? ''));
-    if (filter === 'ready')    return orders.filter(o => o.order_status_name === 'Подготовка к выдаче');
-    return paidOrders;
+    if (filter === 'ready')    return paidOrders.filter(o => o.order_status_name === 'Подготовка к выдаче');
+    return paidOrders.filter(o => PAID_STATUSES.includes(o.order_status_name ?? ''));
   }, [orders, filter]);
 
   const tabs: { key: Filter; label: string }[] = [
