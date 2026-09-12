@@ -28,7 +28,7 @@ export default function ConfirmDeleteFilesModal({ count, fileName, onConfirm, on
         </p>
         <div className="flex gap-3">
           <button onClick={onConfirm} className="flex-1 btn-danger font-semibold">Удалить</button>
-          <button onClick={onCancel} className="flex-1 btn-secondary">Отмена</button>
+          <button onClick={onCancel} className="flex-1 btn-cancel">Отмена</button>
         </div>
       </div>
     </div>
