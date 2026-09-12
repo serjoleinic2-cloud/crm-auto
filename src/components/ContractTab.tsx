@@ -628,7 +628,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
               <Row label="Сумма сделки" value={dealAmount} />
             </div>
             <div className="flex gap-2 p-4 border-t justify-end">
-              <button className="btn-secondary" onClick={() => setShowConfirm(false)}>Отмена</button>
+              <button className="btn-cancel" onClick={() => setShowConfirm(false)}>Отмена</button>
               <button className="btn-primary flex items-center gap-1" onClick={handleConfirmGenerate}>
                 <FileText size={14} /> Создать договор
               </button>
