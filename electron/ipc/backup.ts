@@ -2,6 +2,7 @@ import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import PizZip from 'pizzip';
 import { getBasePath } from './storagePaths';
 import { getDatabasePath, getDb } from './database';
 
@@ -29,6 +30,42 @@ function pruneFiles(dir: string, prefix: string, keep: number) {
 
 function checkpointDatabase() {
   getDb().pragma('wal_checkpoint(TRUNCATE)');
+}
+
+function addFolderToArchive(zip: PizZip, sourceFolder: string, archiveFolder: string): void {
+  for (const entry of fs.readdirSync(sourceFolder, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceFolder, entry.name);
+    const archivePath = path.posix.join(archiveFolder, entry.name);
+    if (entry.isDirectory()) {
+      addFolderToArchive(zip, sourcePath, archivePath);
+    } else if (entry.isFile()) {
+      zip.file(archivePath, fs.readFileSync(sourcePath));
+    }
+  }
+}
+
+function createFullBackupArchive(archivePath: string): number {
+  const basePath = getBasePath();
+  const dbPath = getDatabasePath();
+  if (!fs.existsSync(dbPath)) throw new Error('База данных не найдена');
+
+  checkpointDatabase();
+  const zip = new PizZip();
+  zip.file('crm.db', fs.readFileSync(dbPath));
+  zip.file('README.txt',
+    'Полная резервная копия CRM Auto.\n' +
+    'Содержит базу crm.db и папку Клиенты со всеми документами.\n' +
+    `Создано: ${new Date().toLocaleString('ru-RU')}\n`
+  );
+
+  const clientsFolder = path.join(basePath, 'Клиенты');
+  if (fs.existsSync(clientsFolder)) {
+    addFolderToArchive(zip, clientsFolder, 'Клиенты');
+  }
+
+  const data = zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+  fs.writeFileSync(archivePath, data);
+  return data.length;
 }
 
 // ── settings ───────────────────────────────────────────────────────────────
@@ -103,6 +140,24 @@ export function registerBackupHandlers(): void {
       checkpointDatabase();
       fs.copyFileSync(dbPath, result.filePath);
       return { success: true, path: result.filePath };
+    } catch (err) {
+      return { error: `Ошибка: ${(err as Error).message}` };
+    }
+  });
+
+  // Full backup: database plus every client document in one ZIP archive.
+  ipcMain.handle('backup:createFull', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const result = await dialog.showSaveDialog(win as BrowserWindow, {
+      title: 'Сохранить полную резервную копию',
+      defaultPath: `crm-full-backup-${ts}.zip`,
+      filters: [{ name: 'Полная копия CRM', extensions: ['zip'] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    try {
+      const size = createFullBackupArchive(result.filePath);
+      return { success: true, path: result.filePath, size };
     } catch (err) {
       return { error: `Ошибка: ${(err as Error).message}` };
     }
@@ -261,7 +316,29 @@ export function registerBackupHandlers(): void {
     return true;
   });
 
-  // Copy backup to Google Drive folder
+  // Full snapshot to Google Drive: the latest archive replaces the prior
+  // one only after successful creation, so an interrupted copy keeps the old backup.
+  ipcMain.handle('backup:copyFullToGdrive', () => {
+    const s = loadSettings();
+    if (!s.gdrivePath) return { error: 'Папка Google Drive не настроена' };
+    if (!fs.existsSync(s.gdrivePath)) return { error: `Папка не найдена: ${s.gdrivePath}` };
+
+    const gdriveDir = path.join(s.gdrivePath, 'CRM Auto Backups');
+    const archivePath = path.join(gdriveDir, 'crm-full-backup-latest.zip');
+    const temporaryPath = `${archivePath}.tmp`;
+    try {
+      fs.mkdirSync(gdriveDir, { recursive: true });
+      const size = createFullBackupArchive(temporaryPath);
+      fs.renameSync(temporaryPath, archivePath);
+      saveSettings({ lastFullGdriveBackup: new Date().toISOString() });
+      return { success: true, path: archivePath, size };
+    } catch (err) {
+      try { if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath); } catch (_) {}
+      return { error: (err as Error).message };
+    }
+  });
+
+  // Copy database-only backup to Google Drive folder
   ipcMain.handle('backup:copyToGdrive', () => {
     const s = loadSettings();
     if (!s.gdrivePath) return { error: 'Папка Google Drive не настроена' };
