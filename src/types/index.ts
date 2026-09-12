@@ -104,6 +104,7 @@ export interface Order {
   // joined
   order_status_name?: string;
   order_status_color?: string;
+  payment_proof_received?: number;
 }
 
 export interface ClientPassportData {
