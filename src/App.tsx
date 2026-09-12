@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
@@ -11,11 +12,40 @@ import Reminders from './pages/Reminders';
 import Statistics from './pages/Statistics';
 import Settings from './pages/Settings';
 import Trash from './pages/Trash';
+import { ipcService } from './services/ipcService';
 import { Home, Users, Truck, Archive as ArchiveIcon, Bell, BarChart2, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [taskStats, setTaskStats] = useState({ overdue: 0, total: 0 });
+
+  useEffect(() => {
+    let alive = true;
+    const refreshTaskIndicator = async () => {
+      try {
+        const stats = await ipcService.reminders.getStats();
+        if (alive) setTaskStats(stats);
+      } catch {
+        // The menu remains usable even if the local database is temporarily unavailable.
+      }
+    };
+    const timer = window.setInterval(refreshTaskIndicator, 15_000);
+    window.addEventListener('focus', refreshTaskIndicator);
+    refreshTaskIndicator();
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshTaskIndicator);
+    };
+  }, []);
+
+  const taskIndicator = taskStats.overdue > 0
+    ? { count: taskStats.overdue, className: 'bg-red-500 text-white', label: `Просрочено: ${taskStats.overdue}` }
+    : taskStats.total > 0
+      ? { count: taskStats.total, className: 'bg-emerald-500 text-white', label: `Новые задачи: ${taskStats.total}` }
+      : null;
 
   const links = [
     { to: '/',           icon: Home,         label: 'Главная' },
@@ -35,13 +65,18 @@ function Sidebar() {
         return (
           <button
             key={to}
-            title={label}
+            title={to === '/reminders' && taskIndicator ? `${label} — ${taskIndicator.label}` : label}
             onClick={() => navigate(to)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+            className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
               active ? 'bg-primary-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
             }`}
           >
             <Icon size={20} />
+            {to === '/reminders' && taskIndicator && (
+              <span className={`absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full text-[10px] leading-4 font-bold shadow-sm ${taskIndicator.className}`}>
+                {taskIndicator.count > 99 ? '99+' : taskIndicator.count}
+              </span>
+            )}
           </button>
         );
       })}
