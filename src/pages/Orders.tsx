@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import type { Order } from '../types';
 import { formatDate, formatPrice } from '../utils/formatters';
-import { Truck, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Truck, AlertTriangle, ChevronRight, Search } from 'lucide-react';
 
 interface OrderWithClient extends Order {
   client_name?: string;
@@ -40,6 +40,9 @@ export default function Orders() {
   const [orders, setOrders] = useState<OrderWithClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('paid');
+  const [query, setQuery] = useState('');
+  const [contractDateFrom, setContractDateFrom] = useState('');
+  const [contractDateTo, setContractDateTo] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -58,11 +61,25 @@ export default function Orders() {
     // is used to split the paid cars into stages, but must not put old/test
     // cars here on its own.
     const paidOrders = orders.filter(o => o.payment_status === 'paid');
-    if (filter === 'transit')  return paidOrders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
-    if (filter === 'arrived')  return paidOrders.filter(o => ARRIVED_STATUSES.includes(o.order_status_name ?? ''));
-    if (filter === 'ready')    return paidOrders.filter(o => o.order_status_name === 'Подготовка к выдаче');
-    return paidOrders.filter(o => PAID_STATUSES.includes(o.order_status_name ?? ''));
-  }, [orders, filter]);
+    let stageOrders = paidOrders.filter(o => PAID_STATUSES.includes(o.order_status_name ?? ''));
+    if (filter === 'transit') stageOrders = paidOrders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
+    if (filter === 'arrived') stageOrders = paidOrders.filter(o => ARRIVED_STATUSES.includes(o.order_status_name ?? ''));
+    if (filter === 'ready') stageOrders = paidOrders.filter(o => o.order_status_name === 'Подготовка к выдаче');
+
+    const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU');
+    return stageOrders.filter(order => {
+      const contractDate = order.contract_date?.split('T')[0] ?? '';
+      const searchable = [
+        order.brand, order.model, order.configuration, order.color,
+        order.client_name, order.client_phone, order.contract_number,
+      ].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
+
+      if (normalizedQuery && !searchable.includes(normalizedQuery)) return false;
+      if (contractDateFrom && (!contractDate || contractDate < contractDateFrom)) return false;
+      if (contractDateTo && (!contractDate || contractDate > contractDateTo)) return false;
+      return true;
+    });
+  }, [orders, filter, query, contractDateFrom, contractDateTo]);
 
   const tabs: { key: Filter; label: string }[] = [
     { key: 'paid',    label: 'После оплаты' },
@@ -78,7 +95,7 @@ export default function Orders() {
         <p className="text-sm text-gray-500 mt-1">Покупка, доставка автомобиля и подготовка к выдаче. Сделки до оплаты остаются в разделе «В работе».</p>
       </div>
 
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-3 flex-wrap">
         {tabs.map(t => (
           <button
             key={t.key}
@@ -93,10 +110,32 @@ export default function Orders() {
         ))}
       </div>
 
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_170px_170px]">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            className="input pl-9"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Поиск: марка, модель, клиент, номер договора"
+          />
+        </div>
+        <div>
+          <label className="label">Договор от</label>
+          <input type="date" className="input" value={contractDateFrom} onChange={e => setContractDateFrom(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Договор до</label>
+          <input type="date" className="input" value={contractDateTo} onChange={e => setContractDateTo(e.target.value)} />
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-center py-8 text-gray-500">Загрузка...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">В этом разделе заказов нет</div>
+        <div className="text-center py-8 text-gray-400">
+          {query || contractDateFrom || contractDateTo ? 'По заданному фильтру заказы не найдены' : 'В этом разделе заказов нет'}
+        </div>
       ) : (
         <div className="space-y-2">
           {filtered.map(order => {
