@@ -178,8 +178,6 @@ export default function ClientDetail() {
     }
   };
 
-  const [archivePrompt, setArchivePrompt] = useState(false);
-
   const handleSave = async () => {
     // Strip computed fields from getById that don't exist in clients table
     const {
@@ -201,18 +199,14 @@ export default function ClientDetail() {
     if (success) {
       setIsEditing(false);
       loadClient();
-      // Suggest archive when status is done or lost
+      // A completed or lost client is always moved to the visible Archive.
+      // This avoids a card disappearing from the working list with no place to find it.
       const newStatus = statuses.find(s => s.id === (cleanData.status_id as number));
       if (newStatus && (newStatus.category === 'done' || newStatus.category === 'lost')) {
-        setArchivePrompt(true);
+        await ipcService.clients.update(clientId, { is_archived: 1 });
+        navigate('/archive');
       }
     }
-  };
-
-  const handleArchive = async () => {
-    await ipcService.clients.update(clientId, { is_archived: 1 });
-    setArchivePrompt(false);
-    navigate('/clients');
   };
 
   const toggleClientEditing = () => {
@@ -360,11 +354,15 @@ export default function ClientDetail() {
       });
     }
 
+    const finalOrderStatus = statuses.find(s => s.id === orderForm.order_status_id);
     setEditingOrder(null);
     setOrderForm({});
     await loadClient();
     fetchOrders(clientId);
     fetchReminders({ clientId });
+    if (finalOrderStatus && (finalOrderStatus.category === 'done' || finalOrderStatus.category === 'lost')) {
+      navigate('/archive');
+    }
   };
 
   const handleDeleteOrder = async (orderId: number) => {
@@ -1257,28 +1255,6 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {archivePrompt && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-xl">🏁</div>
-              <div>
-                <div className="font-semibold text-gray-900">Переместить в Архив?</div>
-                <div className="text-sm text-gray-500 mt-0.5">{client?.full_name}</div>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600 mb-5">
-              Клиент завершил работу с вами. Переместить его в Архив? Все данные сохранятся — при необходимости можно вернуть в работу.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={handleArchive} className="flex-1 bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-lg font-semibold text-sm transition-colors">
-                В Архив
-              </button>
-              <button onClick={() => setArchivePrompt(false)} className="flex-1 btn-secondary">Не сейчас</button>
-            </div>
-          </div>
-        </div>
-      )}
       {contactModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">

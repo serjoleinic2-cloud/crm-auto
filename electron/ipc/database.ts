@@ -96,7 +96,12 @@ function mergeDuplicateStatuses(): void {
 
 function syncClientStatusFromOrder(clientId: number, statusId: unknown): void {
   if (typeof statusId === 'number') {
-    db.prepare("UPDATE clients SET status_id=?, updated_at=datetime('now') WHERE id=?").run(statusId, clientId);
+    const status = db.prepare('SELECT category FROM statuses WHERE id=?').get(statusId) as { category: string } | undefined;
+    if (status?.category === 'done' || status?.category === 'lost') {
+      db.prepare("UPDATE clients SET status_id=?, is_archived=1, updated_at=datetime('now') WHERE id=?").run(statusId, clientId);
+    } else {
+      db.prepare("UPDATE clients SET status_id=?, updated_at=datetime('now') WHERE id=?").run(statusId, clientId);
+    }
   }
 }
 
@@ -134,6 +139,15 @@ function normalizeAlreadyPaidOrders(): void {
     }
   });
   fix();
+}
+
+function archiveCompletedClients(): void {
+  db.prepare(`
+    UPDATE clients SET is_archived=1, updated_at=datetime('now')
+    WHERE is_archived=0 AND status_id IN (
+      SELECT id FROM statuses WHERE category IN ('done','lost') AND is_active=1
+    )
+  `).run();
 }
 
 function syncInspectionReminder(clientId: number, orderId: number, plannedIssueDate: unknown, carName: string): void {
@@ -306,6 +320,7 @@ export function initDatabase(): void {
   migrateLegacyOrderStatuses();
   mergeDuplicateStatuses();
   normalizeAlreadyPaidOrders();
+  archiveCompletedClients();
 
   // Всегда синхронизируем марки с car_brands.txt (заменяем старый список)
   const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
