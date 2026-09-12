@@ -166,7 +166,7 @@ export function registerDocumentsHandlers(): void {
     });
   });
 
-  ipcMain.handle('documents:updateStatus', (_e, clientId: number, documentTypeId: number, status: DocStatus) => {
+  ipcMain.handle('documents:updateStatus', (_e, clientId: number, documentTypeId: number, status: DocStatus, receivedDate?: string | null) => {
     const db = getDb();
     const type = getDocumentType(documentTypeId);
     if (!type) return false;
@@ -177,6 +177,9 @@ export function registerDocumentsHandlers(): void {
       { status: string; requested_date: string | null; received_date: string | null };
 
     const updates: Record<string, unknown> = { status };
+    const normalizedReceivedDate = receivedDate && /^\d{4}-\d{2}-\d{2}$/.test(receivedDate)
+      ? receivedDate
+      : null;
     if (status === 'not_requested' && type.code === 'contract') {
       updates.requested_date = null;
       updates.received_date = null;
@@ -187,15 +190,15 @@ export function registerDocumentsHandlers(): void {
     if ((status === 'requested' || status === 'sent') && !current.requested_date) {
       updates.requested_date = new Date().toISOString().split('T')[0];
     }
-    if ((status === 'received' || status === 'verified') && !current.received_date) {
-      updates.received_date = new Date().toISOString().split('T')[0];
+    if (status === 'received' || status === 'verified') {
+      updates.received_date = normalizedReceivedDate ?? current.received_date ?? new Date().toISOString().split('T')[0];
     }
     const fields = Object.keys(updates);
     const set = fields.map(f => `${f}=@${f}`).join(', ');
     db.prepare(`UPDATE documents SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...updates, __id: docId });
 
     if (type.code === 'payment_proof' && status === 'received') {
-      syncPaymentFromProof(clientId);
+      syncPaymentFromProof(clientId, true, updates.received_date as string | null | undefined);
     }
     if (type.code === 'payment_proof' && status === 'not_requested') {
       syncPaymentWhenProofMissing(clientId);
