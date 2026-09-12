@@ -97,65 +97,58 @@ export default function Orders() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-8 text-gray-400">В этом разделе заказов нет</div>
       ) : (
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full min-w-[1050px] text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">№ договора</th>
-                <th className="text-left px-4 py-3 font-medium">Оплачен</th>
-                <th className="text-left px-4 py-3 font-medium">Автомобиль</th>
-                <th className="text-left px-4 py-3 font-medium">Срок доставки</th>
-                <th className="text-left px-4 py-3 font-medium">Осталось</th>
-                <th className="text-left px-4 py-3 font-medium">Клиент</th>
-                <th className="text-left px-4 py-3 font-medium">Телефон</th>
-                <th className="text-right px-4 py-3 font-medium">Сумма авто</th>
-                <th className="text-left px-4 py-3 font-medium">Статус</th>
-                <th className="px-3 py-3" aria-label="Открыть карточку" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map(order => {
-                const remainingDays = order.delivery_date_est ? daysBetween(todayISO(), order.delivery_date_est) : null;
-                const overdue = remainingDays !== null && remainingDays < 0;
-                const car = [order.brand, order.model, order.configuration, order.color].filter(Boolean).join(' ');
-                return (
-                  <tr
-                    key={order.id}
-                    onClick={() => navigate(`/clients/${order.client_id}?tab=orders`)}
-                    className={`cursor-pointer hover:bg-primary-50/40 transition-colors ${overdue ? 'bg-red-50/30' : ''}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-900">{order.contract_number ? `№ ${order.contract_number}` : '—'}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.payment_date ? formatDate(order.payment_date) : 'Не указана'}</td>
-                    <td className="px-4 py-3 text-gray-700 max-w-[240px]">
-                      <div className="font-medium text-gray-900 truncate">{car || 'Авто не указано'}</div>
-                      {order.year && <div className="text-xs text-gray-400 mt-0.5">{order.year} год</div>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{deliveryTermLabel(order)}</td>
-                    <td className="px-4 py-3">
-                      {remainingDays === null ? (
-                        <span className="text-gray-400">Дата не указана</span>
-                      ) : overdue ? (
-                        <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle size={14}/>{Math.abs(remainingDays)} дн. просрочено</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-primary-700 font-medium"><Truck size={14}/>{remainingDays} дн.<span className="text-gray-400 font-normal">до {formatDate(order.delivery_date_est)}</span></span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{order.client_name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.client_phone || '—'}</td>
-                    <td className="px-4 py-3 text-right text-primary-700 font-semibold whitespace-nowrap">{formatPrice(order.price) || '—'}</td>
-                    <td className="px-4 py-3">
-                      {order.order_status_name ? (
+        <div className="space-y-2">
+          {filtered.map(order => {
+            const remainingDays = order.delivery_date_est ? daysBetween(todayISO(), order.delivery_date_est) : null;
+            const overdue = remainingDays !== null && remainingDays < 0;
+            const car = [order.brand, order.model, order.configuration, order.color].filter(Boolean).join(' ');
+            const remaining = remainingDays === null
+              ? <span className="text-gray-400">Дата не указана</span>
+              : overdue
+                ? <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle size={14}/>{Math.abs(remainingDays)} дн. просрочено</span>
+                : <span className="inline-flex items-center gap-1 text-primary-700 font-medium"><Truck size={14}/>{remainingDays} дн.</span>;
+            return (
+              <button
+                key={order.id}
+                onClick={() => navigate(`/clients/${order.client_id}?tab=orders`)}
+                className={`card w-full p-3 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/40 ${overdue ? 'border-red-200 bg-red-50/30' : ''}`}
+              >
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.35fr)_minmax(150px,1fr)_minmax(130px,0.8fr)_auto] lg:items-center">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{car || 'Авто не указано'}</div>
+                    <div className="mt-0.5 text-xs text-gray-500">{order.contract_number ? `Договор № ${order.contract_number}` : 'Номер договора не указан'}{order.year ? ` · ${order.year} г.` : ''}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{order.client_name || '—'}</div>
+                    <div className="mt-0.5 text-xs text-gray-500 truncate">{order.client_phone || 'Телефон не указан'}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-xs text-gray-500">Доставка</div>
+                    <div className="font-medium text-gray-800">{deliveryTermLabel(order)}</div>
+                    {order.delivery_date_est && <div className="text-xs text-gray-500">до {formatDate(order.delivery_date_est)}</div>}
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-xs text-gray-500">Осталось</div>
+                    <div className="mt-0.5">{remaining}</div>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 lg:col-span-1 lg:border-0 lg:pt-0">
+                    <div>
+                      <div className="text-xs text-gray-500">Оплата: {order.payment_date ? formatDate(order.payment_date) : 'не указана'}</div>
+                      <div className="mt-0.5 font-semibold text-primary-700 whitespace-nowrap">{formatPrice(order.price) || '—'}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {order.order_status_name && (
                         <span className="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap" style={{ backgroundColor: (order.order_status_color ?? '#6b7280') + '20', color: order.order_status_color ?? '#6b7280' }}>
                           {order.order_status_name}
                         </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-3 py-3 text-gray-400"><ChevronRight size={18}/></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      )}
+                      <ChevronRight size={18} className="text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
