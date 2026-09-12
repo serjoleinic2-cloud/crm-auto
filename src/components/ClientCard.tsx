@@ -253,7 +253,7 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
                 <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 mb-0.5">
                   Статус
                 </div>
-                {statuses.map(s => (
+                {statuses.filter(s => s.name !== 'Оплачен').map(s => (
                   <button
                     key={s.id}
                     onClick={e => handleSelectStatus(e, s.id)}
