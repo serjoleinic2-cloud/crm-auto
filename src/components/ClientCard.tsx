@@ -150,7 +150,17 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
     setChangingStatus(true);
     setShowStatusMenu(false);
     try {
-      await ipcService.clients.update(client.id, { status_id: statusId });
+      // The card and the most recent order must always have one shared stage:
+      // for example «Автомобиль в пути» → «Допы».
+      const orders = await ipcService.orders.getByClientId(client.id);
+      const lastOrder = orders[orders.length - 1];
+
+      if (lastOrder) {
+        await ipcService.orders.update(lastOrder.id, { order_status_id: statusId });
+      } else {
+        await ipcService.clients.update(client.id, { status_id: statusId });
+      }
+
       // Issued cars are completed deals. Archive the whole client so the
       // card and its order leave the working lists together.
       if (statuses.find(status => status.id === statusId)?.name === 'Выдан') {
