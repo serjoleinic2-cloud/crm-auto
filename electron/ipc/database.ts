@@ -143,7 +143,7 @@ function normalizeAlreadyPaidOrders(): void {
 
 // The received payment document is the operational confirmation of payment.
 // Keep the order, client status and payment deadline in sync with it.
-export function syncPaymentFromProof(clientId: number, recordHistory = true): boolean {
+export function syncPaymentFromProof(clientId: number, recordHistory = true, paymentDate?: string | null): boolean {
   const order = db.prepare(`
     SELECT o.id, o.payment_status, o.payment_date, o.order_status_id, s.name AS status_name
     FROM orders o
@@ -160,12 +160,12 @@ export function syncPaymentFromProof(clientId: number, recordHistory = true): bo
     db.prepare(`
       UPDATE orders
       SET payment_status='paid',
-          payment_date=COALESCE(payment_date, date('now')),
+          payment_date=COALESCE(?, payment_date, date('now')),
           payment_deadline=NULL,
           order_status_id=CASE WHEN ? THEN ? ELSE order_status_id END,
           updated_at=datetime('now')
       WHERE id=?
-    `).run(promoteStatus ? 1 : 0, paidStatusId, order.id);
+    `).run(paymentDate ?? null, promoteStatus ? 1 : 0, paidStatusId, order.id);
     if (promoteStatus) syncClientStatusFromOrder(clientId, paidStatusId);
   });
   save();
