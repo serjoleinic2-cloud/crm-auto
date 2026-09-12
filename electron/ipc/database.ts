@@ -290,6 +290,21 @@ export function initDatabase(): void {
     for (const t of DEFAULT_DOCUMENT_TYPES) ins.run({ ...t, is_system: t.is_system });
   }
 
+  // The two contract cards are different workflow steps. A generated contract
+  // is sent for signature; the signed scan is received back from the client.
+  // Keep existing files and only normalize their names/statuses.
+  db.prepare("UPDATE document_types SET name='Договор на подпись' WHERE code='contract'").run();
+  db.prepare(`
+    UPDATE documents SET status='sent', received_date=NULL, updated_at=datetime('now')
+    WHERE document_type_id=(SELECT id FROM document_types WHERE code='contract')
+      AND status IN ('received','verified')
+  `).run();
+  db.prepare(`
+    UPDATE documents SET status='received', updated_at=datetime('now')
+    WHERE document_type_id IN (SELECT id FROM document_types WHERE code IN ('contract_signed','payment_proof'))
+      AND status='verified'
+  `).run();
+
   if (getSetting('base_data_path') === null) {
     setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
   }

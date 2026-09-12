@@ -109,6 +109,14 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
   };
 
   const color = STATUS_COLORS[doc.status];
+  const isContractToSign = doc.code === 'contract';
+  const isSignedContract = doc.code === 'contract_signed';
+  const isPaymentProof = doc.code === 'payment_proof';
+  const isSingleStepContract = isContractToSign || isSignedContract || isPaymentProof;
+  const singleStepStatus: DocumentStatus = isContractToSign ? 'sent' : 'received';
+  const singleStepDone = doc.status === singleStepStatus;
+  const singleStepLabel = isContractToSign ? 'Отправлен клиенту' : 'Получен';
+  const singleStepAction = isContractToSign ? 'Отметить отправленным' : 'Отметить полученным';
 
   return (
     <div className={`border border-gray-200 rounded-lg p-3 transition-all ${expanded ? 'col-span-2' : ''}`}>
@@ -131,17 +139,36 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
         )}
         {savedTick && <span className="text-xs text-green-600 shrink-0">✓ Сохранено</span>}
         {saving && !savedTick && <span className="text-xs text-gray-400 shrink-0">Сохранение…</span>}
-        <select
-          className="text-xs border border-gray-200 rounded-md px-2 py-1 font-medium shrink-0"
-          style={{ color, borderColor: color }}
-          value={doc.status}
-          disabled={saving}
-          onChange={e => handleStatusChange(e.target.value as DocumentStatus)}
-        >
-          {(Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[]).map(s => (
-            <option key={s} value={s}>{DOCUMENT_STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+        {isSingleStepContract ? (
+          singleStepDone ? (
+            <span
+              className="text-xs border rounded-md px-2 py-1 font-medium shrink-0"
+              style={{ color: STATUS_COLORS[singleStepStatus], borderColor: STATUS_COLORS[singleStepStatus] }}
+            >
+              {singleStepLabel}
+            </span>
+          ) : (
+            <button
+              className="text-xs border border-primary-300 bg-primary-50 text-primary-700 rounded-md px-2 py-1 font-medium shrink-0 hover:bg-primary-100"
+              disabled={saving}
+              onClick={() => handleStatusChange(singleStepStatus)}
+            >
+              {singleStepAction}
+            </button>
+          )
+        ) : (
+          <select
+            className="text-xs border border-gray-200 rounded-md px-2 py-1 font-medium shrink-0"
+            style={{ color, borderColor: color }}
+            value={doc.status}
+            disabled={saving}
+            onChange={e => handleStatusChange(e.target.value as DocumentStatus)}
+          >
+            {(Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[]).map(s => (
+              <option key={s} value={s}>{DOCUMENT_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {expanded && (

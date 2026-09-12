@@ -237,11 +237,11 @@ export function registerContractsHandlers(): void {
         if (!docRow) {
           const ins = db.prepare(`
             INSERT INTO documents (client_id, document_type_id, order_id, status)
-            VALUES (?, ?, ?, 'received')
+            VALUES (?, ?, ?, 'sent')
           `).run(contractData.clientId, contractTypeRow.id, contractData.orderId);
           docRow = { id: ins.lastInsertRowid as number };
         } else {
-          db.prepare(`UPDATE documents SET status='received', updated_at=datetime('now') WHERE id=?`).run(docRow.id);
+          db.prepare(`UPDATE documents SET status='sent', received_date=NULL, updated_at=datetime('now') WHERE id=?`).run(docRow.id);
         }
         const stat = fs.statSync(filePath);
         db.prepare(`
