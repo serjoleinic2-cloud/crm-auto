@@ -45,7 +45,7 @@ function DeleteTypeConfirm({ name, onConfirm, onCancel, deleting }: DeleteTypeCo
           Тип документа будет скрыт из списка. Уже загруженные файлы клиента не будут автоматически удалены.
         </p>
         <div className="flex gap-2 justify-end">
-          <button onClick={onCancel} className="btn-secondary text-sm">Отмена</button>
+          <button onClick={onCancel} className="btn-cancel text-sm">Отмена</button>
           <button
             onClick={onConfirm}
             disabled={deleting}
@@ -186,7 +186,7 @@ export default function DocumentsPanel({ clientId }: Props) {
             <button onClick={handleCreateType} disabled={savingType || !newTypeName.trim()} className="btn-primary text-sm shrink-0">
               {savingType ? 'Создание...' : 'Создать'}
             </button>
-            <button onClick={() => { setAddingType(false); setNewTypeName(''); }} className="btn-secondary text-sm shrink-0">Отмена</button>
+            <button onClick={() => { setAddingType(false); setNewTypeName(''); }} className="btn-cancel text-sm shrink-0">Отмена</button>
           </div>
         ) : (
           <button onClick={() => setAddingType(true)} className="text-sm text-primary-600 hover:underline flex items-center gap-1">
