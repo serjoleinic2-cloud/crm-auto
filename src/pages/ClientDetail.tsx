@@ -486,7 +486,7 @@ export default function ClientDetail() {
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
               <Trash2 size={16} />
             </button>
-            <button onClick={toggleClientEditing} className="btn-secondary text-sm">
+            <button onClick={toggleClientEditing} className={isEditing ? 'btn-cancel text-sm' : 'btn-secondary text-sm'}>
               {isEditing ? 'Отмена' : 'Редактировать'}
             </button>
           </div>
@@ -989,7 +989,7 @@ export default function ClientDetail() {
 
                 <div className="flex gap-2 pt-2">
                   <button onClick={saveOrder} className="btn-save text-sm">Сохранить</button>
-                  <button onClick={() => { setEditingOrder(null); setOrderForm({}); }} className="btn-secondary text-sm">Отмена</button>
+                  <button onClick={() => { setEditingOrder(null); setOrderForm({}); }} className="btn-cancel text-sm">Отмена</button>
                 </div>
               </div>
             )}
@@ -1271,7 +1271,7 @@ export default function ClientDetail() {
                 className="flex-1 btn-danger font-semibold">
                 В корзину
               </button>
-              <button onClick={() => setTrashConfirm(false)} className="flex-1 btn-secondary">Отмена</button>
+              <button onClick={() => setTrashConfirm(false)} className="flex-1 btn-cancel">Отмена</button>
             </div>
           </div>
         </div>
