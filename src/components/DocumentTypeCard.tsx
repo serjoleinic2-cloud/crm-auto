@@ -90,7 +90,24 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
   const handleStatusChange = async (status: DocumentStatus) => {
     setSaving(true);
     try {
-      await ipcService.documents.updateStatus(clientId, doc.document_type_id, status);
+      const receivedDate = doc.code === 'payment_proof' && status === 'received'
+        ? (doc.received_date?.split('T')[0] || new Date().toISOString().split('T')[0])
+        : undefined;
+      await ipcService.documents.updateStatus(clientId, doc.document_type_id, status, receivedDate);
+      flashSaved();
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePaymentDateChange = async (value: string) => {
+    if (!value) return;
+    setSaving(true);
+    try {
+      // The payment receipt and its date are the sole source of payment truth.
+      // Entering the date also confirms that the receipt has been received.
+      await ipcService.documents.updateStatus(clientId, doc.document_type_id, 'received', value);
       flashSaved();
       onChanged();
     } finally {
@@ -195,6 +212,22 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
           ))}
         </select>
       </div>
+
+      {doc.code === 'payment_proof' && (
+        <div className="mt-2 ml-6 flex flex-wrap items-center gap-2">
+          <label className="text-xs text-gray-500">Дата оплаты</label>
+          <input
+            type="date"
+            className="input w-auto py-1 text-xs"
+            value={doc.received_date?.split('T')[0] || ''}
+            disabled={saving}
+            onChange={e => handlePaymentDateChange(e.target.value)}
+          />
+          <span className="text-[10px] text-gray-400">
+            {doc.status === 'received' ? 'Чек получен' : 'Укажите дату — чек будет отмечен полученным'}
+          </span>
+        </div>
+      )}
 
       {expanded && (
         <div className="mt-3 space-y-2 pl-6">
