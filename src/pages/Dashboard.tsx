@@ -91,15 +91,27 @@ export default function Dashboard() {
             <Bell size={18} /> Задачи на сегодня
           </h2>
           <div className="space-y-2">
-            {reminders.map(r => (
-              <button key={r.id} onClick={() => navigate(`/clients/${r.client_id}`)} className="w-full text-left card py-3 px-4 hover:shadow-md transition-shadow flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">{r.title}</div>
-                  <div className="text-xs text-gray-500">{r.client_name} {r.due_date ? `· ${formatDate(r.due_date)}` : ''}</div>
-                </div>
-              </button>
-            ))}
+            {reminders.map(r => {
+              const clientId = Number(r.client_id);
+              const hasClient = Number.isInteger(clientId) && clientId > 0;
+
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => navigate(hasClient ? `/clients/${clientId}` : '/reminders')}
+                  title={hasClient ? 'Открыть карточку клиента' : 'Задача без клиента — открыть список задач'}
+                  className="w-full text-left card py-3 px-4 hover:shadow-md transition-shadow flex items-center gap-3"
+                >
+                  <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">{r.title}</div>
+                    <div className="text-xs text-gray-500">
+                      {r.client_name || 'Без клиента'} {r.due_date ? `· ${formatDate(r.due_date)}` : ''}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
