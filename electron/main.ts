@@ -1,11 +1,10 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'path';
-import { initDatabase, registerDatabaseHandlers } from './ipc/database';
+import { getDatabasePath, getDb, initDatabase, registerDatabaseHandlers } from './ipc/database';
 import { registerMessagingHandlers } from './ipc/messaging';
 import { registerFilesHandlers } from './ipc/files';
 import { registerDocumentsHandlers } from './ipc/documents';
 import { registerBackupHandlers } from './ipc/backup';
-import { registerOrderStatusesHandlers } from './ipc/orderStatuses';
 import { registerRemindersHandlers } from './ipc/reminders';
 import { registerContractsHandlers } from './ipc/contracts';
 
@@ -60,8 +59,6 @@ app.whenReady().then(() => {
     registerDocumentsHandlers();
     console.log('[MAIN] registerBackupHandlers...');
     registerBackupHandlers();
-    console.log('[MAIN] registerOrderStatusesHandlers...');
-    registerOrderStatusesHandlers();
     console.log('[MAIN] registerRemindersHandlers...');
     registerRemindersHandlers();
     console.log('[MAIN] registerContractsHandlers...');
@@ -90,8 +87,9 @@ app.whenReady().then(() => {
       const path = require('path');
       try {
         const basePath = getBasePath();
-        const dbPath = path.join(basePath, 'crm.db');
+        const dbPath = getDatabasePath();
         if (!fs.existsSync(dbPath)) return;
+        getDb().pragma('wal_checkpoint(TRUNCATE)');
         const dir = path.join(basePath, 'auto-backups');
         fs.mkdirSync(dir, { recursive: true });
         const now = new Date();

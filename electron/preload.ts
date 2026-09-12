@@ -37,7 +37,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getByClientId:  (clientId: number)               => invoke('history:getByClientId', clientId),
   },
   statuses: { getAll: () => invoke('statuses:getAll') },
-  orderStatuses: { getAll: () => invoke('orderStatuses:getAll') },
   dashboard: { getStats: () => invoke('dashboard:getStats') },
   carBrands: { getAll: () => invoke('carBrands:getAll') },
   settings: {
@@ -46,6 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   files: {
     openClientFolder: (clientId: number, clientName: string) => invoke('files:openClientFolder', clientId, clientName),
+    openBaseFolder:   ()                                            => invoke('files:openBaseFolder'),
     openFile:         (filePath: string)                      => invoke('files:openFile', filePath),
     pickFiles:        (opts?: { multi?: boolean })             => invoke('files:pickFiles', opts),
     pickFolder:       ()                                       => invoke('files:pickFolder'),

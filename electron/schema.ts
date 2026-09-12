@@ -47,14 +47,6 @@ CREATE TABLE IF NOT EXISTS consent (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS order_statuses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL DEFAULT '#6b7280',
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  is_active INTEGER NOT NULL DEFAULT 1
-);
-
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -71,13 +63,10 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_date TEXT,
   payment_status TEXT,
   order_status_id INTEGER,
-  broker_name TEXT,
-  broker_phone TEXT,
-  broker_comment TEXT,
-  broker_date TEXT,
   inspection_done INTEGER NOT NULL DEFAULT 0,
   inspection_comment TEXT,
   issue_date TEXT,
+  planned_issue_date TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -166,6 +155,7 @@ CREATE TABLE IF NOT EXISTS document_files (
 CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
   due_date TEXT,
@@ -203,9 +193,6 @@ CREATE TABLE IF NOT EXISTS extras (
 
 CREATE INDEX IF NOT EXISTS idx_extras_order ON extras(order_id);
 
--- Migration v4 → v5: rename statuses
-UPDATE statuses SET name='Договор подписан' WHERE name='Договор отправлен';
-UPDATE statuses SET name='На площадке' WHERE name='Готов к выдаче';
 `;
 
 export const DEFAULT_DOCUMENT_TYPES = [
@@ -228,20 +215,6 @@ export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
   verified:      'Проверен',
 };
 
-export const DEFAULT_ORDER_STATUSES = [
-  { name: 'Новый заказ',           color: '#6b7280', sort_order: 1 },
-  { name: 'Ожидает оплату',        color: '#f59e0b', sort_order: 2 },
-  { name: 'Оплачен',               color: '#3b82f6', sort_order: 3 },
-  { name: 'Автомобиль заказан',    color: '#8b5cf6', sort_order: 4 },
-  { name: 'Автомобиль в пути',     color: '#06b6d4', sort_order: 5 },
-  { name: 'На таможне',            color: '#d946ef', sort_order: 6 },
-  { name: 'Таможенное оформление', color: '#ec4899', sort_order: 7 },
-  { name: 'Едет по РФ',            color: '#14b8a6', sort_order: 8 },
-  { name: 'Прибыл в офис',         color: '#22c55e', sort_order: 9 },
-  { name: 'Выдан клиенту',         color: '#10b981', sort_order: 10 },
-  { name: 'Отменён',               color: '#ef4444', sort_order: 11 },
-];
-
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   not_paid:  'Не оплачено',
   pending:   'Ожидается оплата',
@@ -256,10 +229,10 @@ export const DEFAULT_STATUSES = [
   { name: 'Договор подписан',    color: '#8b5cf6', category: 'pipeline', sort_order: 2 },
   { name: 'Ожидает оплату',      color: '#f59e0b', category: 'pipeline', sort_order: 3 },
   { name: 'Оплачен',             color: '#3b82f6', category: 'pipeline', sort_order: 4 },
-  { name: 'На таможне',          color: '#d946ef', category: 'pipeline', sort_order: 5 },
-  { name: 'Едет по РФ',          color: '#14b8a6', category: 'pipeline', sort_order: 6 },
-  { name: 'На площадке',         color: '#22c55e', category: 'pipeline', sort_order: 7 },
-  { name: 'Допы',                color: '#f97316', category: 'pipeline', sort_order: 8 },
+  { name: 'Автомобиль в пути',   color: '#06b6d4', category: 'pipeline', sort_order: 5 },
+  { name: 'Автомобиль прибыл',   color: '#22c55e', category: 'pipeline', sort_order: 6 },
+  { name: 'Допы',                color: '#f97316', category: 'pipeline', sort_order: 7 },
+  { name: 'Подготовка к выдаче', color: '#0ea5e9', category: 'pipeline', sort_order: 8 },
   { name: 'Выдан',               color: '#10b981', category: 'done',     sort_order: 9 },
   { name: 'Завершён',            color: '#6b7280', category: 'done',     sort_order: 10 },
   { name: 'Отказ',               color: '#ef4444', category: 'lost',     sort_order: 11 },

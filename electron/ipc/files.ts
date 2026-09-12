@@ -11,6 +11,13 @@ export function registerFilesHandlers(): void {
     return folder;
   });
 
+  ipcMain.handle('files:openBaseFolder', () => {
+    const folder = getBasePath();
+    fs.mkdirSync(folder, { recursive: true });
+    shell.openPath(folder);
+    return folder;
+  });
+
   // Open an arbitrary file with the OS-default application
   ipcMain.handle('files:openFile', (_e, filePath: string) => {
     if (!fs.existsSync(filePath)) return { error: 'Файл не найден на диске' };
