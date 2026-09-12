@@ -6,6 +6,16 @@ import { DOCUMENT_STATUS_LABELS } from '../schema';
 
 type DocStatus = 'not_required' | 'not_requested' | 'requested' | 'sent' | 'received' | 'verified';
 
+const ALLOWED_STATUSES_BY_DOCUMENT: Record<string, DocStatus[]> = {
+  consent: ['not_required', 'requested', 'sent', 'received'],
+  snils: ['not_required', 'not_requested', 'requested', 'received'],
+  passport: ['not_required', 'not_requested', 'requested', 'received'],
+  inn: ['not_required', 'not_requested', 'requested', 'received'],
+  contract: ['not_requested', 'sent'],
+  contract_signed: ['not_requested', 'received'],
+  payment_proof: ['not_requested', 'received'],
+};
+
 function getClientName(clientId: number): string {
   const db = getDb();
   const row = db.prepare('SELECT full_name FROM clients WHERE id=?').get(clientId) as { full_name: string } | undefined;
@@ -119,13 +129,20 @@ export function registerDocumentsHandlers(): void {
     const db = getDb();
     const type = getDocumentType(documentTypeId);
     if (!type) return false;
-    if (type.code === 'contract' && status !== 'sent') return false;
-    if (['contract_signed', 'payment_proof'].includes(type.code) && status !== 'received') return false;
+    const allowedStatuses = ALLOWED_STATUSES_BY_DOCUMENT[type.code];
+    if (allowedStatuses && !allowedStatuses.includes(status)) return false;
     const docId = ensureDocumentRow(clientId, documentTypeId);
     const current = db.prepare('SELECT * FROM documents WHERE id=?').get(docId) as
       { status: string; requested_date: string | null; received_date: string | null };
 
     const updates: Record<string, unknown> = { status };
+    if (status === 'not_requested' && type.code === 'contract') {
+      updates.requested_date = null;
+      updates.received_date = null;
+    }
+    if (status === 'not_requested' && ['contract_signed', 'payment_proof'].includes(type.code)) {
+      updates.received_date = null;
+    }
     if ((status === 'requested' || status === 'sent') && !current.requested_date) {
       updates.requested_date = new Date().toISOString().split('T')[0];
     }

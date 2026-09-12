@@ -356,6 +356,23 @@ export function initDatabase(): void {
     WHERE document_type_id IN (SELECT id FROM document_types WHERE code IN ('contract_signed','payment_proof'))
       AND status='verified'
   `).run();
+  // Remove status variants that are not meaningful for the current document
+  // workflow while preserving the files and document dates themselves.
+  db.prepare(`
+    UPDATE documents SET status='requested', updated_at=datetime('now')
+    WHERE document_type_id=(SELECT id FROM document_types WHERE code='consent')
+      AND status='not_requested'
+  `).run();
+  db.prepare(`
+    UPDATE documents SET status='received', updated_at=datetime('now')
+    WHERE document_type_id IN (SELECT id FROM document_types WHERE code IN ('consent','snils','passport','inn'))
+      AND status='verified'
+  `).run();
+  db.prepare(`
+    UPDATE documents SET status='requested', updated_at=datetime('now')
+    WHERE document_type_id IN (SELECT id FROM document_types WHERE code IN ('snils','passport','inn'))
+      AND status='sent'
+  `).run();
 
   if (getSetting('base_data_path') === null) {
     setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
