@@ -59,7 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   documents: {
     getByClientId:  (clientId: number)                                                 => invoke('documents:getByClientId', clientId),
-    updateStatus:   (clientId: number, documentTypeId: number, status: string)          => invoke('documents:updateStatus', clientId, documentTypeId, status),
+    updateStatus:   (clientId: number, documentTypeId: number, status: string, receivedDate?: string | null) => invoke('documents:updateStatus', clientId, documentTypeId, status, receivedDate),
     updateComment:  (clientId: number, documentTypeId: number, comment: string)         => invoke('documents:updateComment', clientId, documentTypeId, comment),
     addFiles:       (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
       invoke('documents:addFiles', clientId, documentTypeId, filePaths, orderId),
