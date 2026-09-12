@@ -58,8 +58,8 @@ export const ipcService = {
   },
   documents: {
     getByClientId: (clientId: number) => api().documents.getByClientId(clientId),
-    updateStatus:  (clientId: number, documentTypeId: number, status: Parameters<Window['electronAPI']['documents']['updateStatus']>[2]) =>
-      api().documents.updateStatus(clientId, documentTypeId, status),
+    updateStatus:  (clientId: number, documentTypeId: number, status: Parameters<Window['electronAPI']['documents']['updateStatus']>[2], receivedDate?: string | null) =>
+      api().documents.updateStatus(clientId, documentTypeId, status, receivedDate),
     updateComment: (clientId: number, documentTypeId: number, comment: string) => api().documents.updateComment(clientId, documentTypeId, comment),
     addFiles:      (clientId: number, documentTypeId: number, filePaths: string[], orderId?: number | null) =>
       api().documents.addFiles(clientId, documentTypeId, filePaths, orderId),
