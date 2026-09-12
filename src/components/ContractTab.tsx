@@ -343,7 +343,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
         </div>
         <div className="flex items-center gap-2">
           <button
-            className="btn-secondary text-sm flex items-center gap-1"
+            className="btn-save text-sm flex items-center gap-1"
             onClick={saveDraft}
             disabled={savingDraft || !selectedOrderId}
           >
@@ -425,7 +425,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="btn-save text-sm flex items-center gap-1"
                 onClick={savePassport}
                 disabled={savingPassport}
               >
@@ -524,7 +524,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
                 </div>
               </div>
               <button
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="btn-save text-sm flex items-center gap-1"
                 onClick={saveCar}
                 disabled={savingCar}
               >
