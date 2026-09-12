@@ -171,7 +171,7 @@ export default function Settings() {
           </div>
         )}
         <div className="flex gap-2">
-          <button onClick={handleManualBackup} className="btn-primary text-sm flex items-center gap-1.5">
+          <button onClick={handleManualBackup} className="btn-save text-sm flex items-center gap-1.5">
             <Download size={14}/> Сохранить копию
           </button>
           <button onClick={handleRestore} className="btn-secondary text-sm flex items-center gap-1.5">
@@ -293,7 +293,7 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          <button onClick={handleSaveEmail} disabled={saving} className="btn-primary text-sm disabled:opacity-50">
+          <button onClick={handleSaveEmail} disabled={saving} className="btn-save text-sm disabled:opacity-50">
             {saving ? 'Сохранение...' : 'Сохранить'}
           </button>
         </div>
