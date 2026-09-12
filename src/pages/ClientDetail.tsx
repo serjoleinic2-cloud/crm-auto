@@ -214,6 +214,19 @@ export default function ClientDetail() {
     navigate('/clients');
   };
 
+  const toggleClientEditing = () => {
+    setActiveTab('main');
+    if (isEditing) {
+      setIsEditing(false);
+      setEditData({});
+      return;
+    }
+    // Start with the values already saved in the client card. Without this,
+    // the edit form looks empty and a manager can accidentally overwrite data.
+    setEditData({ ...client });
+    setIsEditing(true);
+  };
+
   const handleAddContact = () => {
     setContactModal({ type: 'phone', value: '' });
   };
@@ -437,7 +450,7 @@ export default function ClientDetail() {
               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
               <Trash2 size={16} />
             </button>
-            <button onClick={() => { setActiveTab('main'); setIsEditing(!isEditing); }} className="btn-secondary text-sm">
+            <button onClick={toggleClientEditing} className="btn-secondary text-sm">
               {isEditing ? 'Отмена' : 'Редактировать'}
             </button>
           </div>
