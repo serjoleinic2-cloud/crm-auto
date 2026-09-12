@@ -442,6 +442,42 @@ export default function ClientDetail() {
             </button>
           </div>
         </div>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'documents' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">1. Собрать</span>
+            <span className="font-medium">Документы</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('contract')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'contract' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">2. Оформить</span>
+            <span className="font-medium">Договор</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              activeTab === 'orders' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300'
+            }`}
+          >
+            <span className="block text-xs text-gray-500">3. Принять</span>
+            <span className="font-medium">Оплату</span>
+          </button>
+          <button
+            onClick={() => navigate('/orders')}
+            className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:border-primary-300"
+          >
+            <span className="block text-xs text-gray-500">4. Контролировать</span>
+            <span className="font-medium">Доставку</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200">

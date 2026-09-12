@@ -79,6 +79,8 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [errorMsg, setErrorMsg] = useState('');
   const [savingPassport, setSavingPassport] = useState(false);
   const [savingCar, setSavingCar] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   // Load passport data and next contract number
   useEffect(() => {
@@ -151,6 +153,24 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     }
   }, [selectedOrderId, carForm]);
 
+  const saveDraft = useCallback(async () => {
+    if (!selectedOrderId) return;
+    setSavingDraft(true);
+    try {
+      await ipcService.orders.update(selectedOrderId, {
+        contract_number: contractNumber || null,
+        contract_date: contractDate || null,
+        deal_amount: dealAmount || null,
+      });
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 2500);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [selectedOrderId, contractNumber, contractDate, dealAmount]);
+
   // ── validation ─────────────────────────────────────────────────────────────
 
   const getMissing = (): MissingField[] => {
@@ -187,7 +207,11 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
     let res: Awaited<ReturnType<typeof ipcService.contracts.generate>>;
     try {
-      // Save car form first
+      // The final action saves every entered value. Managers may still use the
+      // separate draft buttons when they need to stop before generating.
+      await ipcService.contracts.savePassportData(client.id, passport);
+
+      // Save car and contract requisites before creating the Word file.
       if (selectedOrderId) {
         await ipcService.orders.update(selectedOrderId, {
           ...carForm,
@@ -305,6 +329,22 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
           onChange={setAgentFee}
           placeholder="100 000 (сто тысяч) рублей"
         />
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary text-sm flex items-center gap-1"
+            onClick={saveDraft}
+            disabled={savingDraft || !selectedOrderId}
+          >
+            <Save size={14} />
+            {savingDraft ? 'Сохранение...' : 'Сохранить черновик'}
+          </button>
+          {draftSaved && (
+            <span className="text-green-600 text-sm flex items-center gap-1">
+              <CheckCircle size={14} /> Сохранено в заказе
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">При создании договора все внесённые здесь и ниже данные сохранятся автоматически.</p>
       </div>
 
       {/* ── PASSPORT DATA ─────────────────────────────────────────────── */}

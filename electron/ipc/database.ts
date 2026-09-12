@@ -488,7 +488,7 @@ export function registerDatabaseHandlers(): void {
 
   ipcMain.handle('orders:getAll', () => {
     return db.prepare(`
-      SELECT o.*, c.full_name as client_name,
+      SELECT o.*, c.full_name as client_name, c.phone as client_phone,
              s.name as order_status_name, s.color as order_status_color
       FROM orders o
       JOIN clients c ON c.id=o.client_id
