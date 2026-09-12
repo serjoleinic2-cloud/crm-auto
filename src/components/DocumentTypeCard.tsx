@@ -160,11 +160,11 @@ export default function DocumentTypeCard({ clientId, doc, onChanged, onDeleteTyp
 
   return (
     <div className={`border border-gray-200 rounded-lg p-3 transition-all ${expanded ? 'col-span-2' : ''}`}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <button onClick={() => setExpanded(e => !e)} className="text-gray-400 hover:text-gray-600 shrink-0">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
-        <span className="text-sm font-medium text-gray-900 flex-1 truncate">{doc.name}</span>
+        <span className="text-sm font-medium text-gray-900 flex-1 min-w-0 break-words leading-4">{doc.name}</span>
         {onDeleteType && (
           <button
             onClick={e => { e.stopPropagation(); onDeleteType(); }}
