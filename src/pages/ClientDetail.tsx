@@ -120,7 +120,7 @@ export default function ClientDetail() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [orderForm, setOrderForm] = useState<Partial<Order>>({});
   const [nextContractNum, setNextContractNum] = useState('');
-  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'payment' | 'delivery'>('car');
+  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'contract' | 'delivery'>('car');
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -752,7 +752,7 @@ export default function ClientDetail() {
                 <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
                   {([
                     ['car', '1. Автомобиль'],
-                    ['payment', '2. Договор и оплата'],
+                    ['contract', '2. Договор'],
                     ['delivery', '3. Доставка и выдача'],
                   ] as const).map(([tab, label]) => (
                     <button
@@ -812,40 +812,8 @@ export default function ClientDetail() {
                 </div>
                 </>}
 
-                {/* Payment block */}
-                {orderEditorTab === 'payment' && <>
-                <div className="border-t border-gray-200 pt-3">
-                  <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><FileText size={12}/> Оплата</h5>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <div>
-                      <label className="label text-xs">Статус оплаты</label>
-                      <select className="input text-sm" value={orderForm.payment_status || 'not_paid'} onChange={e => {
-                        const status = e.target.value;
-                        const paidStatusId = status === 'paid' ? statuses.find(s => s.name === 'Оплачен')?.id : undefined;
-                        setOrderForm(prev => ({
-                          ...prev,
-                          payment_status: status,
-                          payment_date: status === 'paid' && !prev.payment_date ? new Date().toISOString().split('T')[0] : prev.payment_date,
-                          order_status_id: paidStatusId ?? prev.order_status_id,
-                        }));
-                      }}>
-                        {Object.entries(PAYMENT_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="label text-xs">Дата оплаты</label>
-                      <input type="date" className="input text-sm" value={orderForm.payment_date?.split('T')[0] || ''} onChange={e => {
-                        const pd = e.target.value || null;
-                        const newEst = orderForm.delivery_term
-                          ? calcDeliveryDate(pd, orderForm.delivery_term, orderForm.delivery_term_unit ?? 'days')
-                          : orderForm.delivery_date_est;
-                        setOrderForm(prev => ({ ...prev, payment_date: pd, delivery_date_est: newEst ?? prev.delivery_date_est }));
-                      }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contract signing block */}
+                {/* Contract block. Payment is confirmed only in «Документы» by the dated receipt. */}
+                {orderEditorTab === 'contract' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">📝 Подписание договора</h5>
                   <div className="grid grid-cols-2 gap-3">
