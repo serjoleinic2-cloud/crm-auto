@@ -450,8 +450,22 @@ export function registerDatabaseHandlers(): void {
              s.color AS status_color,
              (SELECT o.contract_number FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS contract_number,
              (SELECT trim(IFNULL(o.brand,'')||' '||IFNULL(o.model,'')) FROM orders o WHERE o.client_id=c.id ORDER BY o.id LIMIT 1) AS car,
-             (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_status,
-             (SELECT o.payment_date FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS payment_date,
+             CASE
+               WHEN (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1)='paid'
+                AND NOT EXISTS (
+                  SELECT 1 FROM documents d
+                  JOIN document_types dt ON dt.id=d.document_type_id
+                  WHERE d.client_id=c.id AND dt.code='payment_proof' AND d.status='received'
+                )
+               THEN 'pending'
+               ELSE (SELECT o.payment_status FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1)
+             END AS payment_status,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM documents d
+               JOIN document_types dt ON dt.id=d.document_type_id
+               WHERE d.client_id=c.id AND dt.code='payment_proof' AND d.status='received'
+             ) THEN (SELECT o.payment_date FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1)
+             ELSE NULL END AS payment_date,
              (SELECT o.delivery_date_est FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS delivery_date_est,
              (SELECT o.payment_deadline FROM orders o WHERE o.client_id=c.id AND o.payment_deadline IS NOT NULL AND o.payment_status != 'paid' ORDER BY o.id DESC LIMIT 1) AS payment_deadline,
              (SELECT o.price FROM orders o WHERE o.client_id=c.id ORDER BY o.id DESC LIMIT 1) AS price,
@@ -620,7 +634,12 @@ export function registerDatabaseHandlers(): void {
   ipcMain.handle('orders:getAll', () => {
     return db.prepare(`
       SELECT o.*, c.full_name as client_name, c.phone as client_phone,
-             s.name as order_status_name, s.color as order_status_color
+             s.name as order_status_name, s.color as order_status_color,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM documents d
+               JOIN document_types dt ON dt.id=d.document_type_id
+               WHERE d.client_id=o.client_id AND dt.code='payment_proof' AND d.status='received'
+             ) THEN 1 ELSE 0 END AS payment_proof_received
       FROM orders o
       JOIN clients c ON c.id=o.client_id
       LEFT JOIN statuses s ON s.id=o.order_status_id
@@ -824,13 +843,13 @@ export function registerDatabaseHandlers(): void {
       activeClients:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.category IN ('lead','pipeline') AND s.name NOT IN ('Думает','Допы','Отказ')`).get() as { c: number }).c,
       needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
-      carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name='Автомобиль в пути'`).get() as { c: number }).c,
+      carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name='Автомобиль в пути' AND EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=c.id AND dt.code='payment_proof' AND d.status='received')`).get() as { c: number }).c,
       newClientsThisWeek:(db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=0 AND date(created_at)>=?").get(weekAgo) as { c: number }).c,
       pendingConsent:    (db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get() as { c: number }).c,
       trashCount:        (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get() as { c: number }).c,
       overdueReminders:  (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
-      pendingPayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_status='pending'").get() as { c: number }).c,
-      overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND o.payment_status != 'paid' AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
+      pendingPayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND (o.payment_status='pending' OR (o.payment_status='paid' AND NOT EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=o.client_id AND dt.code='payment_proof' AND d.status='received')))").get() as { c: number }).c,
+      overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND (o.payment_status != 'paid' OR NOT EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=o.client_id AND dt.code='payment_proof' AND d.status='received')) AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
       atCustoms:         0,
       inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Автомобиль прибыл'`).get() as { c: number }).c,
       extrasCount:       (db.prepare("SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Допы'").get() as { c: number }).c,
