@@ -60,7 +60,7 @@ export default function Orders() {
     // Delivery starts only after a real payment is recorded. The order status
     // is used to split the paid cars into stages, but must not put old/test
     // cars here on its own.
-    const paidOrders = orders.filter(o => o.payment_status === 'paid');
+    const paidOrders = orders.filter(o => o.payment_proof_received === 1);
     let stageOrders = paidOrders.filter(o => PAID_STATUSES.includes(o.order_status_name ?? ''));
     if (filter === 'transit') stageOrders = paidOrders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
     if (filter === 'arrived') stageOrders = paidOrders.filter(o => ARRIVED_STATUSES.includes(o.order_status_name ?? ''));
