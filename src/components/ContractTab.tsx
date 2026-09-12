@@ -28,6 +28,17 @@ const EMPTY_PASSPORT: ClientPassportData = {
   registration_address: null,
 };
 
+const CAR_YEARS = Array.from(
+  { length: new Date().getFullYear() - 1980 + 1 },
+  (_, index) => String(new Date().getFullYear() - index),
+);
+const ENGINE_TYPES = ['Бензин', 'Дизель', 'Электро', 'Гибрид'];
+const DRIVE_TYPES = ['2 WD', '4WD', 'Полный', 'Передний', 'Задний'];
+const TRANSMISSION_TYPES = [
+  'Механическая', 'Автомат', 'Вариатор', 'Робот', 'Гибридная',
+  'МКПП', 'АКПП', 'РКПП', 'DCT', 'DSG', 'Powershift', 'CVT', 'HEV',
+];
+
 interface MissingField { label: string }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -301,7 +312,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
       {/* ── CONTRACT NUMBER / DATE / AMOUNT ───────────────────────────── */}
       <div className="card space-y-3">
         <h3 className="font-semibold text-gray-800 text-sm">Реквизиты договора</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Field
             label="Номер договора"
             value={contractNumber}
@@ -316,20 +327,20 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             type="date"
             required
           />
+          <Field
+            label="Сумма сделки (платёж по поручению)"
+            value={dealAmount}
+            onChange={v => setDealAmount(formatMoneyInput(v))}
+            required
+            placeholder="Например: 2 100 000"
+          />
+          <Field
+            label="Вознаграждение агента (пункт 3.1)"
+            value={agentFee}
+            onChange={setAgentFee}
+            placeholder="100 000 (сто тысяч) рублей"
+          />
         </div>
-        <Field
-          label="Сумма сделки (платёж по поручению)"
-          value={dealAmount}
-          onChange={v => setDealAmount(formatMoneyInput(v))}
-          required
-          placeholder="Например: 2 100 000"
-        />
-        <Field
-          label="Вознаграждение агента (пункт 3.1)"
-          value={agentFee}
-          onChange={setAgentFee}
-          placeholder="100 000 (сто тысяч) рублей"
-        />
         <div className="flex items-center gap-2">
           <button
             className="btn-secondary text-sm flex items-center gap-1"
@@ -360,7 +371,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
         {passportOpen && (
           <div className="mt-3 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field
                 label="Дата рождения"
                 value={passport.birth_date || ''}
@@ -373,8 +384,6 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
                 onChange={v => setPassport(p => ({ ...p, inn: v }))}
                 placeholder="12 цифр"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <Field
                 label="Серия и номер паспорта"
                 value={passport.passport_number || ''}
@@ -382,27 +391,29 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
                 required
                 placeholder="45 07 369547"
               />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field
                 label="Код подразделения"
                 value={passport.passport_code || ''}
                 onChange={v => setPassport(p => ({ ...p, passport_code: v }))}
                 placeholder="772-124"
               />
+              <Field
+                label="Дата выдачи"
+                value={passport.passport_issue_date || ''}
+                onChange={v => setPassport(p => ({ ...p, passport_issue_date: v }))}
+                type="date"
+                required
+              />
+              <Field
+                label="Кем выдан"
+                value={passport.passport_issued_by || ''}
+                onChange={v => setPassport(p => ({ ...p, passport_issued_by: v }))}
+                required
+                placeholder="ОТДЕЛОМ ВНУТРЕННИХ ДЕЛ..."
+              />
             </div>
-            <Field
-              label="Кем выдан"
-              value={passport.passport_issued_by || ''}
-              onChange={v => setPassport(p => ({ ...p, passport_issued_by: v }))}
-              required
-              placeholder="ОТДЕЛОМ ВНУТРЕННИХ ДЕЛ..."
-            />
-            <Field
-              label="Дата выдачи"
-              value={passport.passport_issue_date || ''}
-              onChange={v => setPassport(p => ({ ...p, passport_issue_date: v }))}
-              type="date"
-              required
-            />
             <div>
               <label className="label">Адрес регистрации <span className="text-red-500">*</span></label>
               <textarea
@@ -444,7 +455,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
           {carOpen && (
             <div className="mt-3 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="label">Марка</label>
                   <input className="input" value={carForm.brand || ''} onChange={e => setCarForm(f => ({ ...f, brand: e.target.value }))} />
@@ -453,12 +464,15 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
                   <label className="label">Модель</label>
                   <input className="input" value={carForm.model || ''} onChange={e => setCarForm(f => ({ ...f, model: e.target.value }))} />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="label">Год выпуска</label>
-                  <input className="input" type="number" value={carForm.year || ''} onChange={e => setCarForm(f => ({ ...f, year: parseInt(e.target.value) || null }))} />
+                  <select className="input" value={carForm.year || ''} onChange={e => setCarForm(f => ({ ...f, year: e.target.value ? Number(e.target.value) : null }))}>
+                    <option value="">Выберите год</option>
+                    {CAR_YEARS.map(year => <option key={year} value={year}>{year}</option>)}
+                  </select>
                 </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="label">Тип кузова</label>
                   <input className="input" value={carForm.body_type || ''} onChange={e => setCarForm(f => ({ ...f, body_type: e.target.value }))} placeholder="Кроссовер" />
@@ -467,40 +481,47 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
                   <label className="label">Цвет</label>
                   <input className="input" value={carForm.color || ''} onChange={e => setCarForm(f => ({ ...f, color: e.target.value }))} placeholder="Белый" />
                 </div>
+                <div>
+                  <label className="label">Комплектация</label>
+                  <input className="input" value={carForm.configuration || ''} onChange={e => setCarForm(f => ({ ...f, configuration: e.target.value }))} placeholder="Comfort" />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="label">Объём / мощность двигателя</label>
                   <input className="input" value={carForm.engine || ''} onChange={e => setCarForm(f => ({ ...f, engine: e.target.value }))} placeholder="2.0л / 150 л.с." />
                 </div>
                 <div>
                   <label className="label">Тип двигателя</label>
-                  <input className="input" value={carForm.engine_type || ''} onChange={e => setCarForm(f => ({ ...f, engine_type: e.target.value }))} placeholder="Бензин" />
+                  <select className="input" value={carForm.engine_type || ''} onChange={e => setCarForm(f => ({ ...f, engine_type: e.target.value || null }))}>
+                    <option value="">Выберите тип</option>
+                    {ENGINE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                  </select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Привод</label>
-                  <input className="input" value={carForm.drive || ''} onChange={e => setCarForm(f => ({ ...f, drive: e.target.value }))} placeholder="Полный" />
-                </div>
-                <div>
-                  <label className="label">КПП</label>
-                  <input className="input" value={carForm.transmission || ''} onChange={e => setCarForm(f => ({ ...f, transmission: e.target.value }))} placeholder="Автомат" />
+                  <select className="input" value={carForm.drive || ''} onChange={e => setCarForm(f => ({ ...f, drive: e.target.value || null }))}>
+                    <option value="">Выберите привод</option>
+                    {DRIVE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                  </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="label">Комплектация</label>
-                  <input className="input" value={carForm.configuration || ''} onChange={e => setCarForm(f => ({ ...f, configuration: e.target.value }))} placeholder="Comfort" />
+                  <label className="label">КПП</label>
+                  <select className="input" value={carForm.transmission || ''} onChange={e => setCarForm(f => ({ ...f, transmission: e.target.value || null }))}>
+                    <option value="">Выберите КПП</option>
+                    {TRANSMISSION_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="label">Пробег (при наличии)</label>
                   <input className="input" value={carForm.mileage || ''} onChange={e => setCarForm(f => ({ ...f, mileage: e.target.value }))} placeholder="0 км" />
                 </div>
-              </div>
-              <div>
-                <label className="label">Иное (1.13)</label>
-                <input className="input" value={carForm.car_other || ''} onChange={e => setCarForm(f => ({ ...f, car_other: e.target.value }))} placeholder="7 мест, панорамная крыша..." />
+                <div>
+                  <label className="label">Иное (1.13)</label>
+                  <input className="input" value={carForm.car_other || ''} onChange={e => setCarForm(f => ({ ...f, car_other: e.target.value }))} placeholder="7 мест, панорамная крыша..." />
+                </div>
               </div>
               <button
                 className="btn-secondary text-sm flex items-center gap-1"
