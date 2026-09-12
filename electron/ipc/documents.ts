@@ -28,6 +28,47 @@ function getDocumentType(id: number) {
     { id: number; code: string; name: string; folder_name: string } | undefined;
 }
 
+
+function syncPaymentWhenProofMissing(clientId: number): void {
+  const db = getDb();
+  // Do not roll a car back once delivery has started. In that case the
+  // payment has already been operationally accepted and only the document
+  // status needs attention.
+  const order = db.prepare(`
+    SELECT o.id
+    FROM orders o
+    LEFT JOIN statuses s ON s.id=o.order_status_id
+    WHERE o.client_id=? AND o.payment_status='paid' AND s.name='Оплачен'
+    ORDER BY o.id DESC
+    LIMIT 1
+  `).get(clientId) as { id: number } | undefined;
+  if (!order) return;
+
+  const waitingStatus = db.prepare(
+    "SELECT id FROM statuses WHERE name='Ожидает оплату' AND is_active=1 ORDER BY id LIMIT 1"
+  ).get() as { id: number } | undefined;
+  if (!waitingStatus) return;
+
+  const restore = db.transaction(() => {
+    db.prepare(`
+      UPDATE orders
+      SET payment_status='pending',
+          payment_date=NULL,
+          payment_deadline=CASE
+            WHEN signed_contract_date IS NOT NULL THEN date(signed_contract_date, '+3 days')
+            ELSE payment_deadline
+          END,
+          order_status_id=?,
+          updated_at=datetime('now')
+      WHERE id=?
+    `).run(waitingStatus.id, order.id);
+    db.prepare("UPDATE clients SET status_id=?, is_archived=0, updated_at=datetime('now') WHERE id=?")
+      .run(waitingStatus.id, clientId);
+  });
+  restore();
+  writeHistory(clientId, 'payment_status', 'Оплата ожидается: документ/чек об оплате не получен');
+}
+
 /** Returns the existing documents.id for (clientId, documentTypeId), creating the row if needed. */
 function ensureDocumentRow(clientId: number, documentTypeId: number, orderId?: number | null): number {
   const db = getDb();
@@ -155,6 +196,9 @@ export function registerDocumentsHandlers(): void {
 
     if (type.code === 'payment_proof' && status === 'received') {
       syncPaymentFromProof(clientId);
+    }
+    if (type.code === 'payment_proof' && status === 'not_requested') {
+      syncPaymentWhenProofMissing(clientId);
     }
 
     const oldLabel = DOCUMENT_STATUS_LABELS[current.status] ?? current.status;
