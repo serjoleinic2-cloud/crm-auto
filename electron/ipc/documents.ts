@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import fs from 'fs';
-import { getDb, writeHistory } from './database';
+import { getDb, writeHistory, syncPaymentFromProof } from './database';
 import { getDocumentTypeFolder, copyFileUnique, safeName } from './storagePaths';
 import { DOCUMENT_STATUS_LABELS } from '../schema';
 
@@ -153,6 +153,10 @@ export function registerDocumentsHandlers(): void {
     const set = fields.map(f => `${f}=@${f}`).join(', ');
     db.prepare(`UPDATE documents SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...updates, __id: docId });
 
+    if (type.code === 'payment_proof' && status === 'received') {
+      syncPaymentFromProof(clientId);
+    }
+
     const oldLabel = DOCUMENT_STATUS_LABELS[current.status] ?? current.status;
     const newLabel = DOCUMENT_STATUS_LABELS[status] ?? status;
     writeHistory(clientId, 'document_status',
@@ -211,6 +215,7 @@ export function registerDocumentsHandlers(): void {
     tx(filePaths);
 
     if (attached.length) {
+      if (type.code === 'payment_proof') syncPaymentFromProof(clientId);
       writeHistory(clientId, 'document_file_add', `Получен документ: ${type.name} (файлов: ${attached.length})`);
     }
     return { document_id: docId, files: attached };
@@ -262,6 +267,7 @@ export function registerDocumentsHandlers(): void {
       tx(entry.filePaths);
 
       if (attached.length) {
+        if (type.code === 'payment_proof') syncPaymentFromProof(clientId);
         writeHistory(clientId, 'document_file_add', `Получен документ: ${type.name} (файлов: ${attached.length})`);
       }
       results.push({ document_type_id: entry.documentTypeId, document_id: docId, files: attached });
