@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   backup: {
     create:            () => invoke('backup:create'),
+    createFull:        () => invoke('backup:createFull'),
     restore:           () => invoke('backup:restore'),
     auto:              () => invoke('backup:auto'),
     sendEmail:         () => invoke('backup:sendEmail'),
@@ -99,6 +100,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     detectGdrive:      () => invoke('backup:detectGdrive'),
     pickGdriveFolder:  () => invoke('backup:pickGdriveFolder'),
     saveGdrivePath:    (p: string) => invoke('backup:saveGdrivePath', p),
+    copyFullToGdrive:  () => invoke('backup:copyFullToGdrive'),
     copyToGdrive:      () => invoke('backup:copyToGdrive'),
   },
   extras: {
