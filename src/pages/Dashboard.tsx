@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [thinkingClients, setThinkingClients] = useState(0);
+  const [readyForIssue, setReadyForIssue] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,14 +20,16 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [s, r, leads] = await Promise.all([
+      const [s, r, leads, pipeline] = await Promise.all([
         ipcService.dashboard.getStats(),
         ipcService.reminders.getAll({ today: true }),
         ipcService.clients.getAll({ statusCategory: 'lead' }),
+        ipcService.clients.getAll({ statusCategory: 'pipeline' }),
       ]);
       setStats(s);
       setReminders(r);
       setThinkingClients(leads.filter(client => client.status_name === 'Думает').length);
+      setReadyForIssue(pipeline.filter(client => client.status_name === 'Подготовка к выдаче').length);
     } finally {
       setLoading(false);
     }
@@ -48,6 +51,7 @@ export default function Dashboard() {
     { label: 'Ожидают оплаты', value: stats.pendingPayment, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=payment_overdue') },
     { label: 'Автомобиль прибыл', value: stats.inOffice, icon: Building, color: 'text-green-600', bg: 'bg-green-50', onClick: () => navigate('/clients?filter=arrived') },
     { label: 'Допы', value: stats.extrasCount ?? 0, icon: Wrench, color: 'text-orange-600', bg: 'bg-orange-50', onClick: () => navigate('/clients?filter=extras') },
+    { label: 'Подготовка к выдаче', value: readyForIssue, icon: Package, color: 'text-violet-600', bg: 'bg-violet-50', onClick: () => navigate('/clients?filter=ready') },
   ];
 
   return (
@@ -68,7 +72,7 @@ export default function Dashboard() {
 
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Заказы</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {orderCards.map(card => (
             <button key={card.label} onClick={card.onClick} className={`${card.bg} rounded-xl p-4 text-left hover:shadow-md transition-shadow`}>
               <div className="flex items-center justify-between mb-2">
