@@ -151,6 +151,11 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
     setShowStatusMenu(false);
     try {
       await ipcService.clients.update(client.id, { status_id: statusId });
+      // Issued cars are completed deals. Archive the whole client so the
+      // card and its order leave the working lists together.
+      if (statuses.find(status => status.id === statusId)?.name === 'Выдан') {
+        await ipcService.clients.archive(client.id);
+      }
       onStatusChanged?.();
     } finally {
       setChangingStatus(false);
