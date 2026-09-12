@@ -141,6 +141,52 @@ function normalizeAlreadyPaidOrders(): void {
   fix();
 }
 
+// The received payment document is the operational confirmation of payment.
+// Keep the order, client status and payment deadline in sync with it.
+export function syncPaymentFromProof(clientId: number, recordHistory = true): boolean {
+  const order = db.prepare(`
+    SELECT o.id, o.payment_status, o.payment_date, o.order_status_id, s.name AS status_name
+    FROM orders o
+    LEFT JOIN statuses s ON s.id=o.order_status_id
+    WHERE o.client_id=? AND COALESCE(o.payment_status, '') <> 'paid'
+    ORDER BY o.id DESC
+    LIMIT 1
+  `).get(clientId) as { id: number; payment_status: string | null; payment_date: string | null; order_status_id: number | null; status_name: string | null } | undefined;
+  if (!order) return false;
+
+  const paidStatusId = getActiveStatusIdByName('Оплачен');
+  const promoteStatus = paidStatusId !== null && isBeforePayment(order.status_name);
+  const save = db.transaction(() => {
+    db.prepare(`
+      UPDATE orders
+      SET payment_status='paid',
+          payment_date=COALESCE(payment_date, date('now')),
+          payment_deadline=NULL,
+          order_status_id=CASE WHEN ? THEN ? ELSE order_status_id END,
+          updated_at=datetime('now')
+      WHERE id=?
+    `).run(promoteStatus ? 1 : 0, paidStatusId, order.id);
+    if (promoteStatus) syncClientStatusFromOrder(clientId, paidStatusId);
+  });
+  save();
+
+  if (recordHistory) {
+    writeHistory(clientId, 'payment_status', 'Оплата подтверждена документом/чеком');
+    if (promoteStatus) writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Оплачен');
+  }
+  return true;
+}
+
+function normalizePaymentsFromProofs(): void {
+  const clientIds = db.prepare(`
+    SELECT DISTINCT d.client_id
+    FROM documents d
+    JOIN document_types dt ON dt.id=d.document_type_id
+    WHERE dt.code='payment_proof' AND d.status='received'
+  `).all() as { client_id: number }[];
+  for (const { client_id } of clientIds) syncPaymentFromProof(client_id, false);
+}
+
 function archiveCompletedClients(): void {
   db.prepare(`
     UPDATE clients SET is_archived=1, updated_at=datetime('now')
@@ -373,6 +419,7 @@ export function initDatabase(): void {
     WHERE document_type_id IN (SELECT id FROM document_types WHERE code IN ('snils','passport','inn'))
       AND status='sent'
   `).run();
+  normalizePaymentsFromProofs();
 
   if (getSetting('base_data_path') === null) {
     setSetting('base_data_path', path.join(app.getPath('documents'), 'CRM-Auto Data'));
