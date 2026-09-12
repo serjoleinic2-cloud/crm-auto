@@ -320,7 +320,7 @@ export default function ClientDetail() {
 
   const startEditOrder = (order: Order) => {
     setOrderForm({ ...order });
-    setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'payment' : 'car');
+    setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'contract' : 'car');
     setEditingOrder(order);
   };
 
