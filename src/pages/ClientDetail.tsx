@@ -638,7 +638,7 @@ export default function ClientDetail() {
                 <textarea className="input" rows={3} value={editData.comment || ''} onChange={e => setEditData({...editData, comment: e.target.value})} />
               </div>
               <div className="mt-4">
-                <button onClick={handleSave} className="btn-primary">Сохранить</button>
+                <button onClick={handleSave} className="btn-save">Сохранить</button>
               </div>
             </>
           ) : (
@@ -988,7 +988,7 @@ export default function ClientDetail() {
                 </>}
 
                 <div className="flex gap-2 pt-2">
-                  <button onClick={saveOrder} className="btn-primary text-sm">Сохранить</button>
+                  <button onClick={saveOrder} className="btn-save text-sm">Сохранить</button>
                   <button onClick={() => { setEditingOrder(null); setOrderForm({}); }} className="btn-secondary text-sm">Отмена</button>
                 </div>
               </div>
