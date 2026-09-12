@@ -821,7 +821,7 @@ export function registerDatabaseHandlers(): void {
     const now = new Date().toISOString().split('T')[0];
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     return {
-      activeClients:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.category IN ('lead','pipeline') AND s.name NOT IN ('Допы','Отказ')`).get() as { c: number }).c,
+      activeClients:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.category IN ('lead','pipeline') AND s.name NOT IN ('Думает','Допы','Отказ')`).get() as { c: number }).c,
       needsAttention:    (db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND (due_date < ? OR (due_date = ? AND due_time IS NOT NULL AND due_time < strftime('%H:%M','now','localtime')))`).get(now, now) as { c: number }).c,
       todayTasks:        (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date=?").get(now) as { c: number }).c,
       carsInTransit:     (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_archived=0 AND c.is_deleted=0 AND s.name='Автомобиль в пути'`).get() as { c: number }).c,
