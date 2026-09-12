@@ -126,6 +126,29 @@ export default function DocumentsPanel({ clientId }: Props) {
   };
 
   const groups = groupDocuments(documents);
+  const mainGroup = groups.find(group => group.title === 'Обязательные / основные');
+  const secondaryGroups = groups.filter(group => group.title !== 'Обязательные / основные');
+
+  const renderGroup = (group: { title: string; items: ClientDocument[] }) => (
+    <div key={group.title} className="card">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{group.title}</h3>
+      <div className="grid grid-cols-2 gap-2">
+        {group.items.map(doc => (
+          <DocumentTypeCard
+            key={doc.document_type_id}
+            clientId={clientId}
+            doc={doc}
+            onChanged={() => fetchDocuments(clientId)}
+            onDeleteType={
+              !doc.is_system
+                ? () => setDeleteTypeTarget({ id: doc.document_type_id, name: doc.name })
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
@@ -139,26 +162,15 @@ export default function DocumentsPanel({ clientId }: Props) {
         </button>
       </div>
 
-      {groups.map(group => (
-        <div key={group.title} className="card">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{group.title}</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {group.items.map(doc => (
-              <DocumentTypeCard
-                key={doc.document_type_id}
-                clientId={clientId}
-                doc={doc}
-                onChanged={() => fetchDocuments(clientId)}
-                onDeleteType={
-                  !doc.is_system
-                    ? () => setDeleteTypeTarget({ id: doc.document_type_id, name: doc.name })
-                    : undefined
-                }
-              />
-            ))}
-          </div>
+      {mainGroup && renderGroup(mainGroup)}
+
+      {/* The two small end groups stay side by side instead of wasting a full
+          line each. This is especially useful on a 14-inch work screen. */}
+      {secondaryGroups.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          {secondaryGroups.map(renderGroup)}
         </div>
-      ))}
+      )}
 
       <div className="card">
         {addingType ? (
