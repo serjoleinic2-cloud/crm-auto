@@ -100,6 +100,42 @@ function syncClientStatusFromOrder(clientId: number, statusId: unknown): void {
   }
 }
 
+function getActiveStatusIdByName(name: string): number | null {
+  const row = db.prepare('SELECT id FROM statuses WHERE name=? AND is_active=1 ORDER BY id LIMIT 1')
+    .get(name) as { id: number } | undefined;
+  return row?.id ?? null;
+}
+
+function getStatusName(statusId: unknown): string | null {
+  if (typeof statusId !== 'number') return null;
+  const row = db.prepare('SELECT name FROM statuses WHERE id=?').get(statusId) as { name: string } | undefined;
+  return row?.name ?? null;
+}
+
+function isBeforePayment(statusName: string | null): boolean {
+  return statusName === null || ['Думает', 'Документы получены', 'Договор подписан', 'Ожидает оплату'].includes(statusName);
+}
+
+function normalizeAlreadyPaidOrders(): void {
+  const paidStatusId = getActiveStatusIdByName('Оплачен');
+  if (paidStatusId === null) return;
+  const outdated = db.prepare(`
+    SELECT o.id, o.client_id
+    FROM orders o
+    LEFT JOIN statuses s ON s.id=o.order_status_id
+    WHERE o.payment_status='paid'
+      AND (o.order_status_id IS NULL OR s.name IN ('Думает','Документы получены','Договор подписан','Ожидает оплату'))
+  `).all() as { id: number; client_id: number }[];
+  if (!outdated.length) return;
+  const fix = db.transaction(() => {
+    for (const order of outdated) {
+      db.prepare("UPDATE orders SET order_status_id=?, updated_at=datetime('now') WHERE id=?").run(paidStatusId, order.id);
+      syncClientStatusFromOrder(order.client_id, paidStatusId);
+    }
+  });
+  fix();
+}
+
 function syncInspectionReminder(clientId: number, orderId: number, plannedIssueDate: unknown, carName: string): void {
   const title = 'Проверить автомобиль перед выдачей';
   if (typeof plannedIssueDate !== 'string' || !plannedIssueDate) {
@@ -269,6 +305,7 @@ export function initDatabase(): void {
   // are translated by name, then duplicate client statuses are merged safely.
   migrateLegacyOrderStatuses();
   mergeDuplicateStatuses();
+  normalizeAlreadyPaidOrders();
 
   // Всегда синхронизируем марки с car_brands.txt (заменяем старый список)
   const brandsFile = path.join(app.getAppPath(), 'car_brands.txt');
@@ -533,6 +570,10 @@ export function registerDatabaseHandlers(): void {
   );
 
   ipcMain.handle('orders:create', (_e, data: Record<string, unknown>) => {
+    let orderStatusId = data.order_status_id ?? null;
+    if (data.payment_status === 'paid' && isBeforePayment(getStatusName(orderStatusId))) {
+      orderStatusId = getActiveStatusIdByName('Оплачен') ?? orderStatusId;
+    }
     const result = db.prepare(`
       INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,inspection_done,inspection_comment,issue_date,planned_issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
       VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@inspection_done,@inspection_comment,@issue_date,@planned_issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
@@ -543,7 +584,7 @@ export function registerDatabaseHandlers(): void {
       price: data.price ?? null, comment: data.comment ?? null,
       delivery_date_est: data.delivery_date_est ?? null, delivery_date_actual: data.delivery_date_actual ?? null,
       payment_date: data.payment_date ?? null, payment_status: data.payment_status ?? null,
-      order_status_id: data.order_status_id ?? null,
+      order_status_id: orderStatusId,
       inspection_done: data.inspection_done ?? 0, inspection_comment: data.inspection_comment ?? null,
       issue_date: data.issue_date ?? null, planned_issue_date: data.planned_issue_date ?? null,
       delivery_term: data.delivery_term ?? null,
@@ -552,7 +593,7 @@ export function registerDatabaseHandlers(): void {
       signed_contract_date: data.signed_contract_date ?? null,
     });
     const orderId = result.lastInsertRowid as number;
-    syncClientStatusFromOrder(data.client_id as number, data.order_status_id);
+    syncClientStatusFromOrder(data.client_id as number, orderStatusId);
     syncInspectionReminder(data.client_id as number, orderId, data.planned_issue_date, [data.brand, data.model].filter(Boolean).join(' '));
     _writeHistory(data.client_id as number, 'order_create',
       `Создан заказ: ${[data.brand, data.model].filter(Boolean).join(' ')}`);
@@ -569,6 +610,16 @@ export function registerDatabaseHandlers(): void {
 
     if (old) {
       const clientId = old.client_id as number;
+      let finalStatusId = ('order_status_id' in data ? data.order_status_id : old.order_status_id) as number | null;
+      let paymentPromoted = false;
+      if (data.payment_status === 'paid' && isBeforePayment(getStatusName(finalStatusId))) {
+        const paidStatusId = getActiveStatusIdByName('Оплачен');
+        if (paidStatusId !== null && paidStatusId !== finalStatusId) {
+          db.prepare("UPDATE orders SET order_status_id=?, updated_at=datetime('now') WHERE id=?").run(paidStatusId, id);
+          finalStatusId = paidStatusId;
+          paymentPromoted = true;
+        }
+      }
       if ('contract_number' in data && old.contract_number !== data.contract_number) {
         _writeHistory(clientId, 'contract_change',
           'Номер договора изменён', String(old.contract_number ?? ''), String(data.contract_number ?? ''));
@@ -587,7 +638,15 @@ export function registerDatabaseHandlers(): void {
         const newStatus = db.prepare('SELECT name FROM statuses WHERE id=?').get(data.order_status_id as number) as { name: string } | undefined;
         _writeHistory(clientId, 'order_status',
           `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
-        syncClientStatusFromOrder(clientId, data.order_status_id);
+      }
+      if (paymentPromoted) {
+        _writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Оплачен');
+      }
+      if (finalStatusId !== null) {
+        // Client status is a reflection of the current order stage, not a
+        // second editable workflow. This prevents «Оплачено» / «Ожидает
+        // оплату» conflicts in the same card.
+        syncClientStatusFromOrder(clientId, finalStatusId);
       }
       if ('delivery_date_actual' in data && !old.delivery_date_actual && data.delivery_date_actual) {
         _writeHistory(clientId, 'arrival', 'Автомобиль прибыл в офис');

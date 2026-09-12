@@ -121,7 +121,7 @@ export default function Orders() {
                 return (
                   <tr
                     key={order.id}
-                    onClick={() => navigate(`/clients/${order.client_id}`)}
+                    onClick={() => navigate(`/clients/${order.client_id}?tab=orders`)}
                     className={`cursor-pointer hover:bg-primary-50/40 transition-colors ${overdue ? 'bg-red-50/30' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{order.contract_number ? `№ ${order.contract_number}` : '—'}</td>

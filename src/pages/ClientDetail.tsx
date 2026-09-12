@@ -120,6 +120,7 @@ export default function ClientDetail() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [orderForm, setOrderForm] = useState<Partial<Order>>({});
   const [nextContractNum, setNextContractNum] = useState('');
+  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'payment' | 'delivery'>('car');
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -288,11 +289,13 @@ export default function ClientDetail() {
       payment_deadline: null,
       signed_contract_date: null,
     });
+    setOrderEditorTab('car');
     setEditingOrder({ id: 0 } as Order);
   };
 
   const startEditOrder = (order: Order) => {
     setOrderForm({ ...order });
+    setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'payment' : 'car');
     setEditingOrder(order);
   };
 
@@ -307,6 +310,12 @@ export default function ClientDetail() {
       orderForm.payment_date = new Date().toISOString().split('T')[0];
     }
 
+    const currentOrderStatus = statuses.find(s => s.id === orderForm.order_status_id)?.name;
+    const prePaymentStatuses = ['Думает', 'Документы получены', 'Договор подписан', 'Ожидает оплату'];
+    if (orderForm.payment_status === 'paid' && (!currentOrderStatus || prePaymentStatuses.includes(currentOrderStatus))) {
+      orderForm.order_status_id = statuses.find(s => s.name === 'Оплачен')?.id ?? orderForm.order_status_id;
+    }
+
     // Auto-set payment deadline (+3 days) when signed_contract_date is set for first time
     const prevOrder = editingOrder && editingOrder.id > 0 ? orders.find(o => o.id === editingOrder.id) : null;
     const signedContractJustSet = orderForm.signed_contract_date &&
@@ -316,6 +325,9 @@ export default function ClientDetail() {
       const deadline = new Date(orderForm.signed_contract_date);
       deadline.setDate(deadline.getDate() + 3);
       orderForm.payment_deadline = deadline.toISOString().split('T')[0];
+      if (orderForm.payment_status !== 'paid') {
+        orderForm.order_status_id = statuses.find(s => s.name === 'Ожидает оплату')?.id ?? orderForm.order_status_id;
+      }
     }
 
     if (editingOrder && editingOrder.id > 0) {
@@ -339,12 +351,6 @@ export default function ClientDetail() {
     if (signedContractJustSet && orderForm.signed_contract_date && client) {
       const deadline = new Date(orderForm.signed_contract_date);
       deadline.setDate(deadline.getDate() + 3);
-      // Set client status to "Ожидает оплату"
-      const awaitPayStatus = statuses.find(s => s.name === 'Ожидает оплату');
-      if (awaitPayStatus && client.status_id !== awaitPayStatus.id) {
-        await ipcService.clients.update(clientId, { status_id: awaitPayStatus.id });
-        setClient(prev => prev ? { ...prev, status_id: awaitPayStatus.id } : prev);
-      }
       await createReminder({
         client_id: clientId,
         title: `Дедлайн оплаты — ${client.full_name}`,
@@ -418,6 +424,7 @@ export default function ClientDetail() {
   if (!client) return <div className="p-4 text-gray-500">Клиент не найден.</div>;
 
   const status = statuses.find(s => s.id === client.status_id);
+  const hasOrderWorkflow = orders.length > 0;
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
@@ -527,13 +534,20 @@ export default function ClientDetail() {
                 <div className="space-y-3">
                   <div>
                     <label className="label">Статус</label>
-                    <select className="input" value={editData.status_id || ''} onChange={e => {
-                      const val = e.target.value;
-                      setEditData({...editData, status_id: val ? parseInt(val) : null});
-                    }}>
-                      <option value="">—</option>
-                      {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    {hasOrderWorkflow ? (
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                        {status?.name || '—'}
+                        <span className="block mt-0.5 text-xs text-gray-500">Меняется в заказе — в поле «Этап заказа и клиента».</span>
+                      </div>
+                    ) : (
+                      <select className="input" value={editData.status_id || ''} onChange={e => {
+                        const val = e.target.value;
+                        setEditData({...editData, status_id: val ? parseInt(val) : null});
+                      }}>
+                        <option value="">—</option>
+                        {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="label">ФИО</label>
@@ -715,7 +729,26 @@ export default function ClientDetail() {
               <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
                 <h4 className="font-semibold text-sm">{editingOrder.id > 0 ? 'Редактирование заказа' : 'Новый заказ'}</h4>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
+                  {([
+                    ['car', '1. Автомобиль'],
+                    ['payment', '2. Договор и оплата'],
+                    ['delivery', '3. Доставка и выдача'],
+                  ] as const).map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      onClick={() => setOrderEditorTab(tab)}
+                      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
+                        orderEditorTab === tab ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {orderEditorTab === 'car' && <>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <div>
                     <label className="label text-xs">Номер договора</label>
                     <input className="input text-sm" value={orderForm.contract_number || ''} onChange={e => setOrderForm({...orderForm, contract_number: e.target.value})} placeholder={nextContractNum} />
@@ -738,14 +771,14 @@ export default function ClientDetail() {
                 </div>
 
                 <div>
-                  <label className="label text-xs">Комплектация</label>
-                  <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
-                </div>
-                <div>
                   <label className="label text-xs">Описание</label>
                   <textarea className="input text-sm" rows={2} value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label text-xs">Комплектация</label>
+                    <input className="input text-sm" value={orderForm.configuration || ''} onChange={e => setOrderForm({...orderForm, configuration: e.target.value || null})} />
+                  </div>
                   <div>
                     <label className="label text-xs">Цена</label>
                     <input type="number" className="input text-sm" value={orderForm.price || ''} onChange={e => setOrderForm({...orderForm, price: e.target.value ? parseFloat(e.target.value) : null})} />
@@ -755,8 +788,10 @@ export default function ClientDetail() {
                     <input className="input text-sm" value={orderForm.comment || ''} onChange={e => setOrderForm({...orderForm, comment: e.target.value || null})} />
                   </div>
                 </div>
+                </>}
 
                 {/* Payment block */}
+                {orderEditorTab === 'payment' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><FileText size={12}/> Оплата</h5>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -764,10 +799,12 @@ export default function ClientDetail() {
                       <label className="label text-xs">Статус оплаты</label>
                       <select className="input text-sm" value={orderForm.payment_status || 'not_paid'} onChange={e => {
                         const status = e.target.value;
+                        const paidStatusId = status === 'paid' ? statuses.find(s => s.name === 'Оплачен')?.id : undefined;
                         setOrderForm(prev => ({
                           ...prev,
                           payment_status: status,
                           payment_date: status === 'paid' && !prev.payment_date ? new Date().toISOString().split('T')[0] : prev.payment_date,
+                          order_status_id: paidStatusId ?? prev.order_status_id,
                         }));
                       }}>
                         {Object.entries(PAYMENT_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -814,8 +851,10 @@ export default function ClientDetail() {
                     </div>
                   </div>
                 </div>
+                </>}
 
                 {/* Delivery block */}
+                {orderEditorTab === 'delivery' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Truck size={12}/> Срок доставки</h5>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -887,7 +926,7 @@ export default function ClientDetail() {
 
                 {/* Единый статус заказа и клиента; сохранение происходит только по кнопке. */}
                 <div className="border-t border-gray-200 pt-3">
-                  <label className="label text-xs">Статус заказа</label>
+                  <label className="label text-xs">Этап заказа и клиента</label>
                   <select
                     className="input text-sm"
                     value={orderForm.order_status_id || ''}
@@ -924,6 +963,7 @@ export default function ClientDetail() {
                     <input type="date" className="input text-sm" value={orderForm.issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, issue_date: e.target.value || null})} />
                   </div>
                 )}
+                </>}
 
                 <div className="flex gap-2 pt-2">
                   <button onClick={saveOrder} className="btn-primary text-sm">Сохранить</button>
