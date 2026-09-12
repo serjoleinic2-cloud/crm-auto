@@ -348,7 +348,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             disabled={savingDraft || !selectedOrderId}
           >
             <Save size={14} />
-            {savingDraft ? 'Сохранение...' : 'Сохранить черновик'}
+            {savingDraft ? 'Сохранение...' : 'Сохранить'}
           </button>
           {draftSaved && (
             <span className="text-green-600 text-sm flex items-center gap-1">
