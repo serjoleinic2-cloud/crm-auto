@@ -197,8 +197,39 @@ export default function ClientDetail() {
     
     const success = await ipcService.clients.update(clientId, cleanData);
     if (success) {
+      // "Следующее действие" is the same task that must appear on the main
+      // dashboard. Client fields are derived from reminders, so keep exactly
+      // one reminder in sync instead of saving an unrelated, invisible value.
+      const reminderId = Number(next_reminder_id);
+      const hasExistingReminder = Number.isFinite(reminderId) && reminderId > 0;
+      const reminderTitle = next_action?.trim();
+      const dueDate = next_action_date?.split('T')[0] || null;
+      const dueTime = next_action_time || null;
+
+      if (reminderTitle) {
+        if (hasExistingReminder) {
+          await ipcService.reminders.update(reminderId, {
+            title: reminderTitle,
+            due_date: dueDate,
+            due_time: dueTime,
+            is_completed: 0,
+          });
+        } else {
+          await ipcService.reminders.create({
+            client_id: clientId,
+            title: reminderTitle,
+            due_date: dueDate || undefined,
+            due_time: dueTime || undefined,
+          });
+        }
+      } else if (hasExistingReminder) {
+        // Clearing the action also removes the pending task, so it will not
+        // unexpectedly stay on the main dashboard.
+        await ipcService.reminders.delete(reminderId);
+      }
+
       setIsEditing(false);
-      loadClient();
+      await Promise.all([loadClient(), fetchReminders({ clientId })]);
       // A completed or lost client is always moved to the visible Archive.
       // This avoids a card disappearing from the working list with no place to find it.
       const newStatus = statuses.find(s => s.id === (cleanData.status_id as number));
