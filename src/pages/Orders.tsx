@@ -13,6 +13,7 @@ interface OrderWithClient extends Order {
 const PAID_STATUSES = ['Оплачен', 'Автомобиль в пути', 'Автомобиль прибыл', 'Допы', 'Подготовка к выдаче'];
 const TRANSIT_STATUSES = ['Оплачен', 'Автомобиль в пути'];
 const ARRIVED_STATUSES = ['Автомобиль прибыл', 'Допы'];
+const DELIVERY_FINISHED_STATUSES = ['Автомобиль прибыл', 'Допы', 'Подготовка к выдаче', 'Выдан'];
 
 type Filter = 'paid' | 'transit' | 'arrived' | 'ready';
 
@@ -139,7 +140,10 @@ export default function Orders() {
       ) : (
         <div className="space-y-2">
           {filtered.map(order => {
-            const remainingDays = order.delivery_date_est ? daysBetween(todayISO(), order.delivery_date_est) : null;
+            const arrived = DELIVERY_FINISHED_STATUSES.includes(order.order_status_name ?? '');
+            const remainingDays = !arrived && order.delivery_date_est
+              ? daysBetween(todayISO(), order.delivery_date_est)
+              : null;
             const overdue = remainingDays !== null && remainingDays < 0;
             const car = [order.brand, order.model, order.configuration, order.color].filter(Boolean).join(' ');
             const remaining = remainingDays === null
@@ -147,6 +151,9 @@ export default function Orders() {
               : overdue
                 ? <span className="inline-flex items-center gap-1 text-red-600"><AlertTriangle size={14}/>{Math.abs(remainingDays)} дн. просрочено</span>
                 : <span className="inline-flex items-center gap-1 text-primary-700"><Truck size={14}/>{remainingDays} дн.</span>;
+            const arrival = order.delivery_date_actual
+              ? <span className="text-emerald-700">Прибыл: {formatDate(order.delivery_date_actual)}</span>
+              : <span className="text-emerald-700">Автомобиль прибыл</span>;
             return (
               <button
                 key={order.id}
@@ -168,8 +175,8 @@ export default function Orders() {
                     {order.delivery_date_est && <div className="text-xs text-gray-500">до {formatDate(order.delivery_date_est)}</div>}
                   </div>
                   <div className="text-xs">
-                    <div className="text-[11px] text-gray-500">Осталось</div>
-                    <div className="mt-0.5">{remaining}</div>
+                    <div className="text-[11px] text-gray-500">{arrived ? 'Прибытие' : 'Осталось'}</div>
+                    <div className="mt-0.5">{arrived ? arrival : remaining}</div>
                   </div>
                   <div className="col-span-2 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 lg:col-span-1 lg:border-0 lg:pt-0">
                     <div>
