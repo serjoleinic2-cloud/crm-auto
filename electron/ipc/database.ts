@@ -122,14 +122,14 @@ function isBeforePayment(statusName: string | null): boolean {
 }
 
 function normalizeAlreadyPaidOrders(): void {
-  const paidStatusId = getActiveStatusIdByName('Оплачен');
+  const paidStatusId = getActiveStatusIdByName('Автомобиль в пути');
   if (paidStatusId === null) return;
   const outdated = db.prepare(`
     SELECT o.id, o.client_id
     FROM orders o
     LEFT JOIN statuses s ON s.id=o.order_status_id
     WHERE o.payment_status='paid'
-      AND (o.order_status_id IS NULL OR s.name IN ('Думает','Документы получены','Договор подписан','Ожидает оплату'))
+      AND (o.order_status_id IS NULL OR s.name IN ('Думает','Документы получены','Договор подписан','Ожидает оплату','Оплачен'))
   `).all() as { id: number; client_id: number }[];
   if (!outdated.length) return;
   const fix = db.transaction(() => {
@@ -154,7 +154,7 @@ export function syncPaymentFromProof(clientId: number, recordHistory = true): bo
   `).get(clientId) as { id: number; payment_status: string | null; payment_date: string | null; order_status_id: number | null; status_name: string | null } | undefined;
   if (!order) return false;
 
-  const paidStatusId = getActiveStatusIdByName('Оплачен');
+  const paidStatusId = getActiveStatusIdByName('Автомобиль в пути');
   const promoteStatus = paidStatusId !== null && isBeforePayment(order.status_name);
   const save = db.transaction(() => {
     db.prepare(`
@@ -172,7 +172,7 @@ export function syncPaymentFromProof(clientId: number, recordHistory = true): bo
 
   if (recordHistory) {
     writeHistory(clientId, 'payment_status', 'Оплата подтверждена документом/чеком');
-    if (promoteStatus) writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Оплачен');
+    if (promoteStatus) writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Автомобиль в пути');
   }
   return true;
 }
@@ -651,7 +651,7 @@ export function registerDatabaseHandlers(): void {
   ipcMain.handle('orders:create', (_e, data: Record<string, unknown>) => {
     let orderStatusId = data.order_status_id ?? null;
     if (data.payment_status === 'paid' && isBeforePayment(getStatusName(orderStatusId))) {
-      orderStatusId = getActiveStatusIdByName('Оплачен') ?? orderStatusId;
+      orderStatusId = getActiveStatusIdByName('Автомобиль в пути') ?? orderStatusId;
     }
     const result = db.prepare(`
       INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,inspection_done,inspection_comment,issue_date,planned_issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
@@ -692,7 +692,7 @@ export function registerDatabaseHandlers(): void {
       let finalStatusId = ('order_status_id' in data ? data.order_status_id : old.order_status_id) as number | null;
       let paymentPromoted = false;
       if (data.payment_status === 'paid' && isBeforePayment(getStatusName(finalStatusId))) {
-        const paidStatusId = getActiveStatusIdByName('Оплачен');
+        const paidStatusId = getActiveStatusIdByName('Автомобиль в пути');
         if (paidStatusId !== null && paidStatusId !== finalStatusId) {
           db.prepare("UPDATE orders SET order_status_id=?, updated_at=datetime('now') WHERE id=?").run(paidStatusId, id);
           finalStatusId = paidStatusId;
@@ -719,7 +719,7 @@ export function registerDatabaseHandlers(): void {
           `Статус заказа: ${oldStatus?.name ?? '—'} → ${newStatus?.name ?? '—'}`);
       }
       if (paymentPromoted) {
-        _writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Оплачен');
+        _writeHistory(clientId, 'order_status', 'Статус заказа: Ожидает оплату → Автомобиль в пути');
       }
       if (finalStatusId !== null) {
         // Client status is a reflection of the current order stage, not a
