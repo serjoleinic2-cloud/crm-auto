@@ -338,7 +338,7 @@ export default function ClientDetail() {
     const currentOrderStatus = statuses.find(s => s.id === orderForm.order_status_id)?.name;
     const prePaymentStatuses = ['Думает', 'Документы получены', 'Договор подписан', 'Ожидает оплату'];
     if (orderForm.payment_status === 'paid' && (!currentOrderStatus || prePaymentStatuses.includes(currentOrderStatus))) {
-      orderForm.order_status_id = statuses.find(s => s.name === 'Оплачен')?.id ?? orderForm.order_status_id;
+      orderForm.order_status_id = statuses.find(s => s.name === 'Автомобиль в пути')?.id ?? orderForm.order_status_id;
     }
 
     // Auto-set payment deadline (+3 days) when signed_contract_date is set for first time
@@ -557,7 +557,7 @@ export default function ClientDetail() {
                     {hasOrderWorkflow ? (
                       <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                         {status?.name || '—'}
-                        <span className="block mt-0.5 text-xs text-gray-500">Меняется в заказе — в поле «Этап заказа и клиента».</span>
+                        <span className="block mt-0.5 text-xs text-gray-500">Меняется в заказе — в поле «Этап автомобиля».</span>
                       </div>
                     ) : (
                       <select className="input" value={editData.status_id || ''} onChange={e => {
@@ -565,7 +565,7 @@ export default function ClientDetail() {
                         setEditData({...editData, status_id: val ? parseInt(val) : null});
                       }}>
                         <option value="">—</option>
-                        {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {statuses.filter(s => s.name !== 'Оплачен').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>
                     )}
                   </div>
@@ -948,7 +948,7 @@ export default function ClientDetail() {
 
                 {/* Единый статус заказа и клиента; сохранение происходит только по кнопке. */}
                 <div className="border-t border-gray-200 pt-3">
-                  <label className="label text-xs">Этап заказа и клиента</label>
+                  <label className="label text-xs">Этап автомобиля</label>
                   <select
                     className="input text-sm"
                     value={orderForm.order_status_id || ''}
