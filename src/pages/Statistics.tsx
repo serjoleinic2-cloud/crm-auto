@@ -98,19 +98,18 @@ function StageChart({ stages }: { stages: StatisticsSummary['stages'] }) {
 export default function Statistics() {
   const navigate = useNavigate();
   const [month, setMonth] = useState(currentMonth);
-  const [brand, setBrand] = useState('');
-  const [car, setCar] = useState('');
+  const [orderId, setOrderId] = useState('');
   const [summary, setSummary] = useState<StatisticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    ipcService.statistics.getSummary(month, { brand: brand || undefined, car: car || undefined })
+    ipcService.statistics.getSummary(month, { orderId: orderId ? Number(orderId) : null })
       .then(data => { if (active) setSummary(data); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [month, brand, car]);
+  }, [month, orderId]);
 
   const stats = summary?.selected;
 
@@ -131,23 +130,15 @@ export default function Statistics() {
             aria-label="Месяц статистики"
           />
           <select
-            className="input w-full text-sm sm:w-44"
-            value={brand}
-            onChange={event => { setBrand(event.target.value); setCar(''); }}
-            aria-label="Марка автомобиля"
-          >
-            <option value="">Все марки</option>
-            {(summary?.brands ?? []).map(item => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select
-            className="input w-full text-sm sm:w-52"
-            value={car}
-            onChange={event => setCar(event.target.value)}
-            aria-label="Автомобиль"
-            disabled={(summary?.cars.length ?? 0) === 0}
+            className="input w-full text-sm sm:w-80"
+            value={orderId}
+            onChange={event => setOrderId(event.target.value)}
+            aria-label="Автомобиль из заказов"
           >
             <option value="">Все автомобили</option>
-            {(summary?.cars ?? []).map(item => <option key={item} value={item}>{item}</option>)}
+            {(summary?.vehicles ?? []).map(vehicle => (
+              <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -209,7 +200,7 @@ export default function Statistics() {
           />
 
           <div className="text-xs text-gray-400">
-            Суммы по авто учитываются по подтверждённой оплате. «Заказано» — это записи заказов по дате договора, «Выдано» — по дате выдачи или смены статуса «Выдан».
+            Выберите автомобиль из реальных заказов CRM: в списке указаны автомобиль, договор и клиент. Архивные записи отмечены отдельно.
           </div>
         </>
       )}
