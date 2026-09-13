@@ -39,7 +39,7 @@ function MiniBarChart({
           const height = value > 0 ? Math.max(8, (value / max) * 100) : 2;
           return (
             <div key={point.month} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1 text-center">
-              <div className="text-[10px] text-gray-500 whitespace-nowrap">{value > 0 ? formatMoney(value) : '—'}</div>
+              <div className="whitespace-nowrap text-[10px] text-gray-500">{value > 0 ? formatMoney(value) : '—'}</div>
               <div
                 className={`rounded-t-md transition-all ${colorClass}`}
                 style={{ height: `${height}%` }}
@@ -98,41 +98,66 @@ function StageChart({ stages }: { stages: StatisticsSummary['stages'] }) {
 export default function Statistics() {
   const navigate = useNavigate();
   const [month, setMonth] = useState(currentMonth);
+  const [brand, setBrand] = useState('');
+  const [car, setCar] = useState('');
   const [summary, setSummary] = useState<StatisticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    ipcService.statistics.getSummary(month)
+    ipcService.statistics.getSummary(month, { brand: brand || undefined, car: car || undefined })
       .then(data => { if (active) setSummary(data); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [month]);
+  }, [month, brand, car]);
 
   const stats = summary?.selected;
 
   return (
-    <div className="p-4 max-w-6xl mx-auto space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-gray-600 hover:text-gray-900" title="Назад"><ArrowLeft size={20} /></button>
-        <div className="flex-1">
+        <div className="min-w-40 flex-1">
           <h1 className="text-xl font-bold text-gray-900">Статистика</h1>
           <p className="mt-0.5 text-sm text-gray-500">Результаты за {summary?.monthLabel ?? 'выбранный месяц'}</p>
         </div>
-        <input
-          type="month"
-          className="input w-auto text-sm"
-          value={month}
-          onChange={event => setMonth(event.target.value || currentMonth())}
-          aria-label="Месяц статистики"
-        />
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <input
+            type="month"
+            className="input w-full text-sm sm:w-36"
+            value={month}
+            onChange={event => setMonth(event.target.value || currentMonth())}
+            aria-label="Месяц статистики"
+          />
+          <select
+            className="input w-full text-sm sm:w-44"
+            value={brand}
+            onChange={event => { setBrand(event.target.value); setCar(''); }}
+            aria-label="Марка автомобиля"
+          >
+            <option value="">Все марки</option>
+            {(summary?.brands ?? []).map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <select
+            className="input w-full text-sm sm:w-52"
+            value={car}
+            onChange={event => setCar(event.target.value)}
+            aria-label="Автомобиль"
+            disabled={(summary?.cars.length ?? 0) === 0}
+          >
+            <option value="">Все автомобили</option>
+            {(summary?.cars ?? []).map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </div>
       </div>
 
-      {loading || !stats || !summary ? (
+      {loading && !summary ? (
         <div className="card flex min-h-64 items-center justify-center text-gray-400">
           <BarChart2 size={28} className="mr-2" /> Загрузка статистики…
         </div>
+      ) : !stats || !summary ? (
+        <div className="card flex min-h-64 items-center justify-center text-gray-400">Не удалось загрузить статистику</div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -140,7 +165,7 @@ export default function Statistics() {
               <Car size={19} className="text-blue-600" />
               <div className="mt-3 text-2xl font-bold text-gray-900">{stats.ordered}</div>
               <div className="text-sm text-gray-600">Заказано авто</div>
-              <div className="mt-1 text-[11px] text-gray-400">по договору за месяц</div>
+              <div className="mt-1 text-[11px] text-gray-400">заказы, не карточки клиентов</div>
             </div>
             <div className="card border border-emerald-100 bg-emerald-50/50">
               <CheckCircle2 size={19} className="text-emerald-600" />
@@ -184,7 +209,7 @@ export default function Statistics() {
           />
 
           <div className="text-xs text-gray-400">
-            Суммы по авто учитываются по подтверждённой оплате. Заказано — по дате договора, выдано — по дате выдачи или дате смены статуса «Выдан».
+            Суммы по авто учитываются по подтверждённой оплате. «Заказано» — это записи заказов по дате договора, «Выдано» — по дате выдачи или смены статуса «Выдан».
           </div>
         </>
       )}
