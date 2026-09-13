@@ -184,16 +184,20 @@ export interface StatisticsMonthlyPoint {
 }
 
 export interface StatisticsFilters {
-  brand?: string;
-  car?: string;
+  orderId?: number | null;
+}
+
+export interface StatisticsVehicle {
+  id: number;
+  label: string;
+  archived: boolean;
 }
 
 export interface StatisticsSummary {
   month: string;
   monthLabel: string;
-  filters: Required<StatisticsFilters>;
-  brands: string[];
-  cars: string[];
+  filters: { orderId: number | null };
+  vehicles: StatisticsVehicle[];
   selected: {
     ordered: number;
     issued: number;
