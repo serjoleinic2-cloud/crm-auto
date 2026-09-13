@@ -61,7 +61,7 @@ export default function QuickAdd() {
     e.preventDefault();
     if (!form.full_name.trim()) return;
 
-    const statusId = form.status_id ? parseInt(form.status_id) : statuses.find(s => s.name === 'Думает')?.id ?? 1;
+    const statusId = form.status_id ? parseInt(form.status_id) : statuses.find(s => s.name === 'Новый клиент')?.id ?? statuses.find(s => s.name === 'Думает')?.id ?? 1;
 
     const clientId = await createClient({
       full_name: form.full_name,
