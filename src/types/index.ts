@@ -175,6 +175,30 @@ export interface Extra {
   created_at: string;
 }
 
+export interface StatisticsMonthlyPoint {
+  month: string;
+  label: string;
+  salesAmount: number;
+  extrasAmount: number;
+  extrasCount: number;
+}
+
+export interface StatisticsSummary {
+  month: string;
+  monthLabel: string;
+  selected: {
+    ordered: number;
+    issued: number;
+    issuedPercent: number;
+    paidCount: number;
+    salesAmount: number;
+    extrasCount: number;
+    extrasAmount: number;
+  };
+  monthly: StatisticsMonthlyPoint[];
+  stages: { name: string; color: string; count: number }[];
+}
+
 export interface DashboardStats {
   activeClients: number;
   needsAttention: number;
@@ -372,6 +396,9 @@ export interface ElectronAPI {
     savePassportData: (clientId: number, data: Partial<ClientPassportData>) => Promise<boolean>;
     generate:         (data: ContractGenerateData) => Promise<{ success: true; filePath: string; fileName: string } | { error: string }>;
     openFile:         (filePath: string) => Promise<true | { error: string }>;
+  };
+  statistics: {
+    getSummary: (month?: string) => Promise<StatisticsSummary>;
   };
   extras: {
     getByOrder: (orderId: number) => Promise<Extra[]>;
