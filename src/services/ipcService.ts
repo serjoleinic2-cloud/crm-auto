@@ -75,7 +75,7 @@ export const ipcService = {
     getStats: () => api().reminders.getStats(),
   },
   statistics: {
-    getSummary: (month?: string) => api().statistics.getSummary(month),
+    getSummary: (month?: string, filters?: Parameters<Window['electronAPI']['statistics']['getSummary']>[1]) => api().statistics.getSummary(month, filters),
   },
   extras: {
     getByOrder: (orderId: number) => api().extras.getByOrder(orderId),
