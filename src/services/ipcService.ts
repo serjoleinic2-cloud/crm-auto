@@ -74,6 +74,9 @@ export const ipcService = {
     delete:   (id: number) => api().reminders.delete(id),
     getStats: () => api().reminders.getStats(),
   },
+  statistics: {
+    getSummary: (month?: string) => api().statistics.getSummary(month),
+  },
   extras: {
     getByOrder: (orderId: number) => api().extras.getByOrder(orderId),
     create:     (d: Parameters<Window['electronAPI']['extras']['create']>[0]) => api().extras.create(d),
