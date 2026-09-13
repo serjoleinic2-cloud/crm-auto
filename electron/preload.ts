@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     copyFullToGdrive:  () => invoke('backup:copyFullToGdrive'),
     copyToGdrive:      () => invoke('backup:copyToGdrive'),
   },
+  statistics: {
+    getSummary: (month?: string) => invoke('statistics:getSummary', month),
+  },
   extras: {
     getByOrder: (orderId: number)                  => invoke('extras:getByOrder', orderId),
     create:     (data: object)                     => invoke('extras:create', data),
