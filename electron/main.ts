@@ -7,6 +7,7 @@ import { registerDocumentsHandlers } from './ipc/documents';
 import { registerBackupHandlers } from './ipc/backup';
 import { registerRemindersHandlers } from './ipc/reminders';
 import { registerContractsHandlers } from './ipc/contracts';
+import { registerStatisticsHandlers } from './ipc/statistics';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -63,6 +64,8 @@ app.whenReady().then(() => {
     registerRemindersHandlers();
     console.log('[MAIN] registerContractsHandlers...');
     registerContractsHandlers();
+    console.log('[MAIN] registerStatisticsHandlers...');
+    registerStatisticsHandlers();
     console.log('[MAIN] createWindow...');
   } catch (err) {
     console.error('[STARTUP ERROR]', err);
