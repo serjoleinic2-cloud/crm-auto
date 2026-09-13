@@ -92,6 +92,16 @@ export default function Orders() {
     return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru'));
   }, [orders]);
 
+  const tabCounts = useMemo(() => {
+    const paidOrders = orders.filter(order => order.payment_proof_received === 1);
+    return {
+      paid: paidOrders.filter(order => PAID_STATUSES.includes(order.order_status_name ?? '')).length,
+      transit: paidOrders.filter(order => TRANSIT_STATUSES.includes(order.order_status_name ?? '')).length,
+      arrived: paidOrders.filter(order => ARRIVED_STATUSES.includes(order.order_status_name ?? '')).length,
+      ready: paidOrders.filter(order => order.order_status_name === 'Подготовка к выдаче').length,
+    } satisfies Record<Filter, number>;
+  }, [orders]);
+
   const tabs: { key: Filter; label: string }[] = [
     { key: 'paid',    label: 'После оплаты' },
     { key: 'transit', label: '🚗 Покупка и доставка' },
@@ -116,7 +126,9 @@ export default function Orders() {
             }`}
           >
             {t.label}
-            {filter === t.key && <span className="ml-1.5 text-xs opacity-70">({filtered.length})</span>}
+            <span className={`ml-1.5 text-xs ${filter === t.key ? 'opacity-80' : 'text-gray-500'}`}>
+              ({tabCounts[t.key]})
+            </span>
           </button>
         ))}
       </div>
