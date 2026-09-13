@@ -8,6 +8,7 @@ import { registerBackupHandlers } from './ipc/backup';
 import { registerRemindersHandlers } from './ipc/reminders';
 import { registerContractsHandlers } from './ipc/contracts';
 import { registerStatisticsHandlers } from './ipc/statistics';
+import { ensureFirstRunReferenceData } from './ipc/firstRun';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -50,6 +51,7 @@ app.whenReady().then(() => {
   try {
     console.log('[MAIN] initDatabase...');
     initDatabase();
+    ensureFirstRunReferenceData();
     console.log('[MAIN] registerDatabaseHandlers...');
     registerDatabaseHandlers();
     console.log('[MAIN] registerMessagingHandlers...');
