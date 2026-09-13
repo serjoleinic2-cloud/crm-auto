@@ -42,8 +42,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('paid');
   const [query, setQuery] = useState('');
-  const [contractDateFrom, setContractDateFrom] = useState('');
-  const [contractDateTo, setContractDateTo] = useState('');
+  const [carFilter, setCarFilter] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -68,19 +67,30 @@ export default function Orders() {
     if (filter === 'ready') stageOrders = paidOrders.filter(o => o.order_status_name === 'Подготовка к выдаче');
 
     const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU');
-    return stageOrders.filter(order => {
-      const contractDate = order.contract_date?.split('T')[0] ?? '';
-      const searchable = [
-        order.brand, order.model, order.configuration, order.color,
-        order.client_name, order.client_phone, order.contract_number,
-      ].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
+    return stageOrders
+      .filter(order => {
+        const carName = [order.brand, order.model].filter(Boolean).join(' ') || 'Без автомобиля';
+        const searchable = [
+          order.brand, order.model, order.configuration, order.color,
+          order.client_name, order.client_phone, order.contract_number,
+        ].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
 
-      if (normalizedQuery && !searchable.includes(normalizedQuery)) return false;
-      if (contractDateFrom && (!contractDate || contractDate < contractDateFrom)) return false;
-      if (contractDateTo && (!contractDate || contractDate > contractDateTo)) return false;
-      return true;
-    });
-  }, [orders, filter, query, contractDateFrom, contractDateTo]);
+        if (normalizedQuery && !searchable.includes(normalizedQuery)) return false;
+        if (carFilter && carName !== carFilter) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const byPaymentDate = new Date(b.payment_date ?? 0).getTime() - new Date(a.payment_date ?? 0).getTime();
+        return byPaymentDate || b.id - a.id;
+      });
+  }, [orders, filter, query, carFilter]);
+
+  const carOptions = useMemo(() => {
+    const names = orders
+      .filter(order => order.payment_proof_received === 1)
+      .map(order => [order.brand, order.model].filter(Boolean).join(' ') || 'Без автомобиля');
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru'));
+  }, [orders]);
 
   const tabs: { key: Filter; label: string }[] = [
     { key: 'paid',    label: 'После оплаты' },
@@ -111,7 +121,7 @@ export default function Orders() {
         ))}
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_170px_170px]">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_240px]">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -121,21 +131,22 @@ export default function Orders() {
             placeholder="Поиск: марка, модель, клиент, номер договора"
           />
         </div>
-        <div>
-          <label className="label">Договор от</label>
-          <input type="date" className="input" value={contractDateFrom} onChange={e => setContractDateFrom(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Договор до</label>
-          <input type="date" className="input" value={contractDateTo} onChange={e => setContractDateTo(e.target.value)} />
-        </div>
+        <select
+          className="input"
+          value={carFilter}
+          onChange={e => setCarFilter(e.target.value)}
+          aria-label="Фильтр по автомобилю"
+        >
+          <option value="">Все автомобили</option>
+          {carOptions.map(car => <option key={car} value={car}>{car}</option>)}
+        </select>
       </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-500">Загрузка...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
-          {query || contractDateFrom || contractDateTo ? 'По заданному фильтру заказы не найдены' : 'В этом разделе заказов нет'}
+          {query || carFilter ? 'По заданному фильтру заказы не найдены' : 'В этом разделе заказов нет'}
         </div>
       ) : (
         <div className="space-y-2">
