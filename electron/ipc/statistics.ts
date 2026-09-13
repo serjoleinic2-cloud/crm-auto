@@ -2,8 +2,17 @@ import { ipcMain } from 'electron';
 import { getDb } from './database';
 
 type MetricRow = { count?: number; amount?: number };
-type FilterInput = { brand?: string; car?: string };
-type FilterSql = { clause: string; values: string[] };
+type FilterInput = { orderId?: number | null };
+type SelectedFilter = { orderId: number | null };
+type FilterSql = { clause: string; values: number[] };
+type VehicleRow = {
+  id: number;
+  brand: string | null;
+  model: string | null;
+  contract_number: string | null;
+  full_name: string;
+  is_archived: number;
+};
 
 function selectedMonth(value?: string): string {
   return value && /^\d{4}-\d{2}$/.test(value)
@@ -38,31 +47,25 @@ function paymentProofExists(alias = 'o'): string {
   )`;
 }
 
-function normalizeFilters(input?: FilterInput): Required<FilterInput> {
-  return {
-    brand: input?.brand?.trim() || '',
-    car: input?.car?.trim() || '',
-  };
+function normalizeFilters(input?: FilterInput): SelectedFilter {
+  const orderId = Number(input?.orderId);
+  return { orderId: Number.isInteger(orderId) && orderId > 0 ? orderId : null };
 }
 
-function makeOrderFilter(filters: Required<FilterInput>, alias = 'o'): FilterSql {
-  const conditions: string[] = [];
-  const values: string[] = [];
-  const carName = `TRIM(COALESCE(${alias}.brand, '') || ' ' || COALESCE(${alias}.model, ''))`;
+function makeOrderFilter(filters: SelectedFilter, alias = 'o'): FilterSql {
+  return filters.orderId
+    ? { clause: ` AND ${alias}.id=?`, values: [filters.orderId] }
+    : { clause: '', values: [] };
+}
 
-  if (filters.brand) {
-    conditions.push(`TRIM(COALESCE(${alias}.brand, ''))=?`);
-    values.push(filters.brand);
-  }
-  if (filters.car) {
-    conditions.push(`${carName}=?`);
-    values.push(filters.car);
-  }
-
-  return {
-    clause: conditions.length ? ` AND ${conditions.join(' AND ')}` : '',
-    values,
-  };
+function makeVehicleLabel(row: VehicleRow): string {
+  const car = [row.brand, row.model].filter(Boolean).join(' ') || 'Автомобиль без названия';
+  const details = [
+    row.contract_number ? `договор №${row.contract_number}` : '',
+    row.full_name,
+    row.is_archived ? 'архив' : '',
+  ].filter(Boolean);
+  return [car, ...details].join(' — ');
 }
 
 export function registerStatisticsHandlers(): void {
@@ -73,22 +76,19 @@ export function registerStatisticsHandlers(): void {
     const orderFilter = makeOrderFilter(filters);
     const paidProof = paymentProofExists();
 
-    const brands = (db.prepare(`
-      SELECT DISTINCT TRIM(COALESCE(o.brand, '')) AS name
-      FROM orders o JOIN clients c ON c.id=o.client_id
+    const vehicles = (db.prepare(`
+      SELECT o.id, o.brand, o.model, o.contract_number, c.full_name, c.is_archived
+      FROM orders o
+      JOIN clients c ON c.id=o.client_id
       WHERE c.is_deleted=0
-        AND TRIM(COALESCE(o.brand, '')) <> ''
-      ORDER BY name COLLATE NOCASE
-    `).all() as { name: string }[]).map(row => row.name);
-
-    const cars = (db.prepare(`
-      SELECT DISTINCT TRIM(COALESCE(o.brand, '') || ' ' || COALESCE(o.model, '')) AS name
-      FROM orders o JOIN clients c ON c.id=o.client_id
-      WHERE c.is_deleted=0
-        AND TRIM(COALESCE(o.brand, '') || ' ' || COALESCE(o.model, '')) <> ''
-        ${filters.brand ? "AND TRIM(COALESCE(o.brand, ''))=?" : ''}
-      ORDER BY name COLLATE NOCASE
-    `).all(...(filters.brand ? [filters.brand] : [])) as { name: string }[]).map(row => row.name);
+      ORDER BY c.is_archived ASC,
+               COALESCE(o.payment_date, o.contract_date, o.created_at) DESC,
+               o.id DESC
+    `).all() as VehicleRow[]).map(row => ({
+      id: row.id,
+      label: makeVehicleLabel(row),
+      archived: Boolean(row.is_archived),
+    }));
 
     const ordered = numberValue(db.prepare(`
       SELECT COUNT(*) AS count
@@ -176,8 +176,7 @@ export function registerStatisticsHandlers(): void {
       month,
       monthLabel: monthLabel(month),
       filters,
-      brands,
-      cars,
+      vehicles,
       selected: {
         ordered,
         issued,
