@@ -183,9 +183,17 @@ export interface StatisticsMonthlyPoint {
   extrasCount: number;
 }
 
+export interface StatisticsFilters {
+  brand?: string;
+  car?: string;
+}
+
 export interface StatisticsSummary {
   month: string;
   monthLabel: string;
+  filters: Required<StatisticsFilters>;
+  brands: string[];
+  cars: string[];
   selected: {
     ordered: number;
     issued: number;
@@ -398,7 +406,7 @@ export interface ElectronAPI {
     openFile:         (filePath: string) => Promise<true | { error: string }>;
   };
   statistics: {
-    getSummary: (month?: string) => Promise<StatisticsSummary>;
+    getSummary: (month?: string, filters?: StatisticsFilters) => Promise<StatisticsSummary>;
   };
   extras: {
     getByOrder: (orderId: number) => Promise<Extra[]>;
