@@ -44,6 +44,34 @@ function addFolderToArchive(zip: PizZip, sourceFolder: string, archiveFolder: st
   }
 }
 
+function addExistingClientFoldersToArchive(zip: PizZip, clientsFolder: string): number {
+  const clientIds = new Set(
+    (getDb().prepare('SELECT id FROM clients').all() as { id: number }[]).map(client => String(client.id))
+  );
+  let skippedOrphanFolders = 0;
+
+  for (const entry of fs.readdirSync(clientsFolder, { withFileTypes: true })) {
+    const sourcePath = path.join(clientsFolder, entry.name);
+    const archivePath = path.posix.join('Клиенты', entry.name);
+    const clientFolder = entry.isDirectory() ? entry.name.match(/^(\d+)_/) : null;
+
+    // Old folders may remain after a client is permanently deleted. They are
+    // kept locally for safety, but must not be copied into a current CRM backup.
+    if (clientFolder && !clientIds.has(clientFolder[1])) {
+      skippedOrphanFolders++;
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      addFolderToArchive(zip, sourcePath, archivePath);
+    } else if (entry.isFile()) {
+      zip.file(archivePath, fs.readFileSync(sourcePath));
+    }
+  }
+
+  return skippedOrphanFolders;
+}
+
 function createFullBackupArchive(archivePath: string): number {
   const basePath = getBasePath();
   const dbPath = getDatabasePath();
@@ -52,16 +80,18 @@ function createFullBackupArchive(archivePath: string): number {
   checkpointDatabase();
   const zip = new PizZip();
   zip.file('crm.db', fs.readFileSync(dbPath));
-  zip.file('README.txt',
-    'Полная резервная копия CRM Auto.\n' +
-    'Содержит базу crm.db и папку Клиенты со всеми документами.\n' +
-    `Создано: ${new Date().toLocaleString('ru-RU')}\n`
-  );
 
   const clientsFolder = path.join(basePath, 'Клиенты');
-  if (fs.existsSync(clientsFolder)) {
-    addFolderToArchive(zip, clientsFolder, 'Клиенты');
-  }
+  const skippedOrphanFolders = fs.existsSync(clientsFolder)
+    ? addExistingClientFoldersToArchive(zip, clientsFolder)
+    : 0;
+
+  zip.file('README.txt',
+    'Полная резервная копия CRM Auto.\n' +
+    'Содержит базу crm.db и папку Клиенты с документами действующих записей CRM.\n' +
+    `Пропущено старых папок без карточки клиента: ${skippedOrphanFolders}\n` +
+    `Создано: ${new Date().toLocaleString('ru-RU')}\n`
+  );
 
   const data = zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
   fs.writeFileSync(archivePath, data);
