@@ -50,7 +50,8 @@
       "dist/**/*",
       "dist-electron/**/*",
       "templates/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "car_brands.txt"
     ],
     "extraResources": [
       {
