@@ -384,8 +384,9 @@ export interface ElectronAPI {
     set: (key: string, value: string) => Promise<boolean>;
   };
   files: {
-    openClientFolder: (clientId: number, clientName: string) => Promise<string>;
-    openBaseFolder:   () => Promise<string>;
+    openClientFolder:    (clientId: number, clientName: string) => Promise<string>;
+    openDocumentsFolder: (clientId: number) => Promise<string | { error: string }>;
+    openBaseFolder:      () => Promise<string>;
     openFile:         (filePath: string) => Promise<true | { error: string }>;
     pickFiles:        (opts?: { multi?: boolean }) => Promise<string[]>;
     pickFolder:       () => Promise<string | null>;
