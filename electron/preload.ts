@@ -106,6 +106,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   statistics: {
     getSummary: (month?: string, filters?: { orderId?: number | null }) => invoke('statistics:getSummary', month, filters),
   },
+  payments: {
+    getByOrder:   (orderId: number) => invoke('payments:getByOrder', orderId),
+    setMode:      (orderId: number, mode: 'single' | 'installments') => invoke('payments:setMode', orderId, mode),
+    add:          (data: object) => invoke('payments:add', data),
+    delete:       (id: number) => invoke('payments:delete', id),
+    confirmFinal: (id: number) => invoke('payments:confirmFinal', id),
+  },
   extras: {
     getByOrder: (orderId: number)                  => invoke('extras:getByOrder', orderId),
     create:     (data: object)                     => invoke('extras:create', data),
