@@ -38,13 +38,7 @@ function numberValue(row: MetricRow | undefined, key: keyof MetricRow): number {
 }
 
 function paymentProofExists(alias = 'o'): string {
-  return `EXISTS (
-    SELECT 1 FROM documents d
-    JOIN document_types dt ON dt.id=d.document_type_id
-    WHERE d.client_id=${alias}.client_id
-      AND dt.code='payment_proof'
-      AND d.status='received'
-  )`;
+  return `${alias}.payment_status='paid'`;
 }
 
 function normalizeFilters(input?: FilterInput): SelectedFilter {
