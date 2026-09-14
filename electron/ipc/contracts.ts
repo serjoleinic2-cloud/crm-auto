@@ -2,7 +2,7 @@ import { ipcMain, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { getDb, writeHistory } from './database';
-import { getClientFolder, safeName } from './storagePaths';
+import { getDocumentsFolder, safeName } from './storagePaths';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -214,9 +214,7 @@ export function registerContractsHandlers(): void {
 
       // Save to client folder
       const clientName = client.full_name;
-      const clientFolder = getClientFolder(contractData.clientId, clientName);
-      const contractFolder = path.join(clientFolder, 'Документы', 'Договор');
-      fs.mkdirSync(contractFolder, { recursive: true });
+      const contractFolder = getDocumentsFolder(contractData.clientId, clientName);
 
       // Filename with version suffix if file exists
       const baseFileName = `Договор_№${safeName(contractData.contractNumber)}_${contractData.clientId}`;
