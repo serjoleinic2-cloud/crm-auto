@@ -55,6 +55,15 @@ export default function Clients() {
     else                              fetchClients({ archived: true });
   };
 
+  const sortedClients = [...clients].sort((left, right) => {
+    const leftContract = left.contract_number?.trim();
+    const rightContract = right.contract_number?.trim();
+    if (!leftContract && !rightContract) return left.full_name.localeCompare(right.full_name, 'ru');
+    if (!leftContract) return 1;
+    if (!rightContract) return -1;
+    return leftContract.localeCompare(rightContract, 'ru', { numeric: true, sensitivity: 'base' });
+  });
+
   const tabs: { key: Filter; label: string; hint?: string }[] = [
     { key: 'active',         label: 'В работе' },
     { key: 'thinking',       label: 'Думает', hint: 'Залётные клиенты, которые пока не вошли в работу' },
@@ -110,7 +119,7 @@ export default function Clients() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {clients.map(client => (
+          {sortedClients.map(client => (
             <ClientCard key={client.id} client={client} statuses={statuses} onStatusChanged={load} />
           ))}
         </div>
