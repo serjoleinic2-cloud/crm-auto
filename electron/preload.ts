@@ -44,8 +44,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     set: (key: string, value: string) => invoke('settings:set', key, value),
   },
   files: {
-    openClientFolder: (clientId: number, clientName: string) => invoke('files:openClientFolder', clientId, clientName),
-    openBaseFolder:   ()                                            => invoke('files:openBaseFolder'),
+    openClientFolder:    (clientId: number, clientName: string) => invoke('files:openClientFolder', clientId, clientName),
+    openDocumentsFolder: (clientId: number) => invoke('files:openDocumentsFolder', clientId),
+    openBaseFolder:      ()                                            => invoke('files:openBaseFolder'),
     openFile:         (filePath: string)                      => invoke('files:openFile', filePath),
     pickFiles:        (opts?: { multi?: boolean })             => invoke('files:pickFiles', opts),
     pickFolder:       ()                                       => invoke('files:pickFolder'),
