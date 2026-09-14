@@ -40,6 +40,7 @@ export function registerPaymentsHandlers(): void {
       ON payment_installments(order_id);
   `);
   ensureColumn('orders', 'payment_mode', "TEXT NOT NULL DEFAULT 'single'");
+  ensureColumn('orders', 'fts_reserve', 'REAL');
   ensureColumn('payment_installments', 'file_path', 'TEXT');
   ensureColumn('payment_installments', 'file_name', 'TEXT');
   ensureColumn('payment_installments', 'document_file_id', 'INTEGER');
