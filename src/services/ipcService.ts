@@ -77,6 +77,13 @@ export const ipcService = {
   statistics: {
     getSummary: (month?: string, filters?: Parameters<Window['electronAPI']['statistics']['getSummary']>[1]) => api().statistics.getSummary(month, filters),
   },
+  payments: {
+    getByOrder:   (orderId: number) => api().payments.getByOrder(orderId),
+    setMode:      (orderId: number, mode: 'single' | 'installments') => api().payments.setMode(orderId, mode),
+    add:          (data: Parameters<Window['electronAPI']['payments']['add']>[0]) => api().payments.add(data),
+    delete:       (id: number) => api().payments.delete(id),
+    confirmFinal: (id: number) => api().payments.confirmFinal(id),
+  },
   extras: {
     getByOrder: (orderId: number) => api().extras.getByOrder(orderId),
     create:     (d: Parameters<Window['electronAPI']['extras']['create']>[0]) => api().extras.create(d),
