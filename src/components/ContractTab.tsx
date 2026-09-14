@@ -599,7 +599,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             </button>
             <button
               className="btn-secondary text-sm flex items-center gap-1"
-              onClick={() => { setResult(null); ipcService.contracts.getNextNumber().then(n => setContractNumber(n)); }}
+              onClick={() => setResult(null)}
             >
               <RefreshCw size={14} /> Создать новую версию
             </button>
