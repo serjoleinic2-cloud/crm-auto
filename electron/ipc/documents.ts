@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import fs from 'fs';
-import { getDb, writeHistory, syncPaymentFromProof } from './database';
+import { getDb, writeHistory } from './database';
 import { getDocumentTypeFolder, copyFileUnique, safeName } from './storagePaths';
 import { DOCUMENT_STATUS_LABELS } from '../schema';
 
@@ -28,49 +28,6 @@ function getDocumentType(id: number) {
     { id: number; code: string; name: string; folder_name: string } | undefined;
 }
 
-
-function syncPaymentWhenProofMissing(clientId: number): void {
-  const db = getDb();
-  // The payment proof is the source of truth even after the car has moved
-  // further through the workflow. The physical car stage is only rolled back
-  // when it has not moved beyond «Автомобиль в пути».
-  const order = db.prepare(`
-    SELECT o.id, s.name AS status_name
-    FROM orders o
-    LEFT JOIN statuses s ON s.id=o.order_status_id
-    WHERE o.client_id=? AND o.payment_status='paid'
-    ORDER BY o.id DESC
-    LIMIT 1
-  `).get(clientId) as { id: number; status_name: string | null } | undefined;
-  if (!order) return;
-
-  const waitingStatus = db.prepare(
-    "SELECT id FROM statuses WHERE name='Ожидает оплату' AND is_active=1 ORDER BY id LIMIT 1"
-  ).get() as { id: number } | undefined;
-  const shouldRestoreStage = ['Оплачен', 'Автомобиль в пути'].includes(order.status_name ?? '');
-
-  const restore = db.transaction(() => {
-    db.prepare(`
-      UPDATE orders
-      SET payment_status='pending',
-          payment_date=NULL,
-          payment_deadline=CASE
-            WHEN signed_contract_date IS NOT NULL THEN date(signed_contract_date, '+3 days')
-            ELSE payment_deadline
-          END,
-          order_status_id=CASE WHEN ? THEN ? ELSE order_status_id END,
-          updated_at=datetime('now')
-      WHERE id=?
-    `).run(shouldRestoreStage && waitingStatus ? 1 : 0, waitingStatus?.id ?? null, order.id);
-
-    if (shouldRestoreStage && waitingStatus) {
-      db.prepare("UPDATE clients SET status_id=?, is_archived=0, updated_at=datetime('now') WHERE id=?")
-        .run(waitingStatus.id, clientId);
-    }
-  });
-  restore();
-  writeHistory(clientId, 'payment_status', 'Оплата ожидается: документ/чек об оплате не получен');
-}
 
 /** Returns the existing documents.id for (clientId, documentTypeId), creating the row if needed. */
 function ensureDocumentRow(clientId: number, documentTypeId: number, orderId?: number | null): number {
@@ -200,13 +157,6 @@ export function registerDocumentsHandlers(): void {
     const set = fields.map(f => `${f}=@${f}`).join(', ');
     db.prepare(`UPDATE documents SET ${set}, updated_at=datetime('now') WHERE id=@__id`).run({ ...updates, __id: docId });
 
-    if (type.code === 'payment_proof' && status === 'received') {
-      syncPaymentFromProof(clientId, true, updates.received_date as string | null | undefined);
-    }
-    if (type.code === 'payment_proof' && status === 'not_requested') {
-      syncPaymentWhenProofMissing(clientId);
-    }
-
     const oldLabel = DOCUMENT_STATUS_LABELS[current.status] ?? current.status;
     const newLabel = DOCUMENT_STATUS_LABELS[status] ?? status;
     writeHistory(clientId, 'document_status',
@@ -265,7 +215,6 @@ export function registerDocumentsHandlers(): void {
     tx(filePaths);
 
     if (attached.length) {
-      if (type.code === 'payment_proof') syncPaymentFromProof(clientId);
       writeHistory(clientId, 'document_file_add', `Получен документ: ${type.name} (файлов: ${attached.length})`);
     }
     return { document_id: docId, files: attached };
@@ -317,7 +266,6 @@ export function registerDocumentsHandlers(): void {
       tx(entry.filePaths);
 
       if (attached.length) {
-        if (type.code === 'payment_proof') syncPaymentFromProof(clientId);
         writeHistory(clientId, 'document_file_add', `Получен документ: ${type.name} (файлов: ${attached.length})`);
       }
       results.push({ document_type_id: entry.documentTypeId, document_id: docId, files: attached });
