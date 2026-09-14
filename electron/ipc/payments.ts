@@ -99,10 +99,21 @@ export function registerPaymentsHandlers(): void {
         documentFileId = Number(file.lastInsertRowid);
       }
 
-      return db.prepare(`
+      const inserted = db.prepare(`
         INSERT INTO payment_installments (order_id,amount,paid_at,file_path,file_name,document_file_id)
         VALUES (?,?,?,?,?,?)
       `).run(order.id, amount, input.paid_at, destination, fileName, documentFileId);
+      db.prepare(`
+        UPDATE orders
+        SET payment_status=CASE
+              WHEN payment_status='paid' THEN payment_status
+              WHEN payment_mode='installments' THEN 'partial'
+              ELSE 'pending'
+            END,
+            updated_at=datetime('now')
+        WHERE id=?
+      `).run(order.id);
+      return inserted;
     })();
 
     writeHistory(order.client_id, 'payment_installment',
@@ -114,13 +125,25 @@ export function registerPaymentsHandlers(): void {
     const item = db.prepare(`
       SELECT pi.*, o.client_id FROM payment_installments pi
       JOIN orders o ON o.id=pi.order_id WHERE pi.id=?
-    `).get(id) as { is_final: number; document_file_id: number | null; client_id: number } | undefined;
+    `).get(id) as {
+      is_final: number; document_file_id: number | null;
+      client_id: number; order_id: number;
+    } | undefined;
     if (!item) return { error: 'Платёж не найден' };
     if (item.is_final) return { error: 'Подтверждённый последний платёж удалить нельзя' };
 
     db.transaction(() => {
       db.prepare('DELETE FROM payment_installments WHERE id=?').run(id);
       if (item.document_file_id) db.prepare('DELETE FROM document_files WHERE id=?').run(item.document_file_id);
+      const remaining = db.prepare('SELECT COUNT(*) AS count FROM payment_installments WHERE order_id=?')
+        .get(item.order_id) as { count: number };
+      if (remaining.count === 0) {
+        db.prepare(`
+          UPDATE orders SET payment_status=CASE WHEN payment_status='paid' THEN payment_status ELSE 'pending' END,
+            updated_at=datetime('now')
+          WHERE id=?
+        `).run(item.order_id);
+      }
     })();
     writeHistory(item.client_id, 'payment_installment', 'Удалена запись о частичном платеже');
     return { success: true };
