@@ -34,6 +34,8 @@ export default function PaymentProofCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [locallyConfirmed, setLocallyConfirmed] = useState(false);
+  const [ftsReserve, setFtsReserve] = useState('');
+  const [reserveSaved, setReserveSaved] = useState(false);
 
   useEffect(() => {
     if (!orders.length) {
@@ -44,6 +46,11 @@ export default function PaymentProofCard({
       setSelectedOrderId(orders[0].id);
     }
   }, [orders, selectedOrderId]);
+
+  useEffect(() => {
+    const order = orders.find(item => item.id === selectedOrderId);
+    setFtsReserve(order?.fts_reserve ? formatMoneyInput(String(order.fts_reserve)) : '');
+  }, [selectedOrderId, orders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +78,10 @@ export default function PaymentProofCard({
   const confirmed = locallyConfirmed;
   const paidTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const contractTotal = Number(selectedOrder?.price ?? 0);
-  const balance = Math.max(0, contractTotal - paidTotal);
+  const ftsReserveValue = Math.max(0, parseMoneyInput(ftsReserve) || 0);
+  const companyTarget = Math.max(0, contractTotal - ftsReserveValue);
+  const remainingToCompany = Math.max(0, companyTarget - paidTotal);
+  const latestPayment = payments[payments.length - 1];
   const receiptName = receiptPath.split(/[\\/]/).pop() || '';
   const paymentFilePaths = useMemo(
     () => new Set(payments.map(payment => payment.file_path).filter(Boolean)),
@@ -85,6 +95,26 @@ export default function PaymentProofCard({
     setMode(data.mode);
     setPayments(data.items);
     setLocallyConfirmed(data.items.some(item => item.is_final === 1));
+  };
+
+  const saveFtsReserve = async () => {
+    if (!selectedOrderId) return;
+    const value = Math.max(0, parseMoneyInput(ftsReserve) || 0);
+    if (contractTotal > 0 && value > contractTotal) {
+      setError('Резерв ФТС не может быть больше стоимости автомобиля.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await ipcService.orders.update(selectedOrderId, { fts_reserve: value || null });
+      setReserveSaved(true);
+      setTimeout(() => setReserveSaved(false), 1800);
+      onOrdersRefresh();
+      onHistoryRefresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const changeMode = async (nextMode: 'single' | 'installments') => {
@@ -159,9 +189,7 @@ export default function PaymentProofCard({
   };
 
   const confirmFinalPayment = async (payment: PaymentInstallment) => {
-    const question = mode === 'installments'
-      ? 'Подтвердить, что это последний платёж и заказ полностью оплачен?'
-      : 'Подтвердить полную оплату по этому чеку?';
+    const question = 'Подтвердить, что это последний платёж, полученный нами, и автомобиль можно переводить на следующий этап? Резерв ФТС клиент внесёт позднее.';
     if (!window.confirm(question)) return;
     setBusy(true);
     setError('');
@@ -224,15 +252,25 @@ export default function PaymentProofCard({
             </button>
           </div>
 
-          {payments.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2.5 text-sm sm:grid-cols-3">
-              <div><span className="block text-[11px] text-gray-500">Внесено по чекам</span><span className="font-medium">{formatMoneyInput(String(paidTotal))} ₽</span></div>
-              {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Стоимость авто</span><span className="font-medium">{formatMoneyInput(String(contractTotal))} ₽</span></div>}
-              {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Остаток</span><span className={`font-medium ${balance > 0 ? 'text-amber-700' : 'text-green-700'}`}>{formatMoneyInput(String(balance)) || '0'} ₽</span></div>}
+          <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-2.5">
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <label className="label text-xs">Резерв ФТС — клиент внесёт в личном кабинете позже</label>
+                <input
+                  className="input text-sm"
+                  inputMode="numeric"
+                  value={ftsReserve}
+                  onChange={event => setFtsReserve(formatMoneyInput(event.target.value))}
+                  placeholder="Например: 400 000"
+                />
+              </div>
+              <button type="button" onClick={saveFtsReserve} disabled={busy} className="btn-save h-9 shrink-0 text-sm">Сохранить</button>
             </div>
-          )}
+            {reserveSaved && <p className="mt-1 text-[11px] text-green-600">✓ Резерв ФТС сохранён</p>}
+            <p className="mt-1 text-[11px] text-gray-500">Эта сумма не входит в платёж нам и не блокирует запуск сделки.</p>
+          </div>
 
-          {!confirmed && !(mode === 'single' && payments.length > 0) && (
+          {!confirmed && (
             <div className="space-y-2 rounded-lg border border-gray-200 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
