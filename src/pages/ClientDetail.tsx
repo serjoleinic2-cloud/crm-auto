@@ -289,7 +289,6 @@ export default function ClientDetail() {
 
   const startNewOrder = async () => {
     await getNextContractNumber();
-    const pendingStatus = statuses.find(s => s.name === 'Ожидает оплату');
     setOrderForm({
       client_id: clientId,
       contract_number: String(parseInt(nextContractNum || '1')),
@@ -918,8 +917,9 @@ export default function ClientDetail() {
                 <div className="border-t border-gray-200 pt-3">
                   <label className="label text-xs">Этап автомобиля</label>
                   <select
-                    className="input text-sm"
+                    className="input text-sm disabled:bg-gray-100 disabled:text-gray-400"
                     value={orderForm.order_status_id || ''}
+                    disabled={orderForm.payment_status !== 'paid'}
                     onChange={e => {
                       const val = e.target.value ? parseInt(e.target.value) : null;
                       setOrderForm({...orderForm, order_status_id: val});
@@ -930,6 +930,9 @@ export default function ClientDetail() {
                       .filter(s => ['Автомобиль в пути', 'Автомобиль прибыл', 'Допы', 'Подготовка к выдаче', 'Выдан'].includes(s.name))
                       .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                  {orderForm.payment_status !== 'paid' && (
+                    <p className="mt-1 text-xs text-amber-600">Этап станет доступен после подтверждения полной оплаты во вкладке «Договор».</p>
+                  )}
                 </div>
 
                 {/* Inspection block */}
