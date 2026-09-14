@@ -43,8 +43,9 @@ export const ipcService = {
     set: (key: string, value: string) => api().settings.set(key, value),
   },
   files: {
-    openClientFolder: (clientId: number, clientName: string) => api().files.openClientFolder(clientId, clientName),
-    openBaseFolder:   () => api().files.openBaseFolder(),
+    openClientFolder:    (clientId: number, clientName: string) => api().files.openClientFolder(clientId, clientName),
+    openDocumentsFolder: (clientId: number) => api().files.openDocumentsFolder(clientId),
+    openBaseFolder:      () => api().files.openBaseFolder(),
     openFile:         (filePath: string) => api().files.openFile(filePath),
     pickFiles:        (opts?: { multi?: boolean }) => api().files.pickFiles(opts),
     pickFolder:       () => api().files.pickFolder(),
