@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Trash2, Upload } from 'lucide-react';
+import { ExternalLink, FolderOpen, Trash2, Upload } from 'lucide-react';
 import { ipcService } from '../services/ipcService';
 import type { ClientDocument, Order, PaymentInstallment } from '../types';
 import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
 
 interface Props {
+  clientId: number;
   doc: ClientDocument;
   orders: Order[];
   onChanged: () => void;
@@ -18,6 +19,7 @@ function todayISO(): string {
 }
 
 export default function PaymentProofCard({
+  clientId,
   doc,
   orders,
   onChanged,
@@ -221,9 +223,18 @@ export default function PaymentProofCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-sm font-medium text-gray-900">{doc.name}</h4>
-          <p className="text-[11px] text-gray-500">Каждый чек сохраняется с суммой и датой оплаты.</p>
+          <p className="text-[11px] text-gray-500">Файл копируется в папку клиента после «Добавить платёж».</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badge.className}`}>{badge.label}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => ipcService.files.openDocumentsFolder(clientId)}
+            className="flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+          >
+            <FolderOpen size={13} /> Папка файлов
+          </button>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badge.className}`}>{badge.label}</span>
+        </div>
       </div>
 
       {!orders.length ? (
