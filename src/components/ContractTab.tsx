@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ipcService } from '../services/ipcService';
-import { FileText, Save, AlertTriangle, CheckCircle, FolderOpen, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
-import type { Client, Order, ClientPassportData, ContractGenerateData } from '../types';
-import { formatMoneyInput } from '../utils/formatters';
+import { FileText, Save, AlertTriangle, CheckCircle, FolderOpen, RefreshCw, X, ChevronDown, ChevronUp, Upload, Trash2 } from 'lucide-react';
+import type { Client, Order, ClientPassportData, ContractGenerateData, PaymentInstallment } from '../types';
+import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
 
 interface ContractTabProps {
   client: Client;
   orders: Order[];
   onHistoryRefresh: () => void;
   onDocumentsRefresh: () => void;
+  onOrdersRefresh: () => void;
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -69,7 +70,7 @@ function Field({ label, value, onChange, type = 'text', placeholder, required }:
 
 // ── main component ────────────────────────────────────────────────────────────
 
-export default function ContractTab({ client, orders, onHistoryRefresh, onDocumentsRefresh }: ContractTabProps) {
+export default function ContractTab({ client, orders, onHistoryRefresh, onDocumentsRefresh, onOrdersRefresh }: ContractTabProps) {
   const [passport, setPassport] = useState<ClientPassportData>({ ...EMPTY_PASSPORT, client_id: client.id });
   const [passportSaved, setPassportSaved] = useState(false);
   const [passportLoading, setPassportLoading] = useState(true);
@@ -93,6 +94,14 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [savingCar, setSavingCar] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
+
+  const [paymentMode, setPaymentMode] = useState<'single' | 'installments'>('single');
+  const [payments, setPayments] = useState<PaymentInstallment[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(todayISO());
+  const [receiptPath, setReceiptPath] = useState('');
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
   // Load passport data and next contract number
   useEffect(() => {
@@ -135,6 +144,102 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   useEffect(() => {
     if (orders.length && !selectedOrderId) setSelectedOrderId(orders[0].id);
   }, [orders]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const order = orders.find(item => item.id === selectedOrderId);
+    setPaymentConfirmed(order?.payment_status === 'paid');
+    if (!selectedOrderId) {
+      setPayments([]);
+      return () => { cancelled = true; };
+    }
+    ipcService.payments.getByOrder(selectedOrderId)
+      .then(data => {
+        if (!cancelled) {
+          setPaymentMode(data.mode);
+          setPayments(data.items);
+        }
+      })
+      .catch(error => { if (!cancelled) setErrorMsg(error instanceof Error ? error.message : String(error)); });
+    return () => { cancelled = true; };
+  }, [selectedOrderId, orders]);
+
+  const selectReceipt = async () => {
+    const files = await ipcService.files.pickFiles({ multi: false });
+    if (files[0]) setReceiptPath(files[0]);
+  };
+
+  const changePaymentMode = async (mode: 'single' | 'installments') => {
+    if (!selectedOrderId || paymentConfirmed) return;
+    const result = await ipcService.payments.setMode(selectedOrderId, mode);
+    if (result.error) setErrorMsg(result.error);
+    else setPaymentMode(mode);
+  };
+
+  const addPayment = async () => {
+    if (!selectedOrderId) return;
+    const amount = parseMoneyInput(paymentAmount);
+    if (!amount || !paymentDate || !receiptPath) {
+      setErrorMsg('Для платежа укажите сумму, дату и выберите файл чека.');
+      return;
+    }
+    setPaymentBusy(true);
+    try {
+      const result = await ipcService.payments.add({
+        order_id: selectedOrderId,
+        amount,
+        paid_at: paymentDate,
+        receipt_path: receiptPath,
+      });
+      if (result.error) {
+        setErrorMsg(result.error);
+        return;
+      }
+      const data = await ipcService.payments.getByOrder(selectedOrderId);
+      setPayments(data.items);
+      setPaymentAmount('');
+      setReceiptPath('');
+      onDocumentsRefresh();
+      onHistoryRefresh();
+    } finally {
+      setPaymentBusy(false);
+    }
+  };
+
+  const deletePayment = async (id: number) => {
+    if (!window.confirm('Удалить запись этого платежа? Сам файл останется в папке клиента.')) return;
+    const result = await ipcService.payments.delete(id);
+    if (result.error) {
+      setErrorMsg(result.error);
+      return;
+    }
+    const data = await ipcService.payments.getByOrder(selectedOrderId);
+    setPayments(data.items);
+    onDocumentsRefresh();
+    onHistoryRefresh();
+  };
+
+  const confirmFinalPayment = async (payment: PaymentInstallment) => {
+    const wording = paymentMode === 'installments'
+      ? 'Подтвердить, что это последний платёж и договор полностью оплачен?'
+      : 'Подтвердить полную оплату по этому чеку?';
+    if (!window.confirm(wording)) return;
+    setPaymentBusy(true);
+    try {
+      const result = await ipcService.payments.confirmFinal(payment.id);
+      if (result.error) {
+        setErrorMsg(result.error);
+        return;
+      }
+      setPayments(items => items.map(item => ({ ...item, is_final: item.id === payment.id ? 1 : 0 })));
+      setPaymentConfirmed(true);
+      onOrdersRefresh();
+      onDocumentsRefresh();
+      onHistoryRefresh();
+    } finally {
+      setPaymentBusy(false);
+    }
+  };
 
   // ── passport save ──────────────────────────────────────────────────────────
 
@@ -264,6 +369,10 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
   const missing = getMissing();
   const selectedOrder = orders.find(o => o.id === selectedOrderId);
+  const paidTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const contractTotal = Number(selectedOrder?.price ?? parseMoneyInput(dealAmount) ?? 0);
+  const balance = Math.max(0, contractTotal - paidTotal);
+  const receiptName = receiptPath.split(/[\\/]/).pop() || '';
 
   if (loadError) {
     return (
@@ -358,6 +467,104 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
         </div>
         <p className="text-xs text-gray-500">При создании договора все внесённые здесь и ниже данные сохранятся автоматически.</p>
       </div>
+
+      {/* ── PAYMENT ───────────────────────────────────────────────────── */}
+      {selectedOrder && (
+        <div className="card space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">Оплата по договору</h3>
+              <p className="text-xs text-gray-500">Статус оплаты отделён от этапа автомобиля.</p>
+            </div>
+            <div className={`rounded-full px-3 py-1 text-xs font-medium ${paymentConfirmed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+              {paymentConfirmed ? 'Оплачено' : 'Ожидается полная оплата'}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={paymentConfirmed}
+              onClick={() => changePaymentMode('single')}
+              className={`rounded-lg border px-3 py-1.5 text-sm ${paymentMode === 'single' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'} disabled:opacity-60`}
+            >
+              Оплата разом
+            </button>
+            <button
+              type="button"
+              disabled={paymentConfirmed}
+              onClick={() => changePaymentMode('installments')}
+              className={`rounded-lg border px-3 py-1.5 text-sm ${paymentMode === 'installments' ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'} disabled:opacity-60`}
+            >
+              Оплата частями
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-3">
+            <div><span className="block text-xs text-gray-500">Внесено</span><span className="font-medium">{formatMoneyInput(String(paidTotal)) || '0'} ₽</span></div>
+            {contractTotal > 0 && <div><span className="block text-xs text-gray-500">Сумма автомобиля</span><span className="font-medium">{formatMoneyInput(String(contractTotal))} ₽</span></div>}
+            {contractTotal > 0 && <div><span className="block text-xs text-gray-500">Остаток</span><span className={`font-medium ${balance > 0 ? 'text-amber-700' : 'text-green-700'}`}>{formatMoneyInput(String(balance)) || '0'} ₽</span></div>}
+          </div>
+
+          {!paymentConfirmed && !(paymentMode === 'single' && payments.length > 0) && (
+            <div className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3 sm:grid-cols-[140px_160px_1fr_auto] sm:items-end">
+              <div>
+                <label className="label text-xs">Дата платежа</label>
+                <input type="date" className="input text-sm" value={paymentDate} onChange={event => setPaymentDate(event.target.value)} />
+              </div>
+              <div>
+                <label className="label text-xs">Сумма</label>
+                <input className="input text-sm" inputMode="numeric" value={paymentAmount} onChange={event => setPaymentAmount(formatMoneyInput(event.target.value))} placeholder="0" />
+              </div>
+              <div className="min-w-0">
+                <label className="label text-xs">Файл чека</label>
+                <button type="button" onClick={selectReceipt} className="btn-secondary flex w-full items-center gap-1.5 overflow-hidden text-sm">
+                  <Upload size={14} className="shrink-0" />
+                  <span className="truncate">{receiptName || 'Выбрать чек'}</span>
+                </button>
+              </div>
+              <button type="button" onClick={addPayment} disabled={paymentBusy} className="btn-save h-9 text-sm">
+                Добавить
+              </button>
+            </div>
+          )}
+
+          {payments.length === 0 ? (
+            <p className="rounded-lg bg-gray-50 py-4 text-center text-sm text-gray-400">Чеки ещё не добавлены</p>
+          ) : (
+            <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+              {payments.map(payment => (
+                <div key={payment.id} className="grid grid-cols-[90px_110px_1fr_auto] items-center gap-2 px-3 py-2 text-sm">
+                  <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
+                  <span className="font-medium">{formatMoneyInput(String(payment.amount))} ₽</span>
+                  <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="truncate text-left text-blue-600 hover:underline">
+                    {payment.file_name || 'Открыть чек'}
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {payment.is_final ? (
+                      <span className="whitespace-nowrap rounded bg-green-100 px-2 py-1 text-xs text-green-700">Последний · подтверждён</span>
+                    ) : (
+                      <>
+                        <button type="button" disabled={paymentBusy} onClick={() => confirmFinalPayment(payment)} className="whitespace-nowrap rounded bg-green-50 px-2 py-1 text-xs text-green-700 hover:bg-green-100">
+                          {paymentMode === 'installments' ? 'Последний платёж' : 'Подтвердить оплату'}
+                        </button>
+                        <button type="button" onClick={() => deletePayment(payment.id)} className="rounded bg-red-50 p-1.5 text-red-500 hover:bg-red-100" title="Удалить запись">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-500">
+            {paymentMode === 'installments'
+              ? 'Добавляйте каждый чек отдельно. Договор считается оплаченным только после подтверждения последнего платежа.'
+              : 'Добавьте чек и подтвердите полную оплату.'}
+          </p>
+        </div>
+      )}
 
       {/* ── PASSPORT DATA ─────────────────────────────────────────────── */}
       <div className="card">
