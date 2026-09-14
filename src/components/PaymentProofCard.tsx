@@ -233,23 +233,33 @@ export default function PaymentProofCard({
           )}
 
           {!confirmed && !(mode === 'single' && payments.length > 0) && (
-            <div className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3 sm:grid-cols-[135px_150px_minmax(0,1fr)_auto] sm:items-end">
-              <div>
-                <label className="label text-xs">Дата оплаты</label>
-                <input type="date" className="input text-sm" value={paidAt} onChange={event => setPaidAt(event.target.value)} />
+            <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label text-xs">Дата оплаты</label>
+                  <input type="date" className="input text-sm" value={paidAt} onChange={event => setPaidAt(event.target.value)} />
+                </div>
+                <div>
+                  <label className="label text-xs">Сумма</label>
+                  <input className="input text-sm" inputMode="numeric" value={amount} onChange={event => setAmount(formatMoneyInput(event.target.value))} placeholder="0" />
+                </div>
               </div>
-              <div>
-                <label className="label text-xs">Сумма</label>
-                <input className="input text-sm" inputMode="numeric" value={amount} onChange={event => setAmount(formatMoneyInput(event.target.value))} placeholder="0" />
-              </div>
-              <div className="min-w-0">
-                <label className="label text-xs">Файл чека</label>
-                <button type="button" onClick={selectReceipt} className="btn-secondary flex w-full items-center gap-1.5 overflow-hidden text-sm">
-                  <Upload size={14} className="shrink-0" />
-                  <span className="truncate">{receiptName || 'Выбрать чек'}</span>
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <label className="label text-xs">Файл чека</label>
+                  <button
+                    type="button"
+                    onClick={selectReceipt}
+                    className="flex h-9 w-full items-center gap-1.5 overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                  >
+                    <Upload size={14} className="shrink-0" />
+                    <span className="truncate">{receiptName || 'Выбрать файл чека'}</span>
+                  </button>
+                </div>
+                <button type="button" onClick={addPayment} disabled={busy} className="btn-save h-9 shrink-0 text-sm">
+                  {busy ? 'Добавление…' : 'Добавить платёж'}
                 </button>
               </div>
-              <button type="button" onClick={addPayment} disabled={busy} className="btn-save h-9 text-sm">Добавить</button>
             </div>
           )}
 
@@ -260,13 +270,15 @@ export default function PaymentProofCard({
           ) : (
             <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
               {payments.map(payment => (
-                <div key={payment.id} className="grid grid-cols-[82px_100px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2 text-xs">
-                  <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
-                  <span className="font-medium">{formatMoneyInput(String(payment.amount))} ₽</span>
-                  <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="truncate text-left text-blue-600 hover:underline">
-                    {payment.file_name || 'Открыть чек'}
-                  </button>
-                  <div className="flex items-center gap-1">
+                <div key={payment.id} className="space-y-1.5 px-2.5 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
+                    <span className="font-medium">{formatMoneyInput(String(payment.amount))} ₽</span>
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline">
+                      {payment.file_name || 'Открыть чек'}
+                    </button>
                     {payment.is_final ? (
                       <span className="whitespace-nowrap rounded bg-green-100 px-2 py-1 text-[11px] text-green-700">Последний · подтверждён</span>
                     ) : (
