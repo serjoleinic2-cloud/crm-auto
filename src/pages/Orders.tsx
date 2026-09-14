@@ -60,7 +60,7 @@ export default function Orders() {
     // Delivery starts only after a real payment is recorded. The order status
     // is used to split the paid cars into stages, but must not put old/test
     // cars here on its own.
-    const paidOrders = orders.filter(o => o.payment_proof_received === 1);
+    const paidOrders = orders.filter(o => o.payment_status === 'paid');
     let stageOrders = paidOrders.filter(o => PAID_STATUSES.includes(o.order_status_name ?? ''));
     if (filter === 'transit') stageOrders = paidOrders.filter(o => TRANSIT_STATUSES.includes(o.order_status_name ?? ''));
     if (filter === 'arrived') stageOrders = paidOrders.filter(o => ARRIVED_STATUSES.includes(o.order_status_name ?? ''));
@@ -87,13 +87,13 @@ export default function Orders() {
 
   const carOptions = useMemo(() => {
     const names = orders
-      .filter(order => order.payment_proof_received === 1)
+      .filter(order => order.payment_status === 'paid')
       .map(order => [order.brand, order.model].filter(Boolean).join(' ') || 'Без автомобиля');
     return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru'));
   }, [orders]);
 
   const tabCounts = useMemo(() => {
-    const paidOrders = orders.filter(order => order.payment_proof_received === 1);
+    const paidOrders = orders.filter(order => order.payment_status === 'paid');
     return {
       paid: paidOrders.filter(order => PAID_STATUSES.includes(order.order_status_name ?? '')).length,
       transit: paidOrders.filter(order => TRANSIT_STATUSES.includes(order.order_status_name ?? '')).length,
