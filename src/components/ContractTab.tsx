@@ -82,7 +82,6 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [carForm, setCarForm] = useState<Partial<Order>>({});
 
   const [contractNumber, setContractNumber] = useState('');
-  const [nextContractNumber, setNextContractNumber] = useState('');
   const [contractDate, setContractDate] = useState(todayISO());
   const [dealAmount, setDealAmount] = useState('');
   const [agentFee, setAgentFee] = useState(DEFAULT_AGENT_FEE);
@@ -104,7 +103,6 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     setLoadError(null);
     setPassport({ ...EMPTY_PASSPORT, client_id: client.id });
     setContractNumber('');
-    setNextContractNumber('');
     setContractDate(todayISO());
     setDealAmount('');
     setAgentFee(DEFAULT_AGENT_FEE);
@@ -112,14 +110,9 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
 
     async function load() {
       try {
-        const [data, nextNumber] = await Promise.all([
-          ipcService.contracts.getPassportData(client.id),
-          ipcService.contracts.getNextNumber(),
-        ]);
+        const data = await ipcService.contracts.getPassportData(client.id);
         if (cancelled) return;
         setPassport(data ? { ...data, client_id: client.id } : { ...EMPTY_PASSPORT, client_id: client.id });
-        // This is only a suggestion for a new contract; it is never written into the form automatically.
-        setNextContractNumber(nextNumber);
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -340,7 +333,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             value={contractNumber}
             onChange={setContractNumber}
             required
-            placeholder={nextContractNumber ? `Следующий свободный: №${nextContractNumber}` : 'Например: 111'}
+            placeholder="№ договора"
           />
           <Field
             label="Дата договора"
@@ -378,7 +371,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500">Номер подставляется только из выбранного заказа. Серый текст в пустом поле — лишь подсказка следующего свободного номера.</p>
+        <p className="text-xs text-gray-500">Номер договора вы получаете из вашей базы и вписываете вручную.</p>
       </div>
 
       {/* ── PASSPORT DATA ─────────────────────────────────────────────── */}
