@@ -18,15 +18,15 @@ export function getClientFolder(clientId: number, clientName: string): string {
   return folder;
 }
 
+// A client has one shared folder. New contracts, payment receipts and every
+// other document are stored directly inside it, without document-type subfolders.
 export function getDocumentsFolder(clientId: number, clientName: string): string {
-  const folder = path.join(getClientFolder(clientId, clientName), 'Документы');
-  fs.mkdirSync(folder, { recursive: true });
-  return folder;
+  return getClientFolder(clientId, clientName);
 }
 
-// Existing callers keep this name, while all new files share one folder.
+// Existing callers keep this name while all new files use the one client folder.
 export function getDocumentTypeFolder(clientId: number, clientName: string, _typeFolderName: string): string {
-  return getDocumentsFolder(clientId, clientName);
+  return getClientFolder(clientId, clientName);
 }
 
 /** Copies a source file into destFolder, avoiding name collisions, returns the new absolute path. */
