@@ -47,8 +47,7 @@ export default function PaymentProofCard({
 
   useEffect(() => {
     let cancelled = false;
-    const selectedOrder = orders.find(order => order.id === selectedOrderId);
-    setLocallyConfirmed(selectedOrder?.payment_status === 'paid');
+    setLocallyConfirmed(false);
     setError('');
     if (!selectedOrderId) {
       setPayments([]);
@@ -59,6 +58,7 @@ export default function PaymentProofCard({
         if (!cancelled) {
           setMode(data.mode);
           setPayments(data.items);
+          setLocallyConfirmed(data.items.some(item => item.is_final === 1));
         }
       })
       .catch(cause => {
@@ -68,7 +68,7 @@ export default function PaymentProofCard({
   }, [selectedOrderId, orders]);
 
   const selectedOrder = orders.find(order => order.id === selectedOrderId);
-  const confirmed = locallyConfirmed || selectedOrder?.payment_status === 'paid';
+  const confirmed = locallyConfirmed;
   const paidTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const contractTotal = Number(selectedOrder?.price ?? 0);
   const balance = Math.max(0, contractTotal - paidTotal);
@@ -84,6 +84,7 @@ export default function PaymentProofCard({
     const data = await ipcService.payments.getByOrder(selectedOrderId);
     setMode(data.mode);
     setPayments(data.items);
+    setLocallyConfirmed(data.items.some(item => item.is_final === 1));
   };
 
   const changeMode = async (nextMode: 'single' | 'installments') => {
@@ -223,11 +224,13 @@ export default function PaymentProofCard({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2.5 text-sm sm:grid-cols-3">
-            <div><span className="block text-[11px] text-gray-500">Внесено</span><span className="font-medium">{formatMoneyInput(String(paidTotal)) || '0'} ₽</span></div>
-            {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Стоимость авто</span><span className="font-medium">{formatMoneyInput(String(contractTotal))} ₽</span></div>}
-            {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Остаток</span><span className={`font-medium ${balance > 0 ? 'text-amber-700' : 'text-green-700'}`}>{formatMoneyInput(String(balance)) || '0'} ₽</span></div>}
-          </div>
+          {payments.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2.5 text-sm sm:grid-cols-3">
+              <div><span className="block text-[11px] text-gray-500">Внесено по чекам</span><span className="font-medium">{formatMoneyInput(String(paidTotal))} ₽</span></div>
+              {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Стоимость авто</span><span className="font-medium">{formatMoneyInput(String(contractTotal))} ₽</span></div>}
+              {contractTotal > 0 && <div><span className="block text-[11px] text-gray-500">Остаток</span><span className={`font-medium ${balance > 0 ? 'text-amber-700' : 'text-green-700'}`}>{formatMoneyInput(String(balance)) || '0'} ₽</span></div>}
+            </div>
+          )}
 
           {!confirmed && !(mode === 'single' && payments.length > 0) && (
             <div className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3 sm:grid-cols-[135px_150px_minmax(0,1fr)_auto] sm:items-end">
