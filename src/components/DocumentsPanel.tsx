@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react';
 import { useDocuments } from '../hooks/useDocuments';
 import { ipcService } from '../services/ipcService';
 import DocumentTypeCard from './DocumentTypeCard';
+import PaymentProofCard from './PaymentProofCard';
 import BulkUploadAssignModal from './BulkUploadAssignModal';
 import { Upload, Plus, Trash2, X } from 'lucide-react';
-import type { ClientDocument } from '../types';
+import type { ClientDocument, Order } from '../types';
 
-interface Props { clientId: number; }
+interface Props {
+  clientId: number;
+  orders: Order[];
+  onOrdersRefresh: () => void;
+  onHistoryRefresh: () => void;
+  onClientRefresh: () => void;
+}
 
 const GROUP_CODES: { title: string; codes: string[] }[] = [
   { title: 'Обязательные / основные', codes: ['consent', 'passport', 'snils', 'inn', 'contract', 'contract_signed'] },
@@ -59,7 +66,13 @@ function DeleteTypeConfirm({ name, onConfirm, onCancel, deleting }: DeleteTypeCo
   );
 }
 
-export default function DocumentsPanel({ clientId }: Props) {
+export default function DocumentsPanel({
+  clientId,
+  orders,
+  onOrdersRefresh,
+  onHistoryRefresh,
+  onClientRefresh,
+}: Props) {
   const { documents, documentTypes, fetchDocuments } = useDocuments();
   const [bulkFiles, setBulkFiles] = useState<string[] | null>(null);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
@@ -133,7 +146,17 @@ export default function DocumentsPanel({ clientId }: Props) {
     <div key={group.title} className="card">
       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{group.title}</h3>
       <div className={`grid gap-2 ${group.items.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-        {group.items.map(doc => (
+        {group.items.map(doc => doc.code === 'payment_proof' ? (
+          <PaymentProofCard
+            key={doc.document_type_id}
+            doc={doc}
+            orders={orders}
+            onChanged={() => fetchDocuments(clientId)}
+            onOrdersRefresh={onOrdersRefresh}
+            onHistoryRefresh={onHistoryRefresh}
+            onClientRefresh={onClientRefresh}
+          />
+        ) : (
           <DocumentTypeCard
             key={doc.document_type_id}
             clientId={clientId}
@@ -198,7 +221,7 @@ export default function DocumentsPanel({ clientId }: Props) {
       {bulkFiles && (
         <BulkUploadAssignModal
           filePaths={bulkFiles}
-          documentTypes={documentTypes}
+          documentTypes={documentTypes.filter(type => type.code !== 'payment_proof')}
           submitting={bulkSubmitting}
           onConfirm={handleBulkConfirm}
           onCancel={() => setBulkFiles(null)}
