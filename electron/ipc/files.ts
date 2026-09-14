@@ -1,12 +1,21 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron';
 import fs from 'fs';
-import { setSetting } from './database';
-import { getClientFolder, getBasePath } from './storagePaths';
+import { getDb, setSetting } from './database';
+import { getClientFolder, getBasePath, getDocumentsFolder } from './storagePaths';
 
 export function registerFilesHandlers(): void {
   // Kept for backward compatibility — opens the client's root folder in Explorer
   ipcMain.handle('files:openClientFolder', (_e, clientId: number, clientName: string) => {
     const folder = getClientFolder(clientId, clientName);
+    shell.openPath(folder);
+    return folder;
+  });
+
+  ipcMain.handle('files:openDocumentsFolder', (_e, clientId: number) => {
+    const client = getDb().prepare('SELECT full_name FROM clients WHERE id=?').get(clientId) as
+      { full_name: string } | undefined;
+    if (!client) return { error: 'Клиент не найден' };
+    const folder = getDocumentsFolder(clientId, client.full_name);
     shell.openPath(folder);
     return folder;
   });
