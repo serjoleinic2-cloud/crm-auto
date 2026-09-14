@@ -306,32 +306,55 @@ export default function PaymentProofCard({
           {payments.length === 0 ? (
             <div className="rounded-lg bg-gray-50 py-3 text-center text-xs text-gray-400">Чеки ещё не добавлены</div>
           ) : (
-            <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
-              {payments.map(payment => (
-                <div key={payment.id} className="space-y-1.5 px-2.5 py-2 text-xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
-                    <span className="font-medium">{formatMoneyInput(String(payment.amount))} ₽</span>
-                  </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline">
-                      {payment.file_name || 'Открыть чек'}
-                    </button>
-                    {payment.is_final ? (
-                      <span className="whitespace-nowrap rounded bg-green-100 px-2 py-1 text-[11px] text-green-700">Последний · подтверждён</span>
-                    ) : (
-                      <>
-                        <button type="button" disabled={busy} onClick={() => confirmFinalPayment(payment)} className="whitespace-nowrap rounded bg-green-50 px-2 py-1 text-[11px] text-green-700 hover:bg-green-100">
-                          {mode === 'installments' ? 'Последний платёж' : 'Подтвердить оплату'}
-                        </button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h5 className="text-xs font-semibold text-gray-700">Платежи и чеки ({payments.length})</h5>
+                <span className="text-xs text-gray-500">Всего: {formatMoneyInput(String(paidTotal))} ₽</span>
+              </div>
+              <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+                {payments.map((payment, index) => (
+                  <div key={payment.id} className="space-y-1.5 px-2.5 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-gray-700">Платёж №{index + 1}</span>
+                      <span className="font-semibold text-gray-900">{formatMoneyInput(String(payment.amount))} ₽</span>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
+                      <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline">
+                        {payment.file_name || 'Открыть чек'}
+                      </button>
+                      {payment.is_final ? (
+                        <span className="whitespace-nowrap rounded bg-green-100 px-2 py-1 text-[11px] text-green-700">Последний · подтверждён</span>
+                      ) : (
                         <button type="button" disabled={busy} onClick={() => deletePayment(payment.id)} className="rounded bg-red-50 p-1.5 text-red-500 hover:bg-red-100" title="Удалить запись">
                           <Trash2 size={13} />
                         </button>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2.5 text-sm">
+                <div><span className="block text-[11px] text-gray-500">Стоимость авто</span><span className="font-medium">{formatMoneyInput(String(contractTotal)) || '0'} ₽</span></div>
+                <div><span className="block text-[11px] text-gray-500">Получено нами</span><span className="font-medium">{formatMoneyInput(String(paidTotal))} ₽</span></div>
+                <div><span className="block text-[11px] text-gray-500">Осталось получить нам</span><span className={`font-medium ${remainingToCompany > 0 ? 'text-amber-700' : 'text-green-700'}`}>{formatMoneyInput(String(remainingToCompany)) || '0'} ₽</span></div>
+                <div><span className="block text-[11px] text-gray-500">Резерв ФТС — позже</span><span className="font-medium text-blue-700">{formatMoneyInput(String(ftsReserveValue)) || '0'} ₽</span></div>
+              </div>
+
+              {!confirmed && latestPayment && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => confirmFinalPayment(latestPayment)}
+                  className="flex w-full items-center justify-center rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-60"
+                >
+                  Подтвердить последний платёж · {new Date(latestPayment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')} · {formatMoneyInput(String(latestPayment.amount))} ₽
+                </button>
+              )}
+              {!confirmed && (
+                <p className="text-[11px] text-gray-500">Кнопка подтверждает, что мы получили всю нужную нам сумму. Резерв ФТС не является задолженностью перед нами.</p>
+              )}
             </div>
           )}
 
@@ -350,8 +373,8 @@ export default function PaymentProofCard({
 
           <p className="text-[11px] text-gray-500">
             {mode === 'installments'
-              ? 'Добавляйте каждый чек отдельно. Полная оплата фиксируется только кнопкой «Последний платёж».'
-              : 'Добавьте чек и подтвердите полную оплату.'}
+              ? 'Добавляйте каждый чек отдельно. Все даты и суммы сохраняются в истории платежей.'
+              : 'Даже при оплате разом можно добавить несколько банковских чеков.'}
           </p>
         </>
       )}
