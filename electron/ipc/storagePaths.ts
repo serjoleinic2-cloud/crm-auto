@@ -18,10 +18,15 @@ export function getClientFolder(clientId: number, clientName: string): string {
   return folder;
 }
 
-export function getDocumentTypeFolder(clientId: number, clientName: string, typeFolderName: string): string {
-  const folder = path.join(getClientFolder(clientId, clientName), 'Документы', safeName(typeFolderName));
+export function getDocumentsFolder(clientId: number, clientName: string): string {
+  const folder = path.join(getClientFolder(clientId, clientName), 'Документы');
   fs.mkdirSync(folder, { recursive: true });
   return folder;
+}
+
+// Existing callers keep this name, while all new files share one folder.
+export function getDocumentTypeFolder(clientId: number, clientName: string, _typeFolderName: string): string {
+  return getDocumentsFolder(clientId, clientName);
 }
 
 /** Copies a source file into destFolder, avoiding name collisions, returns the new absolute path. */
