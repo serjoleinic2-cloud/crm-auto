@@ -220,17 +220,17 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
 
   return (
     <div onClick={handleClick}
-      className="bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
+      className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all"
     >
       {/* ROW 1: Contract + Status */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div>
           {client.contract_number ? (
-            <span className="text-sm font-bold text-gray-900 bg-gray-100 px-3 py-1.5 rounded-lg">
+            <span className="text-xs font-semibold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
               № {client.contract_number}
             </span>
           ) : (
-            <span className="text-sm font-medium text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg">
+            <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
               Без договора
             </span>
           )}
@@ -281,36 +281,33 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
       </div>
 
       {/* ROW 2: Full name */}
-      <h3 className="font-bold text-gray-900 text-base leading-snug truncate mb-3">{client.full_name}</h3>
+      <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate mb-2">{client.full_name}</h3>
 
       {/* ROW 3: Phone (left) | Payment+date (right) */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="text-sm font-medium text-gray-800">
+      <div className="flex items-start justify-between mb-1.5">
+        <div className="text-xs font-medium text-gray-800">
           {client.phone || ''}
         </div>
         <div className="text-right">
           {payment && (
             <div className="flex items-center justify-end gap-2">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+              <span className="text-xs font-semibold px-2 py-1 rounded-full"
                 style={{ color: payment.color, backgroundColor: payment.bg }}
               >
-                {payment.label}
+                {payment.label}{client.payment_status === 'paid' && client.payment_date ? ` · ${formatDate(client.payment_date)}` : ''}
               </span>
-              {client.payment_date && (
-                <span className="text-xs text-gray-600">{formatDate(client.payment_date)}</span>
-              )}
             </div>
           )}
         </div>
       </div>
 
       {/* ROW 4: Car (left) | Price (right) */}
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <div className="text-sm font-semibold text-gray-900 truncate flex-1">
+      <div className="flex items-center justify-between mb-1.5 gap-2">
+        <div className="text-xs font-medium text-gray-900 truncate flex-1">
           {client.car && client.car.trim() ? client.car.trim() : ''}
         </div>
         {client.price !== undefined && client.price !== null && (
-          <div className="text-sm font-bold text-primary-700 shrink-0">
+          <div className="text-xs font-semibold text-primary-700 shrink-0">
             {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(client.price)}
           </div>
         )}
