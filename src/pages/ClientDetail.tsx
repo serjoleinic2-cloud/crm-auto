@@ -304,7 +304,7 @@ export default function ClientDetail() {
       payment_date: null,
       delivery_date_est: null,
       delivery_date_actual: null,
-      order_status_id: pendingStatus?.id ?? null,
+      order_status_id: null,
       inspection_done: 0,
       inspection_comment: '',
       issue_date: null,
@@ -926,7 +926,9 @@ export default function ClientDetail() {
                     }}
                   >
                     <option value="">—</option>
-                    {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {statuses
+                      .filter(s => ['Автомобиль в пути', 'Автомобиль прибыл', 'Допы', 'Подготовка к выдаче', 'Выдан'].includes(s.name))
+                      .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
 
@@ -1070,6 +1072,7 @@ export default function ClientDetail() {
             orders={orders}
             onHistoryRefresh={() => fetchHistory(clientId)}
             onDocumentsRefresh={() => fetchDocuments(clientId)}
+            onOrdersRefresh={() => fetchOrders(clientId)}
           />
         </ErrorBoundary>
       )}
