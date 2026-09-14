@@ -44,14 +44,36 @@ export function registerPaymentsHandlers(): void {
   ensureColumn('payment_installments', 'file_name', 'TEXT');
   ensureColumn('payment_installments', 'document_file_id', 'INTEGER');
 
-  ipcMain.handle('payments:getByOrder', (_e, orderId: number) => ({
-    mode: ((db.prepare('SELECT payment_mode FROM orders WHERE id=?').get(orderId) as { payment_mode?: PaymentMode } | undefined)?.payment_mode ?? 'single') as PaymentMode,
-    items: db.prepare('SELECT * FROM payment_installments WHERE order_id=? ORDER BY paid_at,id').all(orderId),
-  }));
+  ipcMain.handle('payments:getByOrder', (_e, orderId: number) => {
+    const order = db.prepare('SELECT payment_mode, payment_status FROM orders WHERE id=?').get(orderId) as
+      { payment_mode?: PaymentMode; payment_status?: string | null } | undefined;
+    const mode = (order?.payment_mode ?? 'single') as PaymentMode;
+    const items = db.prepare('SELECT * FROM payment_installments WHERE order_id=? ORDER BY paid_at,id').all(orderId) as
+      { is_final: number }[];
+    const hasFinalPayment = items.some(item => item.is_final === 1);
+    if (order?.payment_status === 'paid' && !hasFinalPayment) {
+      const normalizedStatus = items.length > 0 && mode === 'installments' ? 'partial' : 'pending';
+      db.prepare("UPDATE orders SET payment_status=?, payment_date=NULL, updated_at=datetime('now') WHERE id=?")
+        .run(normalizedStatus, orderId);
+    }
+    return { mode, items };
+  });
 
   ipcMain.handle('payments:setMode', (_e, orderId: number, mode: PaymentMode) => {
     if (!['single', 'installments'].includes(mode)) return { error: 'Неизвестный способ оплаты' };
-    db.prepare("UPDATE orders SET payment_mode=?, updated_at=datetime('now') WHERE id=?").run(mode, orderId);
+    const hasFinalPayment = Boolean(db.prepare(
+      'SELECT 1 FROM payment_installments WHERE order_id=? AND is_final=1 LIMIT 1'
+    ).get(orderId));
+    const hasAnyPayment = Boolean(db.prepare(
+      'SELECT 1 FROM payment_installments WHERE order_id=? LIMIT 1'
+    ).get(orderId));
+    const paymentStatus = hasFinalPayment ? 'paid' : hasAnyPayment && mode === 'installments' ? 'partial' : 'pending';
+    db.prepare(`
+      UPDATE orders SET payment_mode=?, payment_status=?,
+        payment_date=CASE WHEN ? THEN payment_date ELSE NULL END,
+        updated_at=datetime('now')
+      WHERE id=?
+    `).run(mode, paymentStatus, hasFinalPayment ? 1 : 0, orderId);
     return { success: true };
   });
 
@@ -106,9 +128,19 @@ export function registerPaymentsHandlers(): void {
       db.prepare(`
         UPDATE orders
         SET payment_status=CASE
-              WHEN payment_status='paid' THEN payment_status
+              WHEN EXISTS (
+                SELECT 1 FROM payment_installments pi
+                WHERE pi.order_id=orders.id AND pi.is_final=1
+              ) THEN 'paid'
               WHEN payment_mode='installments' THEN 'partial'
               ELSE 'pending'
+            END,
+            payment_date=CASE
+              WHEN EXISTS (
+                SELECT 1 FROM payment_installments pi
+                WHERE pi.order_id=orders.id AND pi.is_final=1
+              ) THEN payment_date
+              ELSE NULL
             END,
             updated_at=datetime('now')
         WHERE id=?
@@ -135,15 +167,38 @@ export function registerPaymentsHandlers(): void {
     db.transaction(() => {
       db.prepare('DELETE FROM payment_installments WHERE id=?').run(id);
       if (item.document_file_id) db.prepare('DELETE FROM document_files WHERE id=?').run(item.document_file_id);
-      const remaining = db.prepare('SELECT COUNT(*) AS count FROM payment_installments WHERE order_id=?')
-        .get(item.order_id) as { count: number };
-      if (remaining.count === 0) {
-        db.prepare(`
-          UPDATE orders SET payment_status=CASE WHEN payment_status='paid' THEN payment_status ELSE 'pending' END,
+      db.prepare(`
+        UPDATE orders
+        SET payment_status=CASE
+              WHEN EXISTS (
+                SELECT 1 FROM payment_installments pi
+                WHERE pi.order_id=orders.id AND pi.is_final=1
+              ) THEN 'paid'
+              WHEN EXISTS (
+                SELECT 1 FROM payment_installments pi
+                WHERE pi.order_id=orders.id
+              ) AND payment_mode='installments' THEN 'partial'
+              ELSE 'pending'
+            END,
+            payment_date=CASE
+              WHEN EXISTS (
+                SELECT 1 FROM payment_installments pi
+                WHERE pi.order_id=orders.id AND pi.is_final=1
+              ) THEN payment_date
+              ELSE NULL
+            END,
             updated_at=datetime('now')
-          WHERE id=?
-        `).run(item.order_id);
-      }
+        WHERE id=?
+      `).run(item.order_id);
+      db.prepare(`
+        UPDATE documents
+        SET status='not_requested', received_date=NULL, updated_at=datetime('now')
+        WHERE client_id=?
+          AND document_type_id=(SELECT id FROM document_types WHERE code='payment_proof')
+          AND NOT EXISTS (
+            SELECT 1 FROM document_files df WHERE df.document_id=documents.id
+          )
+      `).run(item.client_id);
     })();
     writeHistory(item.client_id, 'payment_installment', 'Удалена запись о частичном платеже');
     return { success: true };
