@@ -38,6 +38,7 @@ const TRANSMISSION_TYPES = [
   'Механическая', 'Автомат', 'Вариатор', 'Робот', 'Гибридная',
   'МКПП', 'АКПП', 'РКПП', 'DCT', 'DSG', 'Powershift', 'CVT', 'HEV',
 ];
+const DEFAULT_AGENT_FEE = '100 000 (сто тысяч) рублей';
 
 interface MissingField { label: string }
 
@@ -81,9 +82,10 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [carForm, setCarForm] = useState<Partial<Order>>({});
 
   const [contractNumber, setContractNumber] = useState('');
+  const [nextContractNumber, setNextContractNumber] = useState('');
   const [contractDate, setContractDate] = useState(todayISO());
   const [dealAmount, setDealAmount] = useState('');
-  const [agentFee, setAgentFee] = useState('100 000 (сто тысяч) рублей');
+  const [agentFee, setAgentFee] = useState(DEFAULT_AGENT_FEE);
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -94,11 +96,19 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
 
-  // Load passport data and next contract number
+  // A client change must clear every form field before loading new data.
+  // Otherwise an empty field could visually retain values from the previous client.
   useEffect(() => {
     let cancelled = false;
     setPassportLoading(true);
     setLoadError(null);
+    setPassport({ ...EMPTY_PASSPORT, client_id: client.id });
+    setContractNumber('');
+    setNextContractNumber('');
+    setContractDate(todayISO());
+    setDealAmount('');
+    setAgentFee(DEFAULT_AGENT_FEE);
+    setCarForm({});
 
     async function load() {
       try {
@@ -107,8 +117,9 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
           ipcService.contracts.getNextNumber(),
         ]);
         if (cancelled) return;
-        if (data) setPassport({ ...data, client_id: client.id });
-        setContractNumber(nextNumber);
+        setPassport(data ? { ...data, client_id: client.id } : { ...EMPTY_PASSPORT, client_id: client.id });
+        // This is only a suggestion for a new contract; it is never written into the form automatically.
+        setNextContractNumber(nextNumber);
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -120,21 +131,32 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
     return () => { cancelled = true; };
   }, [client.id]);
 
-  // Sync car form when order changes
+  // Keep the selected order valid when the manager opens another client card.
+  useEffect(() => {
+    if (!orders.length) {
+      setSelectedOrderId(0);
+      return;
+    }
+    if (!orders.some(order => order.id === selectedOrderId)) {
+      setSelectedOrderId(orders[0].id);
+    }
+  }, [orders, selectedOrderId]);
+
+  // Only the selected order may fill the contract fields. Missing values clear the form.
   useEffect(() => {
     const order = orders.find(o => o.id === selectedOrderId);
-    if (order) {
-      setCarForm({ ...order });
-      if (order.deal_amount) setDealAmount(formatMoneyInput(order.deal_amount));
-      if (order.contract_number) setContractNumber(order.contract_number);
-      if (order.contract_date) setContractDate(order.contract_date);
+    if (!order) {
+      setCarForm({});
+      setContractNumber('');
+      setContractDate(todayISO());
+      setDealAmount('');
+      return;
     }
+    setCarForm({ ...order });
+    setContractNumber(order.contract_number ?? '');
+    setContractDate(order.contract_date ?? todayISO());
+    setDealAmount(order.deal_amount ? formatMoneyInput(order.deal_amount) : '');
   }, [selectedOrderId, orders]);
-
-  // First order as default
-  useEffect(() => {
-    if (orders.length && !selectedOrderId) setSelectedOrderId(orders[0].id);
-  }, [orders]);
 
   // ── passport save ──────────────────────────────────────────────────────────
 
@@ -318,7 +340,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             value={contractNumber}
             onChange={setContractNumber}
             required
-            placeholder="Например: 111"
+            placeholder={nextContractNumber ? `Следующий свободный: №${nextContractNumber}` : 'Например: 111'}
           />
           <Field
             label="Дата договора"
@@ -356,7 +378,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500">При создании договора все внесённые здесь и ниже данные сохранятся автоматически.</p>
+        <p className="text-xs text-gray-500">Номер подставляется только из выбранного заказа. Серый текст в пустом поле — лишь подсказка следующего свободного номера.</p>
       </div>
 
       {/* ── PASSPORT DATA ─────────────────────────────────────────────── */}
