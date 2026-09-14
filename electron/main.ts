@@ -8,6 +8,7 @@ import { registerBackupHandlers } from './ipc/backup';
 import { registerRemindersHandlers } from './ipc/reminders';
 import { registerContractsHandlers } from './ipc/contracts';
 import { registerStatisticsHandlers } from './ipc/statistics';
+import { registerPaymentsHandlers } from './ipc/payments';
 import { ensureFirstRunReferenceData } from './ipc/firstRun';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -58,6 +59,8 @@ app.whenReady().then(() => {
     registerMessagingHandlers();
     console.log('[MAIN] registerFilesHandlers...');
     registerFilesHandlers();
+    console.log('[MAIN] registerPaymentsHandlers...');
+    registerPaymentsHandlers();
     console.log('[MAIN] registerDocumentsHandlers...');
     registerDocumentsHandlers();
     console.log('[MAIN] registerBackupHandlers...');
