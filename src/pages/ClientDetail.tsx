@@ -1064,7 +1064,13 @@ export default function ClientDetail() {
 
       {activeTab === 'documents' && (
         <div className="space-y-4">
-          <DocumentsPanel clientId={clientId} />
+          <DocumentsPanel
+            clientId={clientId}
+            orders={orders}
+            onOrdersRefresh={() => fetchOrders(clientId)}
+            onHistoryRefresh={() => fetchHistory(clientId)}
+            onClientRefresh={loadClient}
+          />
         </div>
       )}
 
@@ -1075,7 +1081,6 @@ export default function ClientDetail() {
             orders={orders}
             onHistoryRefresh={() => fetchHistory(clientId)}
             onDocumentsRefresh={() => fetchDocuments(clientId)}
-            onOrdersRefresh={() => fetchOrders(clientId)}
           />
         </ErrorBoundary>
       )}
