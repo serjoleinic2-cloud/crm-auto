@@ -149,6 +149,7 @@ export default function DocumentsPanel({
         {group.items.map(doc => doc.code === 'payment_proof' ? (
           <PaymentProofCard
             key={doc.document_type_id}
+            clientId={clientId}
             doc={doc}
             orders={orders}
             onChanged={() => fetchDocuments(clientId)}
