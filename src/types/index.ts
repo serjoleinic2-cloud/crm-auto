@@ -90,6 +90,7 @@ export interface Order {
   delivery_date_actual: string | null;
   payment_date: string | null;
   payment_status: string | null;
+  payment_mode?: 'single' | 'installments';
   order_status_id: number | null;
   inspection_done: number;
   inspection_comment: string | null;
@@ -165,6 +166,23 @@ export interface Reminder {
   completed_at: string | null;
   auto_created: number;
   created_at: string;
+}
+
+export interface PaymentInstallment {
+  id: number;
+  order_id: number;
+  amount: number;
+  paid_at: string;
+  is_final: number;
+  file_path: string | null;
+  file_name: string | null;
+  document_file_id: number | null;
+  created_at: string;
+}
+
+export interface PaymentSummary {
+  mode: 'single' | 'installments';
+  items: PaymentInstallment[];
 }
 
 export interface Extra {
@@ -411,6 +429,13 @@ export interface ElectronAPI {
   };
   statistics: {
     getSummary: (month?: string, filters?: StatisticsFilters) => Promise<StatisticsSummary>;
+  };
+  payments: {
+    getByOrder: (orderId: number) => Promise<PaymentSummary>;
+    setMode: (orderId: number, mode: 'single' | 'installments') => Promise<{ success?: boolean; error?: string }>;
+    add: (data: { order_id: number; amount: number; paid_at: string; receipt_path: string }) => Promise<{ success?: boolean; id?: number; error?: string }>;
+    delete: (id: number) => Promise<{ success?: boolean; error?: string }>;
+    confirmFinal: (id: number) => Promise<{ success?: boolean; paymentDate?: string; error?: string }>;
   };
   extras: {
     getByOrder: (orderId: number) => Promise<Extra[]>;
