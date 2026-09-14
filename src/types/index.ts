@@ -91,6 +91,7 @@ export interface Order {
   payment_date: string | null;
   payment_status: string | null;
   payment_mode?: 'single' | 'installments';
+  fts_reserve?: number | null;
   order_status_id: number | null;
   inspection_done: number;
   inspection_comment: string | null;
