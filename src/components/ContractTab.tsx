@@ -263,6 +263,7 @@ export default function ContractTab({ client, orders, onHistoryRefresh, onDocume
   // ── render ────────────────────────────────────────────────────────────────
 
   const missing = getMissing();
+  const selectedOrder = orders.find(order => order.id === selectedOrderId);
 
   if (loadError) {
     return (
