@@ -122,6 +122,7 @@ export default function ClientDetail() {
   const [orderForm, setOrderForm] = useState<Partial<Order>>({});
   const [nextContractNum, setNextContractNum] = useState('');
   const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'contract' | 'delivery' | 'vin'>('car');
+  const [customModel, setCustomModel] = useState(false);
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -322,11 +323,13 @@ export default function ClientDetail() {
       signed_contract_date: null,
     });
     setOrderEditorTab('car');
+    setCustomModel(false);
     setEditingOrder({ id: 0 } as Order);
   };
 
   const startEditOrder = (order: Order) => {
     setOrderForm({ ...order });
+    setCustomModel(Boolean(order.model && !modelSuggestions(order.brand).includes(order.model)));
     setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'contract' : 'car');
     setEditingOrder(order);
   };
@@ -783,15 +786,32 @@ export default function ClientDetail() {
                   </div>
                   <div>
                     <label className="label text-xs">Марка</label>
-                    <select className="input text-sm" value={orderForm.brand || ''} onChange={e => setOrderForm({...orderForm, brand: e.target.value || null})}>
+                    <select className="input text-sm" value={orderForm.brand || ''} onChange={e => { setOrderForm({...orderForm, brand: e.target.value || null, model: null}); setCustomModel(false); }}>
                       <option value="">—</option>
                       {carBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="label text-xs">Модель</label>
-                    <input className="input text-sm" list="client-order-models" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} placeholder="Выберите или введите вручную" />
-                    <datalist id="client-order-models">{modelSuggestions(orderForm.brand).map(model => <option key={model} value={model} />)}</datalist>
+                    {!customModel ? <select
+                      className="input text-sm"
+                      value={orderForm.model || ''}
+                      onChange={e => {
+                        if (e.target.value === '__custom__') {
+                          setOrderForm({...orderForm, model: null});
+                          setCustomModel(true);
+                        } else {
+                          setOrderForm({...orderForm, model: e.target.value || null});
+                        }
+                      }}
+                    >
+                      <option value="">{orderForm.brand ? '— выберите модель —' : 'Сначала выберите марку'}</option>
+                      {(orderForm.brand ? modelSuggestions(orderForm.brand) : []).map(model => <option key={model} value={model}>{model}</option>)}
+                      <option value="__custom__">+ Другая модель</option>
+                    </select> : <div className="flex gap-2">
+                      <input className="input text-sm" autoFocus value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} placeholder="Введите модель" />
+                      <button type="button" className="btn-cancel text-xs whitespace-nowrap" onClick={() => { setOrderForm({...orderForm, model: null}); setCustomModel(false); }}>К списку</button>
+                    </div>}
                   </div>
                 </div>
 
