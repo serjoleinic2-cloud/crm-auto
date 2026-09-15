@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ipcService } from '../services/ipcService';
 import type { Order } from '../types';
 import { formatDate, formatPrice } from '../utils/formatters';
-import { Truck, AlertTriangle, ChevronRight, Search } from 'lucide-react';
+import { Truck, AlertTriangle, ChevronRight, Search, ClipboardCheck } from 'lucide-react';
 
 interface OrderWithClient extends Order {
   client_name?: string;
@@ -21,6 +21,16 @@ function todayISO() { return new Date().toISOString().split('T')[0]; }
 
 function daysBetween(from: string, to: string): number {
   return Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
+}
+
+function normalizeVin(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+function extractVins(value: string): string[] {
+  // In supplier messages the identifier is often the six-digit internal VIN
+  // (for example: "Аутлендер 036331 2022 Заказной Ясенево"), not a 17-char VIN.
+  return [...new Set((value.toUpperCase().match(/\b(?:[A-HJ-NPR-Z0-9]{17}|\d{6})\b/g) || []).map(normalizeVin))];
 }
 
 function deliveryTermLabel(order: OrderWithClient): string {
@@ -43,6 +53,9 @@ export default function Orders() {
   const [filter, setFilter] = useState<Filter>('paid');
   const [query, setQuery] = useState('');
   const [carFilter, setCarFilter] = useState('');
+  const [vinBatch, setVinBatch] = useState('');
+  const [showVinCheck, setShowVinCheck] = useState(false);
+  const [savingVinMatches, setSavingVinMatches] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -102,6 +115,28 @@ export default function Orders() {
     } satisfies Record<Filter, number>;
   }, [orders]);
 
+  const batchVins = useMemo(() => extractVins(vinBatch), [vinBatch]);
+  const vinMatches = useMemo(() => {
+    const batch = new Set(batchVins);
+    return orders.filter(order => order.vin && batch.has(normalizeVin(order.vin)));
+  }, [orders, batchVins]);
+
+  const confirmVinMatches = async () => {
+    if (!vinMatches.length) return;
+    setSavingVinMatches(true);
+    try {
+      const date = todayISO();
+      await Promise.all(vinMatches.map(order => ipcService.orders.update(order.id, {
+        vin_moscow_confirmed: 1,
+        vin_moscow_confirmed_date: order.vin_moscow_confirmed_date || date,
+        moscow_arrival_date: order.moscow_arrival_date || date,
+      })));
+      await load();
+    } finally {
+      setSavingVinMatches(false);
+    }
+  };
+
   const tabs: { key: Filter; label: string }[] = [
     { key: 'paid',    label: 'После оплаты' },
     { key: 'transit', label: '🚗 Покупка и доставка' },
@@ -154,6 +189,26 @@ export default function Orders() {
         </select>
       </div>
 
+      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <button onClick={() => setShowVinCheck(!showVinCheck)} className="flex w-full items-center justify-between gap-2 text-left">
+          <span className="flex items-center gap-2 text-sm font-medium text-gray-800"><ClipboardCheck size={17} className="text-primary-600"/> Проверить номера авто из московской партии</span>
+          <span className="text-xs text-primary-700">{showVinCheck ? 'Скрыть' : 'Вставить сообщение'}</span>
+        </button>
+        {showVinCheck && <div className="mt-3">
+          <p className="mb-2 text-xs text-gray-500">Скопируйте сообщение или список из Telegram. Подойдут номера из 6 цифр, например «Аутлендер 036331 2022 Заказной Ясенево», и полные VIN из 17 символов.</p>
+          <textarea className="input min-h-24 text-xs font-mono" value={vinBatch} onChange={e => setVinBatch(e.target.value)} placeholder="Вставьте сюда сообщение Telegram" />
+          <div className="mt-2 text-xs text-gray-600">Найдено номеров в сообщении: {batchVins.length}. Совпадений с вашими заказами: <b>{vinMatches.length}</b>.</div>
+          {vinMatches.length > 0 && <div className="mt-2 space-y-1.5">
+            {vinMatches.map(order => <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-2.5 py-2 text-xs shadow-sm">
+              <span><b>{[order.brand, order.model].filter(Boolean).join(' ') || 'Авто'}</b> · {order.client_name || 'Клиент'} · <span className="font-mono">{order.vin}</span></span>
+              <button className="text-primary-700 hover:underline" onClick={() => navigate(`/clients/${order.client_id}?tab=orders`)}>Открыть карточку</button>
+            </div>)}
+            <button disabled={savingVinMatches} onClick={confirmVinMatches} className="btn-save mt-1 text-xs disabled:opacity-60">{savingVinMatches ? 'Сохраняем…' : 'Подтвердить: VIN найдены в Москве'}</button>
+            <p className="text-[11px] text-gray-500">Дата прибытия в Москву будет поставлена сегодняшней, если её ещё не указали. После звонка отметьте это в карточке клиента.</p>
+          </div>}
+        </div>}
+      </div>
+
       {loading ? (
         <div className="text-center py-8 text-gray-500">Загрузка...</div>
       ) : filtered.length === 0 ? (
@@ -187,6 +242,7 @@ export default function Orders() {
                   <div className="min-w-0">
                     <div className="text-sm text-gray-900 truncate">{car || 'Авто не указано'}</div>
                     <div className="mt-0.5 text-xs text-gray-500">{order.contract_number ? `Договор № ${order.contract_number}` : 'Номер договора не указан'}{order.year ? ` · ${order.year} г.` : ''}</div>
+                    {order.vin && <div className="mt-0.5 text-[11px] font-mono text-gray-500">VIN: {order.vin}</div>}
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm text-gray-900 truncate">{order.client_name || '—'}</div>
@@ -197,6 +253,10 @@ export default function Orders() {
                     <div className="mt-0.5 text-gray-800">{deliveryTermLabel(order)}</div>
                     {order.delivery_date_est && <div className="text-xs text-gray-500">до {formatDate(order.delivery_date_est)}</div>}
                   </div>
+                  {(order.vin_moscow_confirmed || order.client_notified_moscow) && <div className="text-[11px] text-gray-600 lg:col-span-1">
+                    {order.vin_moscow_confirmed ? <div className="text-emerald-700">VIN найден в Москве</div> : null}
+                    {order.client_notified_moscow ? <div className="text-blue-700">Клиенту сообщено</div> : null}
+                  </div>}
                   <div className="text-xs">
                     <div className="text-[11px] text-gray-500">{arrived ? 'Прибытие' : 'Осталось'}</div>
                     <div className="mt-0.5">{arrived ? arrival : remaining}</div>
