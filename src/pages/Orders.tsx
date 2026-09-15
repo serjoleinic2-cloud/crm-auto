@@ -28,7 +28,7 @@ function normalizeVin(value: string): string {
 }
 
 function extractVins(value: string): string[] {
-  // In supplier messages the identifier is often the six-digit internal VIN
+  // In supplier messages the identifier is often the last six digits of VIN
   // (for example: "Аутлендер 036331 2022 Заказной Ясенево"), not a 17-char VIN.
   return [...new Set((value.toUpperCase().match(/\b(?:[A-HJ-NPR-Z0-9]{17}|\d{6})\b/g) || []).map(normalizeVin))];
 }
@@ -191,13 +191,13 @@ export default function Orders() {
 
       <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
         <button onClick={() => setShowVinCheck(!showVinCheck)} className="flex w-full items-center justify-between gap-2 text-left">
-          <span className="flex items-center gap-2 text-sm font-medium text-gray-800"><ClipboardCheck size={17} className="text-primary-600"/> Проверить номера авто из московской партии</span>
+          <span className="flex items-center gap-2 text-sm font-medium text-gray-800"><ClipboardCheck size={17} className="text-primary-600"/> Проверить VIN из московской партии</span>
           <span className="text-xs text-primary-700">{showVinCheck ? 'Скрыть' : 'Вставить сообщение'}</span>
         </button>
         {showVinCheck && <div className="mt-3">
-          <p className="mb-2 text-xs text-gray-500">Скопируйте сообщение или список из Telegram. Подойдут номера из 6 цифр, например «Аутлендер 036331 2022 Заказной Ясенево», и полные VIN из 17 символов.</p>
+          <p className="mb-2 text-xs text-gray-500">Скопируйте сообщение или список из Telegram. CRM ищет последние 6 цифр VIN, например в строке «Аутлендер 036331 2022 Заказной Ясенево», а также умеет распознать полный VIN из 17 символов.</p>
           <textarea className="input min-h-24 text-xs font-mono" value={vinBatch} onChange={e => setVinBatch(e.target.value)} placeholder="Вставьте сюда сообщение Telegram" />
-          <div className="mt-2 text-xs text-gray-600">Найдено номеров в сообщении: {batchVins.length}. Совпадений с вашими заказами: <b>{vinMatches.length}</b>.</div>
+          <div className="mt-2 text-xs text-gray-600">Найдено VIN в сообщении: {batchVins.length}. Совпадений с вашими заказами: <b>{vinMatches.length}</b>.</div>
           {vinMatches.length > 0 && <div className="mt-2 space-y-1.5">
             {vinMatches.map(order => <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-2.5 py-2 text-xs shadow-sm">
               <span><b>{[order.brand, order.model].filter(Boolean).join(' ') || 'Авто'}</b> · {order.client_name || 'Клиент'} · <span className="font-mono">{order.vin}</span></span>
