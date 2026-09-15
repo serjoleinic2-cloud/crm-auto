@@ -55,7 +55,6 @@ export default function Orders() {
   const [carFilter, setCarFilter] = useState('');
   const [vinBatch, setVinBatch] = useState('');
   const [showVinCheck, setShowVinCheck] = useState(false);
-  const [savingVinMatches, setSavingVinMatches] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -120,22 +119,6 @@ export default function Orders() {
     const batch = new Set(batchVins);
     return orders.filter(order => order.vin && batch.has(normalizeVin(order.vin)));
   }, [orders, batchVins]);
-
-  const confirmVinMatches = async () => {
-    if (!vinMatches.length) return;
-    setSavingVinMatches(true);
-    try {
-      const date = todayISO();
-      await Promise.all(vinMatches.map(order => ipcService.orders.update(order.id, {
-        vin_moscow_confirmed: 1,
-        vin_moscow_confirmed_date: order.vin_moscow_confirmed_date || date,
-        moscow_arrival_date: order.moscow_arrival_date || date,
-      })));
-      await load();
-    } finally {
-      setSavingVinMatches(false);
-    }
-  };
 
   const tabs: { key: Filter; label: string }[] = [
     { key: 'paid',    label: 'После оплаты' },
@@ -203,8 +186,7 @@ export default function Orders() {
               <span><b>{[order.brand, order.model].filter(Boolean).join(' ') || 'Авто'}</b> · {order.client_name || 'Клиент'} · <span className="font-mono">{order.vin}</span></span>
               <button className="text-primary-700 hover:underline" onClick={() => navigate(`/clients/${order.client_id}?tab=orders`)}>Открыть карточку</button>
             </div>)}
-            <button disabled={savingVinMatches} onClick={confirmVinMatches} className="btn-save mt-1 text-xs disabled:opacity-60">{savingVinMatches ? 'Сохраняем…' : 'Подтвердить: VIN найдены в Москве'}</button>
-            <p className="text-[11px] text-gray-500">Дата прибытия в Москву будет поставлена сегодняшней, если её ещё не указали. После звонка отметьте это в карточке клиента.</p>
+            <p className="text-[11px] text-gray-500">Откройте карточку совпавшего клиента, позвоните ему и при необходимости отметьте «Клиенту сообщено» в шаге «4. VIN присвоение».</p>
           </div>}
         </div>}
       </div>
