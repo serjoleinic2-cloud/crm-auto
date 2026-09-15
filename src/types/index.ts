@@ -211,18 +211,22 @@ export interface StatisticsMonthlyPoint {
 
 export interface StatisticsFilters {
   orderId?: number | null;
+  brand?: string | null;
+  model?: string | null;
 }
 
 export interface StatisticsVehicle {
   id: number;
   label: string;
   archived: boolean;
+  brand: string | null;
+  model: string | null;
 }
 
 export interface StatisticsSummary {
   month: string;
   monthLabel: string;
-  filters: { orderId: number | null };
+  filters: { orderId: number | null; brand: string | null; model: string | null };
   vehicles: StatisticsVehicle[];
   selected: {
     ordered: number;
