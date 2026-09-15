@@ -2,9 +2,9 @@ import { ipcMain } from 'electron';
 import { getDb } from './database';
 
 type MetricRow = { count?: number; amount?: number };
-type FilterInput = { orderId?: number | null };
-type SelectedFilter = { orderId: number | null };
-type FilterSql = { clause: string; values: number[] };
+type FilterInput = { orderId?: number | null; brand?: string | null; model?: string | null };
+type SelectedFilter = { orderId: number | null; brand: string | null; model: string | null };
+type FilterSql = { clause: string; values: (number | string)[] };
 type VehicleRow = {
   id: number;
   brand: string | null;
@@ -43,13 +43,16 @@ function paymentProofExists(alias = 'o'): string {
 
 function normalizeFilters(input?: FilterInput): SelectedFilter {
   const orderId = Number(input?.orderId);
-  return { orderId: Number.isInteger(orderId) && orderId > 0 ? orderId : null };
+  return { orderId: Number.isInteger(orderId) && orderId > 0 ? orderId : null, brand: input?.brand?.trim() || null, model: input?.model?.trim() || null };
 }
 
 function makeOrderFilter(filters: SelectedFilter, alias = 'o'): FilterSql {
-  return filters.orderId
-    ? { clause: ` AND ${alias}.id=?`, values: [filters.orderId] }
-    : { clause: '', values: [] };
+  const clauses: string[] = [];
+  const values: (number | string)[] = [];
+  if (filters.orderId) { clauses.push(`${alias}.id=?`); values.push(filters.orderId); }
+  if (filters.brand) { clauses.push(`${alias}.brand=?`); values.push(filters.brand); }
+  if (filters.model) { clauses.push(`${alias}.model=?`); values.push(filters.model); }
+  return { clause: clauses.length ? ` AND ${clauses.join(' AND ')}` : '', values };
 }
 
 function makeVehicleLabel(row: VehicleRow): string {
@@ -82,6 +85,8 @@ export function registerStatisticsHandlers(): void {
       id: row.id,
       label: makeVehicleLabel(row),
       archived: Boolean(row.is_archived),
+      brand: row.brand,
+      model: row.model,
     }));
 
     const ordered = numberValue(db.prepare(`
