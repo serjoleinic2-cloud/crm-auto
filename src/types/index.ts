@@ -344,7 +344,7 @@ declare global {
 
 export interface ElectronAPI {
   clients: {
-    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string }) => Promise<Client[]>;
+    getAll:  (filters?: { statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; statusCategories?: string[]; paymentPending?: boolean; paymentOverdue?: boolean; excludeStatusNames?: string[] }) => Promise<Client[]>;
     getById: (id: number) => Promise<Client | undefined>;
     create:  (data: Omit<Client, 'id'|'created_at'|'updated_at'|'status_name'|'status_color'|'contract_number'|'car'|'consent_status'>) => Promise<number>;
     update:  (id: number, data: Partial<Client>) => Promise<boolean>;
