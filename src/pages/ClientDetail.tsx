@@ -921,10 +921,10 @@ export default function ClientDetail() {
                 </div>
 
                 <div className="border-t border-gray-200 pt-3">
-                  <h5 className="text-xs font-semibold text-gray-600 mb-2">Номер авто и прибытие в Москву</h5>
+                  <h5 className="text-xs font-semibold text-gray-600 mb-2">VIN и прибытие в Москву</h5>
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                     <div>
-                      <label className="label text-xs">Номер авто (VIN из чата)</label>
+                      <label className="label text-xs">Последние 6 цифр VIN</label>
                       <input
                         className="input text-sm font-mono uppercase"
                         maxLength={17}
@@ -932,10 +932,10 @@ export default function ClientDetail() {
                         value={orderForm.vin || ''}
                         onChange={e => setOrderForm({...orderForm, vin: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17)})}
                       />
-                      <p className="mt-0.5 text-[10px] text-gray-400">Введите номер из сообщения после таможни, например 036331</p>
+                      <p className="mt-0.5 text-[10px] text-gray-400">Введите последние цифры VIN из сообщения после таможни, например 036331</p>
                     </div>
                     <div>
-                      <label className="label text-xs">Номер получен после таможни</label>
+                      <label className="label text-xs">VIN получен после таможни</label>
                       <input type="date" className="input text-sm" value={orderForm.vin_received_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, vin_received_date: e.target.value || null})} />
                     </div>
                     <div>
