@@ -6,9 +6,9 @@ import type { Status } from '../types';
 import ClientCard from '../components/ClientCard';
 import SearchBar from '../components/SearchBar';
 
-type Filter = 'leads' | 'thinking' | 'active' | 'ready' | 'extras' | 'transit' | 'arrived' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
+type Filter = 'leads' | 'thinking' | 'active' | 'ready' | 'extras' | 'transit' | 'arrived' | 'payment_pending' | 'payment_overdue' | 'overdue' | 'lost' | 'archived';
 
-const VALID_FILTERS: Filter[] = ['leads', 'thinking', 'active', 'ready', 'extras', 'transit', 'arrived', 'payment_overdue', 'overdue', 'lost', 'archived'];
+const VALID_FILTERS: Filter[] = ['leads', 'thinking', 'active', 'ready', 'extras', 'transit', 'arrived', 'payment_pending', 'payment_overdue', 'overdue', 'lost', 'archived'];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -49,6 +49,7 @@ export default function Clients() {
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
     else if (filter === 'arrived')    fetchClients({ statusId: arrivedStatus?.id });
+    else if (filter === 'payment_pending') fetchClients({ paymentPending: true });
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
     else if (filter === 'overdue')    fetchClients({ overdue: true });
     else if (filter === 'lost')       fetchClients({ statusCategory: 'lost' });
@@ -69,6 +70,7 @@ export default function Clients() {
     { key: 'thinking',       label: 'Думает', hint: 'Залётные клиенты, которые пока не вошли в работу' },
     { key: 'ready',          label: 'К выдаче', hint: 'Автомобили, которые готовятся к выдаче клиенту' },
     { key: 'extras',         label: 'Допы',       hint: 'Авто на дополнительном оборудовании' },
+    { key: 'payment_pending',label: 'Ожидают оплаты', hint: 'Оплата ещё не подтверждена' },
     { key: 'payment_overdue',label: 'Просрочена оплата', hint: 'Дедлайн оплаты прошёл' },
     { key: 'overdue',        label: 'Просрочено', hint: 'Просроченные задачи' },
     { key: 'lost',           label: 'Отказы',     hint: 'Клиенты отказавшиеся от сделки' },
