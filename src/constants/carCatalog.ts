@@ -8,7 +8,7 @@ export const CAR_MODELS_BY_BRAND: Record<string, string[]> = {
   KIA: ['KX1'],
   Mazda: ['BT-50 Double Cabine', 'CX-5 Comfort', 'CX-5 Elegance PRO', 'CX-5 Максималка (ТОП)', 'CX-5 Smart'],
   'Mercedes Benz': ['GLB 200 AmG LINE'],
-  Mitsubishi: ['ASX', 'ASX ТОП', 'Eclipse Cross', 'L200 SINGLE CAB', 'Outlander III Enjoy'],
+  Mitsubishi: ['ASX', 'ASX ТОП', 'Eclipse Cross', 'L200 SINGLE CAB', 'Outlander III'],
   Nissan: ['Qashqai', 'X-Trail Leading Edition'],
   Opel: ['Crossland X', 'Mokka'],
   Peugeot: ['3008', '5008 Allure', '5008 GT'],
