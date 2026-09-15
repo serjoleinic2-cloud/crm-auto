@@ -41,6 +41,13 @@ export function registerPaymentsHandlers(): void {
   `);
   ensureColumn('orders', 'payment_mode', "TEXT NOT NULL DEFAULT 'single'");
   ensureColumn('orders', 'fts_reserve', 'REAL');
+  ensureColumn('orders', 'vin', 'TEXT');
+  ensureColumn('orders', 'vin_received_date', 'TEXT');
+  ensureColumn('orders', 'moscow_arrival_date', 'TEXT');
+  ensureColumn('orders', 'vin_moscow_confirmed', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('orders', 'vin_moscow_confirmed_date', 'TEXT');
+  ensureColumn('orders', 'client_notified_moscow', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('orders', 'client_notified_moscow_date', 'TEXT');
   ensureColumn('payment_installments', 'file_path', 'TEXT');
   ensureColumn('payment_installments', 'file_name', 'TEXT');
   ensureColumn('payment_installments', 'document_file_id', 'INTEGER');
