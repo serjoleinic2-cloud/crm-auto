@@ -49,14 +49,18 @@ export default function Clients() {
     else if (filter === 'extras')     fetchClients({ statusId: extrasStatus?.id });
     else if (filter === 'transit')    fetchClients({ statusId: transitStatus?.id });
     else if (filter === 'arrived')    fetchClients({ statusId: arrivedStatus?.id });
-    else if (filter === 'payment_pending') fetchClients({ paymentPending: true });
+    else if (filter === 'payment_pending') fetchClients();
     else if (filter === 'payment_overdue') fetchClients({ paymentOverdue: true });
     else if (filter === 'overdue')    fetchClients({ overdue: true });
     else if (filter === 'lost')       fetchClients({ statusCategory: 'lost' });
     else                              fetchClients({ archived: true });
   };
 
-  const sortedClients = [...clients].sort((left, right) => {
+  const visibleClients = filter === 'payment_pending'
+    ? clients.filter(client => !client.is_archived && client.payment_status === 'pending')
+    : clients;
+
+  const sortedClients = [...visibleClients].sort((left, right) => {
     const leftContract = left.contract_number?.trim();
     const rightContract = right.contract_number?.trim();
     if (!leftContract && !rightContract) return left.full_name.localeCompare(right.full_name, 'ru');
