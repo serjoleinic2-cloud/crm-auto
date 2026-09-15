@@ -99,19 +99,23 @@ export default function Statistics() {
   const navigate = useNavigate();
   const [month, setMonth] = useState(currentMonth);
   const [orderId, setOrderId] = useState('');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
   const [summary, setSummary] = useState<StatisticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    ipcService.statistics.getSummary(month, { orderId: orderId ? Number(orderId) : null })
+    ipcService.statistics.getSummary(month, { orderId: orderId ? Number(orderId) : null, brand: brand || null, model: model || null })
       .then(data => { if (active) setSummary(data); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [month, orderId]);
+  }, [month, orderId, brand, model]);
 
   const stats = summary?.selected;
+  const brands = [...new Set((summary?.vehicles ?? []).map(vehicle => vehicle.brand).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, 'ru'));
+  const models = [...new Set((summary?.vehicles ?? []).filter(vehicle => !brand || vehicle.brand === brand).map(vehicle => vehicle.model).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, 'ru'));
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
@@ -129,6 +133,24 @@ export default function Statistics() {
             onChange={event => setMonth(event.target.value || currentMonth())}
             aria-label="Месяц статистики"
           />
+          <select
+            className="input w-full text-sm sm:w-40"
+            value={brand}
+            onChange={event => { setBrand(event.target.value); setModel(''); setOrderId(''); }}
+            aria-label="Марка автомобиля"
+          >
+            <option value="">Все марки</option>
+            {brands.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+          <select
+            className="input w-full text-sm sm:w-52"
+            value={model}
+            onChange={event => { setModel(event.target.value); setOrderId(''); }}
+            aria-label="Модель автомобиля"
+          >
+            <option value="">Все модели</option>
+            {models.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
           <select
             className="input w-full text-sm sm:w-80"
             value={orderId}
@@ -174,6 +196,7 @@ export default function Statistics() {
               <Wrench size={19} className="text-orange-600" />
               <div className="mt-3 text-2xl font-bold text-gray-900">{stats.extrasCount}</div>
               <div className="text-sm text-gray-600">Сделано допов</div>
+              <div className="mt-1 text-[11px] text-gray-400">Текущие и архивные за месяц</div>
               <div className="mt-1 truncate text-[11px] text-orange-700" title={formatMoney(stats.extrasAmount)}>{formatMoney(stats.extrasAmount)}</div>
             </div>
           </div>
