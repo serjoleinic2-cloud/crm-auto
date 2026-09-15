@@ -52,7 +52,8 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('paid');
   const [query, setQuery] = useState('');
-  const [carFilter, setCarFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [modelFilter, setModelFilter] = useState('');
   const [vinBatch, setVinBatch] = useState('');
   const [showVinCheck, setShowVinCheck] = useState(false);
 
@@ -81,28 +82,37 @@ export default function Orders() {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU');
     return stageOrders
       .filter(order => {
-        const carName = [order.brand, order.model].filter(Boolean).join(' ') || 'Без автомобиля';
         const searchable = [
           order.brand, order.model, order.configuration, order.color,
           order.client_name, order.client_phone, order.contract_number,
         ].filter(Boolean).join(' ').toLocaleLowerCase('ru-RU');
 
         if (normalizedQuery && !searchable.includes(normalizedQuery)) return false;
-        if (carFilter && carName !== carFilter) return false;
+        if (brandFilter && order.brand !== brandFilter) return false;
+        if (modelFilter && order.model !== modelFilter) return false;
         return true;
       })
       .sort((a, b) => {
         const byPaymentDate = new Date(b.payment_date ?? 0).getTime() - new Date(a.payment_date ?? 0).getTime();
         return byPaymentDate || b.id - a.id;
       });
-  }, [orders, filter, query, carFilter]);
+  }, [orders, filter, query, brandFilter, modelFilter]);
 
-  const carOptions = useMemo(() => {
+  const brandOptions = useMemo(() => {
     const names = orders
       .filter(order => order.payment_status === 'paid')
-      .map(order => [order.brand, order.model].filter(Boolean).join(' ') || 'Без автомобиля');
+      .map(order => order.brand)
+      .filter((brand): brand is string => Boolean(brand));
     return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru'));
   }, [orders]);
+
+  const modelOptions = useMemo(() => {
+    const names = orders
+      .filter(order => order.payment_status === 'paid' && (!brandFilter || order.brand === brandFilter))
+      .map(order => order.model)
+      .filter((model): model is string => Boolean(model));
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'ru'));
+  }, [orders, brandFilter]);
 
   const tabCounts = useMemo(() => {
     const paidOrders = orders.filter(order => order.payment_status === 'paid');
@@ -151,7 +161,7 @@ export default function Orders() {
         ))}
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_240px]">
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_190px_220px]">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -163,12 +173,22 @@ export default function Orders() {
         </div>
         <select
           className="input"
-          value={carFilter}
-          onChange={e => setCarFilter(e.target.value)}
-          aria-label="Фильтр по автомобилю"
+          value={brandFilter}
+          onChange={e => { setBrandFilter(e.target.value); setModelFilter(''); }}
+          aria-label="Фильтр по марке"
         >
-          <option value="">Все автомобили</option>
-          {carOptions.map(car => <option key={car} value={car}>{car}</option>)}
+          <option value="">Все марки</option>
+          {brandOptions.map(brand => <option key={brand} value={brand}>{brand}</option>)}
+        </select>
+        <select
+          className="input disabled:bg-gray-100"
+          value={modelFilter}
+          onChange={e => setModelFilter(e.target.value)}
+          disabled={!brandFilter}
+          aria-label="Фильтр по модели"
+        >
+          <option value="">{brandFilter ? 'Все модели' : 'Сначала выберите марку'}</option>
+          {modelOptions.map(model => <option key={model} value={model}>{model}</option>)}
         </select>
       </div>
 
@@ -195,7 +215,7 @@ export default function Orders() {
         <div className="text-center py-8 text-gray-500">Загрузка...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
-          {query || carFilter ? 'По заданному фильтру заказы не найдены' : 'В этом разделе заказов нет'}
+          {query || brandFilter || modelFilter ? 'По заданному фильтру заказы не найдены' : 'В этом разделе заказов нет'}
         </div>
       ) : (
         <div className="space-y-2">
