@@ -96,6 +96,7 @@ import ExtrasPanel from '../components/ExtrasPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
 import type { Client, Status, Contact, Order, CarBrand, Reminder, Extra } from '../types';
 import { PAYMENT_STATUS_LABELS } from '../types';
+import { modelSuggestions } from '../constants/carCatalog';
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -120,7 +121,7 @@ export default function ClientDetail() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [orderForm, setOrderForm] = useState<Partial<Order>>({});
   const [nextContractNum, setNextContractNum] = useState('');
-  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'contract' | 'delivery'>('car');
+  const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'contract' | 'delivery' | 'vin'>('car');
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -759,7 +760,8 @@ export default function ClientDetail() {
                   {([
                     ['car', '1. Автомобиль'],
                     ['contract', '2. Договор'],
-                    ['delivery', '3. Доставка и выдача'],
+                    ['delivery', '3. Контролировать доставку'],
+                    ['vin', '4. VIN присвоение'],
                   ] as const).map(([tab, label]) => (
                     <button
                       key={tab}
@@ -788,7 +790,8 @@ export default function ClientDetail() {
                   </div>
                   <div>
                     <label className="label text-xs">Модель</label>
-                    <input className="input text-sm" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} />
+                    <input className="input text-sm" list="client-order-models" value={orderForm.model || ''} onChange={e => setOrderForm({...orderForm, model: e.target.value || null})} placeholder="Выберите или введите вручную" />
+                    <datalist id="client-order-models">{modelSuggestions(orderForm.brand).map(model => <option key={model} value={model} />)}</datalist>
                   </div>
                 </div>
 
@@ -850,6 +853,7 @@ export default function ClientDetail() {
                 </>}
 
                 {/* Delivery block */}
+                {(orderEditorTab === 'delivery' || orderEditorTab === 'vin') && <>
                 {orderEditorTab === 'delivery' && <>
                 <div className="border-t border-gray-200 pt-3">
                   <h5 className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><Truck size={12}/> Срок доставки</h5>
@@ -919,18 +923,19 @@ export default function ClientDetail() {
                     );
                   })()}
                 </div>
-
-                <div className="border-t border-gray-200 pt-3">
-                  <h5 className="text-xs font-semibold text-gray-600 mb-2">VIN и прибытие в Москву</h5>
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                </>}
+                {orderEditorTab === 'vin' && <div className="border-t border-gray-200 pt-3">
+                  <h5 className="text-xs font-semibold text-gray-600 mb-2">VIN присвоение</h5>
+                  <p className="mb-3 text-xs text-gray-500">После таможни внесите последние 6 цифр VIN. Затем в списке VIN из Telegram можно быстро найти свой автомобиль и позвонить клиенту.</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="label text-xs">Последние 6 цифр VIN</label>
                       <input
                         className="input text-sm font-mono uppercase"
-                        maxLength={17}
+                        maxLength={6}
                         placeholder="Например: 036331"
                         value={orderForm.vin || ''}
-                        onChange={e => setOrderForm({...orderForm, vin: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17)})}
+                        onChange={e => setOrderForm({...orderForm, vin: e.target.value.replace(/\D/g, '').slice(0, 6)})}
                       />
                       <p className="mt-0.5 text-[10px] text-gray-400">Введите последние цифры VIN из сообщения после таможни, например 036331</p>
                     </div>
@@ -938,24 +943,17 @@ export default function ClientDetail() {
                       <label className="label text-xs">VIN получен после таможни</label>
                       <input type="date" className="input text-sm" value={orderForm.vin_received_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, vin_received_date: e.target.value || null})} />
                     </div>
-                    <div>
-                      <label className="label text-xs">Автомобиль прибыл в Москву</label>
-                      <input type="date" className="input text-sm" value={orderForm.moscow_arrival_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, moscow_arrival_date: e.target.value || null})} />
-                    </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-                      <input type="checkbox" checked={Boolean(orderForm.vin_moscow_confirmed)} onChange={e => setOrderForm({...orderForm, vin_moscow_confirmed: e.target.checked ? 1 : 0, vin_moscow_confirmed_date: e.target.checked ? (orderForm.vin_moscow_confirmed_date || new Date().toISOString().split('T')[0]) : null})} />
-                      VIN найден в московской партии
-                    </label>
+                  <div className="mt-3">
                     <label className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-900">
                       <input type="checkbox" checked={Boolean(orderForm.client_notified_moscow)} onChange={e => setOrderForm({...orderForm, client_notified_moscow: e.target.checked ? 1 : 0, client_notified_moscow_date: e.target.checked ? (orderForm.client_notified_moscow_date || new Date().toISOString().split('T')[0]) : null})} />
                       Клиенту сообщено о прибытии
                     </label>
                   </div>
-                  {(orderForm.vin_moscow_confirmed_date || orderForm.client_notified_moscow_date) && <p className="mt-1 text-[10px] text-gray-500">{orderForm.vin_moscow_confirmed_date && `VIN найден: ${formatDate(orderForm.vin_moscow_confirmed_date)}`}{orderForm.vin_moscow_confirmed_date && orderForm.client_notified_moscow_date && ' · '}{orderForm.client_notified_moscow_date && `клиенту сообщено: ${formatDate(orderForm.client_notified_moscow_date)}`}</p>}
-                </div>
+                  {orderForm.client_notified_moscow_date && <p className="mt-1 text-[10px] text-gray-500">Клиенту сообщено: {formatDate(orderForm.client_notified_moscow_date)}</p>}
+                </div>}
 
+                {orderEditorTab === 'delivery' && <>
                 {/* Единый статус заказа и клиента; сохранение происходит только по кнопке. */}
                 <div className="border-t border-gray-200 pt-3">
                   <label className="label text-xs">Этап автомобиля</label>
@@ -1001,6 +999,7 @@ export default function ClientDetail() {
                     <input type="date" className="input text-sm" value={orderForm.issue_date?.split('T')[0] || ''} onChange={e => setOrderForm({...orderForm, issue_date: e.target.value || null})} />
                   </div>
                 )}
+                </>}
                 </>}
 
                 <div className="flex gap-2 pt-2">
