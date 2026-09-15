@@ -5,6 +5,7 @@ import { useClients } from '../hooks/useClients';
 import type { CarBrand, Status } from '../types';
 import { ArrowLeft } from 'lucide-react';
 import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
+import { modelSuggestions } from '../constants/carCatalog';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 15 }, (_, i) => CURRENT_YEAR - i);
@@ -268,10 +269,12 @@ export default function QuickAdd() {
               <label className="label">Модель</label>
               <input
                 className="input bg-white"
+                list="quick-add-models"
                 value={form.model}
                 onChange={e => set('model', e.target.value)}
-                placeholder="Camry, X5, Polo..."
+                placeholder="Выберите или введите вручную"
               />
+              <datalist id="quick-add-models">{modelSuggestions(form.brand || form.brandCustom).map(model => <option key={model} value={model} />)}</datalist>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
