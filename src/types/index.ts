@@ -88,6 +88,13 @@ export interface Order {
   comment: string | null;
   delivery_date_est: string | null;
   delivery_date_actual: string | null;
+  vin: string | null;
+  vin_received_date: string | null;
+  moscow_arrival_date: string | null;
+  vin_moscow_confirmed: number;
+  vin_moscow_confirmed_date: string | null;
+  client_notified_moscow: number;
+  client_notified_moscow_date: string | null;
   payment_date: string | null;
   payment_status: string | null;
   payment_mode?: 'single' | 'installments';
