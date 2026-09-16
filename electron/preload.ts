@@ -115,6 +115,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete:       (id: number) => invoke('payments:delete', id),
     confirmFinal: (id: number) => invoke('payments:confirmFinal', id),
   },
+  telegram: {
+    getState:       () => invoke('telegram:getState'),
+    beginAuth:      (data: { apiId: string; apiHash: string; phone: string }) => invoke('telegram:beginAuth', data),
+    submitCode:     (code: string) => invoke('telegram:submitCode', code),
+    submitPassword: (password: string) => invoke('telegram:submitPassword', password),
+    listChats:      () => invoke('telegram:listChats'),
+    selectChat:     (chat: { id: string; title: string }) => invoke('telegram:selectChat', chat),
+  },
   extras: {
     getByOrder: (orderId: number)                  => invoke('extras:getByOrder', orderId),
     create:     (data: object)                     => invoke('extras:create', data),
