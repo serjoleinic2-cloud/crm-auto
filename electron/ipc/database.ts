@@ -626,12 +626,12 @@ export function registerDatabaseHandlers(): void {
       orderStatusId = getActiveStatusIdByName('Автомобиль в пути') ?? orderStatusId;
     }
     const result = db.prepare(`
-      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,inspection_done,inspection_comment,issue_date,planned_issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
-      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@inspection_done,@inspection_comment,@issue_date,@planned_issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
+      INSERT INTO orders (client_id,contract_number,brand,model,year,configuration,color,description,price,comment,delivery_date_est,delivery_date_actual,payment_date,payment_status,order_status_id,inspection_done,inspection_comment,issue_date,planned_issue_date,delivery_term,delivery_term_unit,payment_deadline,signed_contract_date)
+      VALUES (@client_id,@contract_number,@brand,@model,@year,@configuration,@color,@description,@price,@comment,@delivery_date_est,@delivery_date_actual,@payment_date,@payment_status,@order_status_id,@inspection_done,@inspection_comment,@issue_date,@planned_issue_date,@delivery_term,@delivery_term_unit,@payment_deadline,@signed_contract_date)
     `).run({
       client_id: data.client_id, contract_number: data.contract_number ?? null,
       brand: data.brand ?? null, model: data.model ?? null, year: data.year ?? null,
-      configuration: data.configuration ?? null, description: data.description ?? null,
+      configuration: data.configuration ?? null, color: data.color ?? null, description: data.description ?? null,
       price: data.price ?? null, comment: data.comment ?? null,
       delivery_date_est: data.delivery_date_est ?? null, delivery_date_actual: data.delivery_date_actual ?? null,
       payment_date: data.payment_date ?? null, payment_status: data.payment_status ?? null,
