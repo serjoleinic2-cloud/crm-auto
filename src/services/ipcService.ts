@@ -82,6 +82,7 @@ export const ipcService = {
     getByOrder:   (orderId: number) => api().payments.getByOrder(orderId),
     setMode:      (orderId: number, mode: 'single' | 'installments') => api().payments.setMode(orderId, mode),
     add:          (data: Parameters<Window['electronAPI']['payments']['add']>[0]) => api().payments.add(data),
+    update:       (data: Parameters<Window['electronAPI']['payments']['update']>[0]) => api().payments.update(data),
     delete:       (id: number) => api().payments.delete(id),
     confirmFinal: (id: number) => api().payments.confirmFinal(id),
   },
