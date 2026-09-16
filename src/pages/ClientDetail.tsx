@@ -829,7 +829,11 @@ export default function ClientDetail() {
                     <input type="text" inputMode="numeric" className="input text-sm" value={formatMoneyInput(orderForm.price)} onChange={e => setOrderForm({...orderForm, price: parseMoneyInput(e.target.value)})} />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label text-xs">Цвет</label>
+                    <input className="input text-sm" value={orderForm.color || ''} onChange={e => setOrderForm({...orderForm, color: e.target.value || null})} placeholder="Белый" />
+                  </div>
                   <div>
                     <label className="label text-xs">Описание</label>
                     <input className="input text-sm" value={orderForm.description || ''} onChange={e => setOrderForm({...orderForm, description: e.target.value || null})} />
