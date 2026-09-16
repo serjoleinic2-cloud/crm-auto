@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, FolderOpen, Trash2, Upload } from 'lucide-react';
+import { ExternalLink, FolderOpen, Pencil, Trash2, Upload } from 'lucide-react';
 import { ipcService } from '../services/ipcService';
 import type { ClientDocument, Order, PaymentInstallment } from '../types';
 import { formatMoneyInput, parseMoneyInput } from '../utils/formatters';
@@ -38,6 +38,9 @@ export default function PaymentProofCard({
   const [locallyConfirmed, setLocallyConfirmed] = useState(false);
   const [ftsReserve, setFtsReserve] = useState('');
   const [reserveSaved, setReserveSaved] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+  const [editingAmount, setEditingAmount] = useState('');
+  const [editingPaidAt, setEditingPaidAt] = useState('');
 
   useEffect(() => {
     if (!orders.length) {
@@ -190,6 +193,38 @@ export default function PaymentProofCard({
     }
   };
 
+  const startPaymentEdit = (payment: PaymentInstallment) => {
+    setEditingPaymentId(payment.id);
+    setEditingAmount(formatMoneyInput(String(payment.amount)));
+    setEditingPaidAt(payment.paid_at);
+    setError('');
+  };
+
+  const savePaymentEdit = async () => {
+    const parsedAmount = parseMoneyInput(editingAmount);
+    if (!editingPaymentId || !parsedAmount || !editingPaidAt) {
+      setError('Укажите сумму и дату платежа.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const result = await ipcService.payments.update({ id: editingPaymentId, amount: parsedAmount, paid_at: editingPaidAt });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setEditingPaymentId(null);
+      await refreshPaymentData();
+      onChanged();
+      onOrdersRefresh();
+      onHistoryRefresh();
+      onClientRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const confirmFinalPayment = async (payment: PaymentInstallment) => {
     const question = 'Подтвердить, что это последний платёж, полученный нами, и автомобиль можно переводить на следующий этап? Резерв ФТС клиент внесёт позднее.';
     if (!window.confirm(question)) return;
@@ -325,14 +360,24 @@ export default function PaymentProofCard({
               <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
                 {payments.map((payment, index) => (
                   <div key={payment.id} className="space-y-1.5 px-2.5 py-2 text-xs">
-                    <div className="flex items-center justify-between gap-2">
+                    {editingPaymentId === payment.id ? <div className="grid grid-cols-2 gap-2">
+                      <input type="date" className="input text-xs" value={editingPaidAt} onChange={event => setEditingPaidAt(event.target.value)} />
+                      <input className="input text-xs" inputMode="numeric" value={editingAmount} onChange={event => setEditingAmount(formatMoneyInput(event.target.value))} placeholder="Сумма" />
+                    </div> : <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-gray-700">Платёж №{index + 1}</span>
                       <span className="font-semibold text-gray-900">{formatMoneyInput(String(payment.amount))} ₽</span>
-                    </div>
+                    </div>}
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>
+                      {editingPaymentId !== payment.id && <span className="text-gray-600">{new Date(payment.paid_at + 'T00:00:00').toLocaleDateString('ru-RU')}</span>}
                       <button type="button" onClick={() => payment.file_path && ipcService.files.openFile(payment.file_path)} className="min-w-0 flex-1 truncate text-left text-blue-600 hover:underline">
                         {payment.file_name || 'Открыть чек'}
+                      </button>
+                      {editingPaymentId === payment.id ? <>
+                        <button type="button" disabled={busy} onClick={savePaymentEdit} className="rounded bg-sky-100 px-2 py-1 text-[11px] text-sky-700 hover:bg-sky-200">Сохранить</button>
+                        <button type="button" disabled={busy} onClick={() => setEditingPaymentId(null)} className="rounded bg-red-50 px-2 py-1 text-[11px] text-red-600 hover:bg-red-100">Отмена</button>
+                      </> : <>
+                      <button type="button" disabled={busy} onClick={() => startPaymentEdit(payment)} className="rounded bg-sky-50 p-1.5 text-sky-600 hover:bg-sky-100" title="Исправить дату или сумму">
+                        <Pencil size={13} />
                       </button>
                       {payment.is_final ? (
                         <span className="whitespace-nowrap rounded bg-green-100 px-2 py-1 text-[11px] text-green-700">Последний · подтверждён</span>
@@ -340,7 +385,7 @@ export default function PaymentProofCard({
                         <button type="button" disabled={busy} onClick={() => deletePayment(payment.id)} className="rounded bg-red-50 p-1.5 text-red-500 hover:bg-red-100" title="Удалить запись">
                           <Trash2 size={13} />
                         </button>
-                      )}
+                      )}</>}
                     </div>
                   </div>
                 ))}
