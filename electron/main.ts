@@ -10,6 +10,7 @@ import { registerContractsHandlers } from './ipc/contracts';
 import { registerStatisticsHandlers } from './ipc/statistics';
 import { registerPaymentsHandlers } from './ipc/payments';
 import { ensureFirstRunReferenceData } from './ipc/firstRun';
+import { registerTelegramHandlers, resumeTelegramListener } from './ipc/telegram';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -71,6 +72,8 @@ app.whenReady().then(() => {
     registerContractsHandlers();
     console.log('[MAIN] registerStatisticsHandlers...');
     registerStatisticsHandlers();
+    console.log('[MAIN] registerTelegramHandlers...');
+    registerTelegramHandlers();
     console.log('[MAIN] createWindow...');
   } catch (err) {
     console.error('[STARTUP ERROR]', err);
@@ -83,6 +86,7 @@ app.whenReady().then(() => {
     return;
   }
   createWindow();
+  void resumeTelegramListener();
 
   // Auto-backup on launch (daily×30, weekly×12, monthly×6)
   setTimeout(() => {
