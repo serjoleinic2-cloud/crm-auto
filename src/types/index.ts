@@ -447,6 +447,7 @@ export interface ElectronAPI {
     getByOrder: (orderId: number) => Promise<PaymentSummary>;
     setMode: (orderId: number, mode: 'single' | 'installments') => Promise<{ success?: boolean; error?: string }>;
     add: (data: { order_id: number; amount: number; paid_at: string; receipt_path: string }) => Promise<{ success?: boolean; id?: number; error?: string }>;
+    update: (data: { id: number; amount: number; paid_at: string }) => Promise<{ success?: boolean; error?: string }>;
     delete: (id: number) => Promise<{ success?: boolean; error?: string }>;
     confirmFinal: (id: number) => Promise<{ success?: boolean; paymentDate?: string; error?: string }>;
   };
