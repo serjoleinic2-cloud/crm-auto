@@ -16,6 +16,17 @@ interface BackupStats {
   lastGdriveBackup: string | null;
 }
 
+interface TelegramState {
+  configured: boolean;
+  connected: boolean;
+  running: boolean;
+  chatId: string | null;
+  chatTitle: string | null;
+  apiId: string;
+  phone: string;
+  authStep: 'idle' | 'code' | 'password' | 'connected' | 'error';
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const api = () => (window as any).electronAPI;
 
@@ -39,17 +50,29 @@ export default function Settings() {
   const [gdrivePaths, setGdrivePaths] = useState<string[]>([]);
   const [gdriveLoading, setGdriveLoading] = useState(false);
   const [gdriveBackingUp, setGdriveBackingUp] = useState(false);
+  const [telegram, setTelegram] = useState<TelegramState | null>(null);
+  const [telegramApiId, setTelegramApiId] = useState('');
+  const [telegramApiHash, setTelegramApiHash] = useState('');
+  const [telegramPhone, setTelegramPhone] = useState('');
+  const [telegramCode, setTelegramCode] = useState('');
+  const [telegramPassword, setTelegramPassword] = useState('');
+  const [telegramChats, setTelegramChats] = useState<{ id: string; title: string }[]>([]);
+  const [telegramBusy, setTelegramBusy] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const [p, s] = await Promise.all([
+    const [p, s, telegramState] = await Promise.all([
       ipcService.files.getBasePath(),
       api().backup.getStats(),
+      api().telegram.getState(),
     ]);
     setBasePath(p || '');
     setStats(s);
     setEmail(s.email || '');
+    setTelegram(telegramState);
+    setTelegramApiId(telegramState.apiId || '');
+    setTelegramPhone(telegramState.phone || '');
   };
 
   const flash = (type: 'ok' | 'err', text: string) => {
@@ -138,6 +161,49 @@ export default function Settings() {
     } finally { setGdriveBackingUp(false); }
   };
 
+  const loadTelegramChats = async () => {
+    const result = await api().telegram.listChats();
+    if (result?.error) { flash('err', result.error); return; }
+    setTelegramChats(result || []);
+  };
+
+  const beginTelegram = async () => {
+    setTelegramBusy(true);
+    try {
+      const result = await api().telegram.beginAuth({ apiId: telegramApiId, apiHash: telegramApiHash, phone: telegramPhone });
+      if (result?.error) flash('err', result.error);
+      else if (result?.step === 'code') flash('ok', 'Код отправлен в Telegram. Введите его ниже.');
+      const next = await api().telegram.getState(); setTelegram(next);
+    } finally { setTelegramBusy(false); }
+  };
+
+  const submitTelegramCode = async () => {
+    setTelegramBusy(true);
+    try {
+      const result = await api().telegram.submitCode(telegramCode);
+      if (result?.error) flash('err', result.error);
+      else if (result?.step === 'password') flash('ok', 'Введите пароль двухэтапной защиты Telegram.');
+      else if (result?.step === 'connected') { flash('ok', 'Telegram подключён. Выберите группу.'); await loadTelegramChats(); }
+      const next = await api().telegram.getState(); setTelegram(next);
+    } finally { setTelegramBusy(false); }
+  };
+
+  const submitTelegramPassword = async () => {
+    setTelegramBusy(true);
+    try {
+      const result = await api().telegram.submitPassword(telegramPassword);
+      if (result?.error) flash('err', result.error);
+      else if (result?.step === 'connected') { flash('ok', 'Telegram подключён. Выберите группу.'); await loadTelegramChats(); }
+      const next = await api().telegram.getState(); setTelegram(next);
+    } finally { setTelegramBusy(false); }
+  };
+
+  const selectTelegramChat = async (chat: { id: string; title: string }) => {
+    const result = await api().telegram.selectChat(chat);
+    if (result?.error) flash('err', result.error);
+    else { flash('ok', `Группа «${chat.title}» подключена. Проверка работает и при свёрнутом окне CRM.`); await load(); }
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-5">
       <h1 className="text-xl font-bold text-gray-900">Настройки</h1>
@@ -159,6 +225,76 @@ export default function Settings() {
         <button onClick={() => ipcService.files.openBaseFolder()} className="btn-secondary text-sm flex items-center gap-1.5">
           <FolderOpen size={14}/> Открыть в проводнике
         </button>
+      </div>
+
+      {/* Telegram VIN monitor */}
+      <div className="card space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Send size={16} className="text-sky-600"/> Telegram: VIN-контроль</h3>
+            <p className="text-sm text-gray-500 mt-1">CRM читает новые сообщения выбранной группы через ваш личный аккаунт и сопоставляет последние 6 цифр VIN.</p>
+          </div>
+          {telegram?.running ? (
+            <span className="shrink-0 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2.5 py-1">Работает</span>
+          ) : (
+            <span className="shrink-0 text-xs bg-gray-50 text-gray-600 border border-gray-200 rounded-full px-2.5 py-1">Не настроено</span>
+          )}
+        </div>
+
+        {!telegram?.connected ? (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">Получите API ID и API Hash на my.telegram.org → API development tools. Данные и сессия хранятся только на этом компьютере в защищённом виде.</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <input className="input" value={telegramApiId} onChange={e => setTelegramApiId(e.target.value)} placeholder="API ID" inputMode="numeric" />
+              <input className="input" value={telegramApiHash} onChange={e => setTelegramApiHash(e.target.value)} placeholder="API Hash" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input className="input flex-1 min-w-[190px]" value={telegramPhone} onChange={e => setTelegramPhone(e.target.value)} placeholder="Телефон: +7…" />
+              <button onClick={beginTelegram} disabled={telegramBusy} className="btn-save text-sm flex items-center gap-1.5">
+                <Send size={14}/> {telegramBusy ? 'Подключение…' : 'Получить код'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 text-green-800">
+              <CheckCircle size={16} className="shrink-0"/> Telegram подключён: {telegram.phone}
+            </div>
+            {telegram.chatTitle ? (
+              <div className="text-sm text-gray-700">Проверяемая группа: <span className="font-medium">{telegram.chatTitle}</span></div>
+            ) : (
+              <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">Выберите группу, в которую приходят VIN.</div>
+            )}
+            <button onClick={loadTelegramChats} disabled={telegramBusy} className="btn-secondary text-sm flex items-center gap-1.5">
+              <RefreshCw size={14}/> Выбрать группу
+            </button>
+            {telegramChats.length > 0 && (
+              <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                {telegramChats.map(chat => (
+                  <button key={chat.id} onClick={() => selectTelegramChat(chat)} className="w-full text-left px-3 py-2.5 text-sm hover:bg-sky-50 flex items-center justify-between gap-3">
+                    <span className="truncate">{chat.title}</span>
+                    {telegram.chatId === chat.id && <CheckCircle size={15} className="text-green-600 shrink-0"/>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {telegram?.authStep === 'code' && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <input className="input flex-1 min-w-[180px]" value={telegramCode} onChange={e => setTelegramCode(e.target.value)} placeholder="Код из Telegram" inputMode="numeric" autoFocus />
+            <button onClick={submitTelegramCode} disabled={telegramBusy || !telegramCode.trim()} className="btn-save text-sm">Подтвердить код</button>
+          </div>
+        )}
+        {telegram?.authStep === 'password' && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <input className="input flex-1 min-w-[180px]" value={telegramPassword} onChange={e => setTelegramPassword(e.target.value)} placeholder="Пароль двухэтапной защиты" type="password" autoFocus />
+            <button onClick={submitTelegramPassword} disabled={telegramBusy || !telegramPassword} className="btn-save text-sm">Подтвердить пароль</button>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">При единственном совпадении VIN автомобиля в статусе «Автомобиль в пути» CRM переведёт его в «Автомобиль прибыл», создаст задачу звонка и покажет уведомление. Свернуть окно можно; полностью закрывать CRM нельзя.</p>
       </div>
 
       {/* Local backup */}
