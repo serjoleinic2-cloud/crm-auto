@@ -13,6 +13,12 @@ type InstallmentInput = {
   receipt_path: string;
 };
 
+type InstallmentUpdateInput = {
+  id: number;
+  amount: number;
+  paid_at: string;
+};
+
 function ensureColumn(table: string, name: string, definition: string): void {
   const db = getDb();
   const columns = db.pragma(`table_info(${table})`) as { name: string }[];
@@ -209,6 +215,30 @@ export function registerPaymentsHandlers(): void {
       `).run(item.client_id);
     })();
     writeHistory(item.client_id, 'payment_installment', 'Удалена запись о частичном платеже');
+    return { success: true };
+  });
+
+  ipcMain.handle('payments:update', (_e, input: InstallmentUpdateInput) => {
+    const amount = Number(input.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return { error: 'Укажите сумму платежа' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paid_at)) return { error: 'Укажите дату платежа' };
+
+    const item = db.prepare(`
+      SELECT pi.*, o.client_id FROM payment_installments pi
+      JOIN orders o ON o.id=pi.order_id WHERE pi.id=?
+    `).get(input.id) as { id: number; order_id: number; client_id: number; amount: number; paid_at: string; is_final: number } | undefined;
+    if (!item) return { error: 'Платёж не найден' };
+
+    db.transaction(() => {
+      db.prepare('UPDATE payment_installments SET amount=?, paid_at=? WHERE id=?')
+        .run(amount, input.paid_at, input.id);
+      if (item.is_final) {
+        db.prepare('UPDATE orders SET payment_date=?, updated_at=datetime(\'now\') WHERE id=?')
+          .run(input.paid_at, item.order_id);
+      }
+    })();
+    writeHistory(item.client_id, 'payment_installment',
+      `Исправлен платёж: ${Number(item.amount).toLocaleString('ru-RU')} ₽ от ${item.paid_at} → ${amount.toLocaleString('ru-RU')} ₽ от ${input.paid_at}`);
     return { success: true };
   });
 
