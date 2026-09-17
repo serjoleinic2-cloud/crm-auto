@@ -13,6 +13,20 @@ type VehicleRow = {
   full_name: string;
   is_archived: number;
 };
+type ExtraSourceRow = {
+  extra_id: number;
+  order_id: number;
+  client_id: number;
+  extra_name: string;
+  extra_price: number;
+  created_at: string;
+  brand: string | null;
+  model: string | null;
+  contract_number: string | null;
+  full_name: string;
+  is_archived: number;
+  status_name: string | null;
+};
 
 function selectedMonth(value?: string): string {
   return value && /^\d{4}-\d{2}$/.test(value)
@@ -128,6 +142,21 @@ export function registerStatisticsHandlers(): void {
         ${orderFilter.clause}
     `).get(month, ...orderFilter.values) as MetricRow | undefined;
 
+    const extraSources = db.prepare(`
+      SELECT e.id AS extra_id, e.order_id, c.id AS client_id,
+             e.name AS extra_name, e.price AS extra_price, e.created_at,
+             o.brand, o.model, o.contract_number, c.full_name, c.is_archived,
+             s.name AS status_name
+      FROM extras e
+      JOIN orders o ON o.id=e.order_id
+      JOIN clients c ON c.id=o.client_id
+      LEFT JOIN statuses s ON s.id=o.order_status_id
+      WHERE c.is_deleted=0
+        AND substr(e.created_at, 1, 7)=?
+        ${orderFilter.clause}
+      ORDER BY e.created_at DESC, e.id DESC
+    `).all(month, ...orderFilter.values) as ExtraSourceRow[];
+
     const months = Array.from({ length: 6 }, (_, index) => shiftMonth(month, index - 5));
     const monthly = months.map(monthKey => {
       const payment = db.prepare(`
@@ -185,6 +214,20 @@ export function registerStatisticsHandlers(): void {
         extrasCount: numberValue(extras, 'count'),
         extrasAmount: numberValue(extras, 'amount'),
       },
+      extraSources: extraSources.map(row => ({
+        id: row.extra_id,
+        orderId: row.order_id,
+        clientId: row.client_id,
+        name: row.extra_name,
+        price: Number(row.extra_price || 0),
+        createdAt: row.created_at,
+        brand: row.brand,
+        model: row.model,
+        contractNumber: row.contract_number,
+        clientName: row.full_name,
+        archived: Boolean(row.is_archived),
+        statusName: row.status_name,
+      })),
       monthly,
       stages: stageRows,
     };
