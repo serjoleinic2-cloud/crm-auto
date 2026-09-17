@@ -1216,8 +1216,8 @@ export default function ClientDetail() {
           {orders.length > 0 ? (
             <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Добавить позицию</p>
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end">
+                <div className="min-w-0">
                   <label className="label">Доп. оборудование / описание работы</label>
                   <input
                     className="input text-sm"
@@ -1237,8 +1237,8 @@ export default function ClientDetail() {
                     }}
                   />
                 </div>
-                <div className="w-36">
-                  <label className="label">Цена за работу (₽)</label>
+                <div className="min-w-0">
+                  <label className="label whitespace-nowrap">Цена, ₽</label>
                   <input
                     className="input text-sm"
                     type="text"
@@ -1260,7 +1260,7 @@ export default function ClientDetail() {
                     setNewExtra({ name: '', price: '' });
                     fetchExtras(clientId);
                   }}
-                  className="btn-primary mb-0.5"
+                  className="btn-primary w-full sm:w-auto"
                   disabled={!newExtra.name.trim()}
                 >
                   + Добавить
