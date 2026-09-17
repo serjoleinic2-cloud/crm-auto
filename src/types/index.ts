@@ -223,11 +223,27 @@ export interface StatisticsVehicle {
   model: string | null;
 }
 
+export interface StatisticsExtraSource {
+  id: number;
+  orderId: number;
+  clientId: number;
+  name: string;
+  price: number;
+  createdAt: string;
+  brand: string | null;
+  model: string | null;
+  contractNumber: string | null;
+  clientName: string;
+  archived: boolean;
+  statusName: string | null;
+}
+
 export interface StatisticsSummary {
   month: string;
   monthLabel: string;
   filters: { orderId: number | null; brand: string | null; model: string | null };
   vehicles: StatisticsVehicle[];
+  extraSources: StatisticsExtraSource[];
   selected: {
     ordered: number;
     issued: number;
