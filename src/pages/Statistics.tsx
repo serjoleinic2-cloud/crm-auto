@@ -103,6 +103,7 @@ export default function Statistics() {
   const [model, setModel] = useState('');
   const [summary, setSummary] = useState<StatisticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showExtraSources, setShowExtraSources] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +115,7 @@ export default function Statistics() {
   }, [month, orderId, brand, model]);
 
   const stats = summary?.selected;
+  const extraSources = summary?.extraSources ?? [];
   const brands = [...new Set((summary?.vehicles ?? []).map(vehicle => vehicle.brand).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, 'ru'));
   const models = [...new Set((summary?.vehicles ?? []).filter(vehicle => !brand || vehicle.brand === brand).map(vehicle => vehicle.model).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, 'ru'));
 
@@ -198,8 +200,44 @@ export default function Statistics() {
               <div className="text-sm text-gray-600">Сделано допов</div>
               <div className="mt-1 text-[11px] text-gray-400">Текущие и архивные за месяц</div>
               <div className="mt-1 truncate text-[11px] text-orange-700" title={formatMoney(stats.extrasAmount)}>{formatMoney(stats.extrasAmount)}</div>
+              {extraSources.length > 0 && (
+                <button
+                  onClick={() => setShowExtraSources(value => !value)}
+                  className="mt-2 text-xs text-orange-700 hover:text-orange-900 hover:underline"
+                >
+                  {showExtraSources ? 'Скрыть источник' : `Показать источник (${extraSources.length})`}
+                </button>
+              )}
             </div>
           </div>
+
+          {showExtraSources && (
+            <div className="card border border-orange-100">
+              <div className="mb-2">
+                <h2 className="font-semibold text-gray-900">Источник допов</h2>
+                <p className="mt-0.5 text-xs text-gray-500">Нажмите строку, чтобы открыть карточку клиента и проверить или удалить старую запись.</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {extraSources.map(source => {
+                  const car = [source.brand, source.model].filter(Boolean).join(' ') || 'Автомобиль без названия';
+                  const markers = [source.contractNumber ? `договор №${source.contractNumber}` : '', source.statusName || '', source.archived ? 'архив' : ''].filter(Boolean);
+                  return (
+                    <button
+                      key={source.id}
+                      onClick={() => navigate(`/clients/${source.clientId}?tab=extras`)}
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-1 py-2.5 text-left hover:bg-orange-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-gray-800">{car} · {source.clientName}</span>
+                        <span className="block truncate text-xs text-gray-500">{source.name}{markers.length ? ` · ${markers.join(' · ')}` : ''}</span>
+                      </span>
+                      <span className="self-center whitespace-nowrap text-sm text-orange-700">{formatMoney(source.price)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
