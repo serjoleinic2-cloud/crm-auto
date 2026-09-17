@@ -141,9 +141,9 @@ export default function ExtrasDetail() {
         )}
 
         {editing && (
-          <div className="flex items-center gap-2 mt-3">
-            <input className="input text-sm flex-1" placeholder="Наименование" value={form.name} onChange={e => setForm({...form, name: e.target.value})} autoFocus />
-            <input className="input text-sm w-32" type="text" inputMode="numeric" placeholder="Цена" value={form.price} onChange={e => setForm({...form, price: formatMoneyInput(e.target.value)})} />
+          <div className="grid grid-cols-[minmax(0,1fr)_8rem_auto_auto] items-center gap-2 mt-3">
+            <input className="input min-w-0 text-sm" placeholder="Наименование" value={form.name} onChange={e => setForm({...form, name: e.target.value})} autoFocus />
+            <input className="input min-w-0 text-sm" type="text" inputMode="numeric" placeholder="Цена, ₽" value={form.price} onChange={e => setForm({...form, price: formatMoneyInput(e.target.value)})} />
             <button onClick={handleAdd} className="text-green-600 hover:text-green-700"><Check size={18}/></button>
             <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
           </div>
