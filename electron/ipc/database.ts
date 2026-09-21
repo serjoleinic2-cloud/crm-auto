@@ -395,7 +395,7 @@ export function registerDatabaseHandlers(): void {
   // ── CLIENTS ───────────────────────────────────────────────────────────────
 
   ipcMain.handle('clients:getAll', (_e, filters: {
-    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; statusCategories?: string[]; paymentOverdue?: boolean; excludeStatusNames?: string[]
+    statusId?: number; archived?: boolean; overdue?: boolean; trash?: boolean; statusCategory?: string; statusCategories?: string[]; paymentPending?: boolean; paymentOverdue?: boolean; excludeStatusNames?: string[]
   } = {}) => {
     let sql = `
       SELECT c.*,
@@ -455,6 +455,25 @@ export function registerDatabaseHandlers(): void {
         sql += ` AND c.is_archived=0 AND EXISTS (
           SELECT 1 FROM reminders r WHERE r.client_id=c.id AND r.is_completed=0
           AND (r.due_date < date('now') OR (r.due_date = date('now') AND r.due_time IS NOT NULL AND r.due_time < strftime('%H:%M','now','localtime')))
+        )`;
+      }
+      if (filters.paymentPending) {
+        sql += ` AND c.is_archived=0 AND (
+          s.name='Ожидает оплату'
+          OR EXISTS (
+            SELECT 1 FROM orders o WHERE o.client_id=c.id
+            AND (
+              o.payment_status='pending'
+              OR (
+                o.payment_status='paid'
+                AND NOT EXISTS (
+                  SELECT 1 FROM documents d
+                  JOIN document_types dt ON dt.id=d.document_type_id
+                  WHERE d.client_id=c.id AND dt.code='payment_proof' AND d.status='received'
+                )
+              )
+            )
+          )
         )`;
       }
       if (filters.paymentOverdue) {
@@ -801,7 +820,7 @@ export function registerDatabaseHandlers(): void {
       pendingConsent:    (db.prepare("SELECT COUNT(*) as c FROM consent WHERE status='not_requested'").get() as { c: number }).c,
       trashCount:        (db.prepare("SELECT COUNT(*) as c FROM clients WHERE is_deleted=1").get() as { c: number }).c,
       overdueReminders:  (db.prepare("SELECT COUNT(*) as c FROM reminders WHERE is_completed=0 AND due_date < ?").get(now) as { c: number }).c,
-      pendingPayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND (o.payment_status='pending' OR (o.payment_status='paid' AND NOT EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=o.client_id AND dt.code='payment_proof' AND d.status='received')))").get() as { c: number }).c,
+      pendingPayment:    (db.prepare("SELECT COUNT(DISTINCT c.id) as c FROM clients c LEFT JOIN statuses s ON s.id=c.status_id LEFT JOIN orders o ON o.client_id=c.id WHERE c.is_deleted=0 AND c.is_archived=0 AND (s.name='Ожидает оплату' OR o.payment_status='pending' OR (o.payment_status='paid' AND NOT EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=c.id AND dt.code='payment_proof' AND d.status='received')))").get() as { c: number }).c,
       overduePayment:    (db.prepare("SELECT COUNT(*) as c FROM orders o JOIN clients c ON c.id=o.client_id WHERE c.is_deleted=0 AND o.payment_deadline < ? AND (o.payment_status != 'paid' OR NOT EXISTS (SELECT 1 FROM documents d JOIN document_types dt ON dt.id=d.document_type_id WHERE d.client_id=o.client_id AND dt.code='payment_proof' AND d.status='received')) AND o.payment_deadline IS NOT NULL").get(now) as { c: number }).c,
       atCustoms:         0,
       inOffice:          (db.prepare(`SELECT COUNT(*) as c FROM clients c JOIN statuses s ON s.id=c.status_id WHERE c.is_deleted=0 AND c.is_archived=0 AND s.name='Автомобиль прибыл'`).get() as { c: number }).c,
