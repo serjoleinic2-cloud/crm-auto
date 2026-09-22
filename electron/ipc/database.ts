@@ -561,8 +561,20 @@ export function registerDatabaseHandlers(): void {
     return true;
   });
 
+  const normalizedPhoneSql = (column: string): string => {
+    const digits = `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(${column}, ''), '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), '.', '')`;
+    return `(CASE WHEN length(${digits})=11 AND substr(${digits}, 1, 1)='8' THEN '7'||substr(${digits}, 2) ELSE ${digits} END)`;
+  };
+
+  const normalizePhoneQuery = (query: string): string => {
+    const digits = query.replace(/\D/g, '');
+    return digits.length === 11 && digits.startsWith('8') ? `7${digits.slice(1)}` : digits;
+  };
+
   ipcMain.handle('clients:search', (_e, q: string) => {
     const like = `%${q}%`;
+    const normalizedPhone = normalizePhoneQuery(q);
+    const phoneLike = normalizedPhone ? `%${normalizedPhone}%` : '';
     return db.prepare(`
       SELECT DISTINCT c.*, s.name AS status_name, s.color AS status_color,
              IFNULL(cn.status,'not_requested') AS consent_status,
@@ -573,16 +585,20 @@ export function registerDatabaseHandlers(): void {
       LEFT JOIN contacts ct ON ct.client_id=c.id
       LEFT JOIN consent cn ON cn.client_id=c.id
       WHERE c.is_deleted=0
-        AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?
+        AND (c.full_name LIKE ? OR c.email LIKE ?
              OR o.contract_number LIKE ? OR o.brand LIKE ? OR o.model LIKE ?
-             OR ct.value LIKE ?)
+             OR ct.value LIKE ?
+             OR (? <> '' AND ${normalizedPhoneSql('c.phone')} LIKE ?)
+             OR (? <> '' AND ${normalizedPhoneSql('ct.value')} LIKE ?))
       ORDER BY c.updated_at DESC LIMIT 50
-    `).all(like, like, like, like, like, like, like);
+    `).all(like, like, like, like, like, like, phoneLike, phoneLike, phoneLike, phoneLike);
   });
 
   ipcMain.handle('clients:suggest', (_e, q: string) => {
     if (!q || q.trim().length < 1) return [];
     const like = `%${q}%`;
+    const normalizedPhone = normalizePhoneQuery(q);
+    const phoneLike = normalizedPhone ? `%${normalizedPhone}%` : '';
     return db.prepare(`
       SELECT DISTINCT c.id, c.full_name, c.phone,
              s.name AS status_name, s.color AS status_color,
@@ -594,11 +610,13 @@ export function registerDatabaseHandlers(): void {
       LEFT JOIN orders o ON o.client_id=c.id
       LEFT JOIN contacts ct ON ct.client_id=c.id
       WHERE c.is_deleted=0
-        AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?
+        AND (c.full_name LIKE ? OR c.email LIKE ?
              OR o.contract_number LIKE ? OR o.brand LIKE ? OR o.model LIKE ?
-             OR ct.value LIKE ?)
+             OR ct.value LIKE ?
+             OR (? <> '' AND ${normalizedPhoneSql('c.phone')} LIKE ?)
+             OR (? <> '' AND ${normalizedPhoneSql('ct.value')} LIKE ?))
       ORDER BY c.updated_at DESC LIMIT 8
-    `).all(like, like, like, like, like, like, like);
+    `).all(like, like, like, like, like, like, phoneLike, phoneLike, phoneLike, phoneLike);
   });
 
   // ── ORDERS ────────────────────────────────────────────────────────────────
