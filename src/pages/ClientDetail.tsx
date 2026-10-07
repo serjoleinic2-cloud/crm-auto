@@ -123,6 +123,7 @@ export default function ClientDetail() {
   const [nextContractNum, setNextContractNum] = useState('');
   const [orderEditorTab, setOrderEditorTab] = useState<'car' | 'contract' | 'delivery' | 'vin'>('car');
   const [customModel, setCustomModel] = useState(false);
+  const orderEditorRef = useRef<HTMLDivElement | null>(null);
 
   const { orders, fetchOrders, createOrder, updateOrder, deleteOrder } = useOrders();
   const { contacts, fetchContacts, createContact, deleteContact, setPrimary } = useContacts();
@@ -333,6 +334,12 @@ export default function ClientDetail() {
     setOrderEditorTab(order.payment_status === 'paid' ? 'delivery' : order.signed_contract_date ? 'contract' : 'car');
     setEditingOrder(order);
   };
+
+  useEffect(() => {
+    if (editingOrder && activeTab === 'orders') {
+      orderEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [editingOrder, activeTab]);
 
   const saveOrder = async () => {
     if (!orderForm.brand && !orderForm.model) {
@@ -756,7 +763,7 @@ export default function ClientDetail() {
             </div>
 
             {editingOrder && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
+              <div ref={orderEditorRef} className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
                 <h4 className="font-semibold text-sm">{editingOrder.id > 0 ? 'Редактирование заказа' : 'Новый заказ'}</h4>
 
                 <div className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-2">
@@ -937,10 +944,13 @@ export default function ClientDetail() {
                   </div>
                   {orderForm.delivery_date_est && (() => {
                     const days = daysUntil(orderForm.delivery_date_est);
+                    const arrived = showInspectionBlock(statuses.find(s => s.id === orderForm.order_status_id)?.name);
                     const overdue = days !== null && days < 0;
                     return (
-                      <div className={`text-xs mt-1 ${overdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                        {overdue
+                      <div className={`text-xs mt-1 ${arrived ? 'text-emerald-700 font-medium' : overdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                        {arrived
+                          ? '✓ Автомобиль прибыл — срок доставки завершён'
+                          : overdue
                           ? `⚠ Просрочено на ${Math.abs(days!)} дн.`
                           : `До прибытия: ${days ?? '—'} дней`}
                       </div>
@@ -1036,7 +1046,8 @@ export default function ClientDetail() {
             <div className="space-y-3">
               {orders.map(order => {
                 const os = statuses.find(s => s.id === order.order_status_id);
-                const days = daysUntil(order.delivery_date_est);
+                const arrived = showInspectionBlock(os?.name);
+                const days = arrived ? null : daysUntil(order.delivery_date_est);
                 return (
                   <div key={order.id} className="p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => startEditOrder(order)}>
                     <div className="flex items-start justify-between">
@@ -1080,7 +1091,7 @@ export default function ClientDetail() {
                         )}
                       </div>
                     )}
-                    {order.delivery_date_est && (
+                    {order.delivery_date_est && !arrived && (
                       <div className={`text-xs mt-0.5 flex items-center gap-1 ${days !== null && days < 0 ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
                         <Calendar size={11}/> Прибытие: {formatDate(order.delivery_date_est)}
                         {days !== null && days > 0 && <span className="text-primary-600">({days} дн.)</span>}
@@ -1088,8 +1099,8 @@ export default function ClientDetail() {
                         {days !== null && days < 0 && <span>(просрочено на {Math.abs(days)} дн.)</span>}
                       </div>
                     )}
-                    {order.delivery_date_actual && (
-                      <div className="text-xs text-green-600 mt-0.5">Прибыл: {formatDate(order.delivery_date_actual)}</div>
+                    {arrived && (
+                      <div className="text-xs text-green-600 mt-0.5">{order.delivery_date_actual ? `Прибыл: ${formatDate(order.delivery_date_actual)}` : 'Автомобиль прибыл'}</div>
                     )}
                     {order.comment && <div className="text-xs text-gray-600 mt-1">{order.comment}</div>}
                     <ExtrasPanel orderId={order.id} />
