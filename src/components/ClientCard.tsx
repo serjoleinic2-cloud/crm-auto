@@ -188,8 +188,10 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
     return () => document.removeEventListener('mousedown', handler);
   }, [showStatusMenu]);
 
+  const deliveryFinished = ['Автомобиль прибыл', 'Допы', 'Подготовка к выдаче', 'Выдан'].includes(client.status_name || '');
+
   const daysUntil = (() => {
-    if (!client.delivery_date_est) return null;
+    if (deliveryFinished || !client.delivery_date_est) return null;
     const diff = Math.ceil((new Date(client.delivery_date_est).getTime() - new Date(todayISO()).getTime()) / 86400000);
     return diff;
   })();
@@ -314,19 +316,23 @@ export default function ClientCard({ client, statuses, onReminderCreated, onStat
       </div>
 
       {/* ROW 5: Delivery */}
-      {client.delivery_date_est && (
-        <div className={`text-sm mb-2 ${
-          daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
-          daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-bold' : 'text-gray-700'
-        }`}>
-          Прибытие: {formatDate(client.delivery_date_est)}
-          {daysUntil !== null && daysUntil >= 0 && (
-            <span className="ml-1.5 text-xs bg-gray-100 px-1.5 py-0.5 rounded">{daysUntil} дн.</span>
-          )}
-          {daysUntil !== null && daysUntil < 0 && (
-            <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Просрочено</span>
-          )}
-        </div>
+      {(client.delivery_date_est || deliveryFinished) && (
+        deliveryFinished ? (
+          <div className="text-sm mb-2 font-medium text-emerald-700">✓ Автомобиль прибыл</div>
+        ) : (
+          <div className={`text-sm mb-2 ${
+            daysUntil !== null && daysUntil < 0 ? 'text-red-600 font-bold' :
+            daysUntil !== null && daysUntil <= 3 ? 'text-amber-600 font-bold' : 'text-gray-700'
+          }`}>
+            Прибытие: {formatDate(client.delivery_date_est)}
+            {daysUntil !== null && daysUntil >= 0 && (
+              <span className="ml-1.5 text-xs bg-gray-100 px-1.5 py-0.5 rounded">{daysUntil} дн.</span>
+            )}
+            {daysUntil !== null && daysUntil < 0 && (
+              <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">Просрочено</span>
+            )}
+          </div>
+        )
       )}
 
       {/* ROW 7: Task */}
