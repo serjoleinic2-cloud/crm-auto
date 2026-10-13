@@ -225,7 +225,7 @@ function CreateForm({ onCreated, onCancel }: CreateFormProps) {
 // ── ReminderCard ──────────────────────────────────────────────────────────────
 
 interface PostponePopupProps {
-  onSave: (date: string, time: string, comment: string) => void;
+  onSave: (date: string, time: string, comment: string) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -233,6 +233,7 @@ function PostponePopup({ onSave, onClose }: PostponePopupProps) {
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState('');
   const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -263,21 +264,29 @@ function PostponePopup({ onSave, onClose }: PostponePopupProps) {
         </div>
       </div>
       <div>
-        <label className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Комментарий</label>
+        <label className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Комментарий о переносе</label>
         <textarea
           className="input text-xs resize-none w-full"
           rows={2}
-          placeholder="Причина переноса..."
+          placeholder="Почему переносите задачу?"
           value={comment}
           onChange={e => setComment(e.target.value)}
         />
       </div>
       <button
-        onClick={() => { if (date) { onSave(date, time, comment); onClose(); } }}
-        disabled={!date}
+        onClick={async () => {
+          if (!date || saving) return;
+          setSaving(true);
+          try {
+            if (await onSave(date, time, comment)) onClose();
+          } finally {
+            setSaving(false);
+          }
+        }}
+        disabled={!date || saving}
         className="w-full bg-amber-500 hover:bg-amber-600 text-white text-xs py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40"
       >
-        Перенести
+        {saving ? 'Сохраняю...' : 'Перенести'}
       </button>
     </div>
   );
@@ -286,7 +295,7 @@ function PostponePopup({ onSave, onClose }: PostponePopupProps) {
 interface ReminderCardProps {
   r: Reminder;
   onDone: () => void;
-  onPostpone: (date: string, time: string, comment: string) => void;
+  onPostpone: (date: string, time: string, comment: string) => Promise<boolean>;
   onDelete: () => void;
   onClientClick: () => void;
 }
@@ -419,13 +428,23 @@ export default function Reminders() {
     load();
   };
 
-  const handlePostpone = async (r: Reminder, date: string, time: string, comment: string) => {
-    await updateReminder(r.id, {
+  const handlePostpone = async (r: Reminder, date: string, time: string, comment: string): Promise<boolean> => {
+    const existingDescription = r.description?.trim();
+    const addedComment = comment.trim();
+    const description = addedComment
+      ? [existingDescription, `Перенос: ${addedComment}`].filter(Boolean).join('\n')
+      : r.description ?? undefined;
+    const saved = await updateReminder(r.id, {
       due_date: date,
       due_time: time || undefined,
-      description: comment ? (r.description ? `${r.description}\n${comment}` : comment) : r.description ?? undefined,
+      description,
     });
-    load();
+    if (!saved) {
+      window.alert('Не удалось сохранить перенос задачи. Проверьте данные и попробуйте ещё раз.');
+      return false;
+    }
+    await load();
+    return true;
   };
 
   const handleDelete = async (id: number) => {
