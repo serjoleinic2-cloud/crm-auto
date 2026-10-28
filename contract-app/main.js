@@ -2,6 +2,7 @@ const { app, BrowserWindow, session, ipcMain, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const {buildContract} = require('./contract');
+const {contractFilename} = require('./document-filenames');
 async function chooseSavePath(event, options) {
   const owner = BrowserWindow.fromWebContents(event.sender);
   try {
@@ -20,7 +21,7 @@ app.whenReady().then(() => {
   ipcMain.handle('contract:save', async (event, data) => {
     try {
       const buffer=buildContract(path.join(__dirname,'templates','contract.docx'),data);
-      const result=await chooseSavePath(event,{title:'Сохранить договор',defaultPath:'Договор.docx',filters:[{name:'Документ Word',extensions:['docx']}]});
+      const result=await chooseSavePath(event,{title:'Сохранить договор',defaultPath:contractFilename(data),filters:[{name:'Документ Word',extensions:['docx']}]});
       if(result.canceled || !result.filePath) return {cancelled:true};
       fs.writeFileSync(result.filePath,buffer,{flag:'wx'});
       return {ok:true};
@@ -29,8 +30,8 @@ app.whenReady().then(() => {
   ipcMain.handle('consent:save', async (event, data) => {
     try {
       const {buildConsent} = require('./consent');
-      const buffer=await buildConsent(path.join(__dirname,'templates','consent.pdf'),path.join(__dirname,'templates','font.ttf'),data);
-      const result=await chooseSavePath(event,{title:'Сохранить согласие',defaultPath:'Согласие.pdf',filters:[{name:'PDF',extensions:['pdf']}]});
+      const buffer=buildConsent(path.join(__dirname,'templates','consent.docx'),data);
+      const result=await chooseSavePath(event,{title:'Сохранить согласие',defaultPath:'Согласие.docx',filters:[{name:'Документ Word',extensions:['docx']}]});
       if(result.canceled || !result.filePath) return {cancelled:true};
       fs.writeFileSync(result.filePath,buffer,{flag:'wx'});
       return {ok:true};

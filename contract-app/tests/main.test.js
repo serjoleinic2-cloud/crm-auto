@@ -9,6 +9,7 @@ async function createApp(result) {
   const handlers = new Map();
   const saved = [];
   const calls = [];
+  const dialogOptions = [];
   const owner = { isDestroyed: () => false, focus: () => calls.push('window-focus'), webContents: { focus: () => calls.push('contents-focus') } };
   class BrowserWindow {
     static fromWebContents(sender) { assert.equal(sender, 'test-renderer'); return owner; }
@@ -23,6 +24,7 @@ async function createApp(result) {
       assert.equal(parent, owner);
       assert.ok(options.filters[0].extensions.length);
       calls.push('dialog');
+      dialogOptions.push(options);
       if (result instanceof Error) throw result;
       return result;
     } }
@@ -34,7 +36,7 @@ async function createApp(result) {
     } : name.startsWith('./') ? require(path.join(__dirname, '..', name)) : require(name)
   });
   await Promise.resolve();
-  return { handlers, saved, calls };
+  return { handlers, saved, calls, dialogOptions };
 }
 const fixture = {
   number:'TEST-001',date:'2026-10-28',managerPhone:'+7 112 299 33 88',
@@ -58,7 +60,10 @@ for (const channel of ['contract:save', 'consent:save']) {
       const xml=new (require('pizzip'))(app.saved[0].buffer).file('word/document.xml').asText();
       assert.ok(xml.replace(/<[^>]*>/g,'').includes('1.950.000 р.'));
     }
-    assert.equal(app.saved[0].buffer.subarray(0, channel === 'contract:save' ? 2 : 4).toString(), channel === 'contract:save' ? 'PK' : '%PDF');
+    assert.equal(app.saved[0].buffer.subarray(0,2).toString(), 'PK');
+    assert.deepEqual(Array.from(app.dialogOptions[0].filters[0].extensions), ['docx']);
+    assert.ok(app.dialogOptions[0].defaultPath.endsWith('.docx'));
+    if(channel === 'contract:save') assert.equal(app.dialogOptions[0].defaultPath, '№TEST-001_Договор_Тест_Тестович_Тестов.docx');
   });
   test(`${channel}: cancel restores focus without writing`, async () => {
     const app = await createApp({canceled:true});

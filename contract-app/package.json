@@ -1,11 +1,11 @@
 {
   "name": "contract-local",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/main.test.js tests/input-formats.test.js",
+    "test": "node --test tests/main.test.js tests/input-formats.test.js tests/documents.test.js",
     "dist": "electron-builder --win portable nsis --x64"
   },
   "devDependencies": {
