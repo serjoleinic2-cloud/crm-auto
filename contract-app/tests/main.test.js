@@ -37,10 +37,10 @@ async function createApp(result) {
   return { handlers, saved, calls };
 }
 const fixture = {
-  number:'TEST-001',date:'2026-10-28',managerPhone:'+7 000 000-00-00',
-  fullName:'Тестов Тест Тестович',birthDate:'1990-01-15',phone:'+7 000 000-00-01',
-  email:'test@example.invalid',inn:'000000000000',passportSeries:'0000',passportNumber:'000000',
-  passportDate:'2010-02-20',passportAuthority:'Тестовый отдел',passportCode:'000-000',
+  number:'TEST-001',date:'2026-10-28',managerPhone:'+7 112 299 33 88',
+  fullName:'Тестов Тест Тестович',birthDate:'1990-01-15',phone:'+7 112 299 33 88',
+  email:'test@example.invalid',inn:'000000000000',passportSeries:'00 00',passportNumber:'000000',
+  passportDate:'2010-02-20',passportAuthority:'Тестовый отдел',passportCode:'222-333',
   address:'г. Тестовый, ул. Примерная, д. 1',body:'Седан',brand:'Тест',model:'Пример',
   carYear:'2024',engine:'2000',engineType:'Бензин',drive:'Передний',gearbox:'АКПП',
   configuration:'Тест',color:'Белый',payment:'100000'

@@ -1,12 +1,12 @@
 {
   "name": "contract-local",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/main.test.js",
-    "dist": "electron-builder --win nsis"
+    "test": "node --test tests/main.test.js tests/input-formats.test.js",
+    "dist": "electron-builder --win portable nsis --x64"
   },
   "devDependencies": {
     "electron": "29.4.6",
@@ -29,6 +29,12 @@
       "*.html",
       "*.css",
       "templates/**/*"
-    ]
+    ],
+    "portable": {
+      "artifactName": "Local-Contracts-${version}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "Local-Contracts-${version}-setup.exe"
+    }
   }
 }
