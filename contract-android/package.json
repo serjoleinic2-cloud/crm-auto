@@ -1,0 +1,8 @@
+{
+  "name":"local-contracts-android-assets",
+  "version":"1.0.0",
+  "private":true,
+  "scripts":{"build":"node scripts/build-web.mjs","sync:windows":"node scripts/sync-windows.mjs","test":"node --test tests/core.test.cjs"},
+  "dependencies":{"docxtemplater":"3.69.3","pizzip":"3.2.0","buffer":"6.0.3"},
+  "devDependencies":{"esbuild":"0.28.2"}
+}

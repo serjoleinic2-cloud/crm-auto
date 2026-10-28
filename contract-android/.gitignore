@@ -1,0 +1,15 @@
+node_modules/
+.gradle/
+.gradle-home/
+.local/
+.signing/
+local.properties
+**/build/
+release/
+app/src/main/assets/
+*.jks
+*.keystore
+signing.properties
+.idea/
+*.iml
+*.apk

@@ -1,0 +1,49 @@
+plugins { id 'com.android.application' }
+def signingFile = rootProject.file('signing.properties')
+def signingValues = new Properties()
+if (signingFile.exists()) signingFile.withInputStream { signingValues.load(it) }
+android {
+ namespace 'com.local.contracts.android'
+ compileSdk 35
+ defaultConfig {
+  applicationId 'com.local.contracts.android'
+  minSdk 26
+  targetSdk 35
+  versionCode 1
+  versionName '1.0.0'
+  testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+ }
+ buildFeatures { buildConfig true }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+ signingConfigs {
+  release {
+   if(signingFile.exists()) {
+    storeFile rootProject.file(signingValues['storeFile'])
+    storePassword signingValues['storePassword']
+    keyAlias signingValues['keyAlias']
+    keyPassword signingValues['keyPassword']
+   }
+  }
+ }
+ buildTypes {
+  release { minifyEnabled false; if(signingFile.exists()) signingConfig signingConfigs.release }
+ }
+}
+dependencies {
+ implementation 'androidx.core:core:1.15.0'
+ implementation 'androidx.webkit:webkit:1.12.1'
+ androidTestImplementation 'androidx.test:runner:1.6.2'
+ androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+ androidTestImplementation 'androidx.test:rules:1.6.1'
+}
+
+tasks.register('buildOfflineAssets', Exec) {
+ workingDir rootProject.projectDir
+ commandLine System.getProperty('os.name').toLowerCase().contains('windows') ? 'npm.cmd' : 'npm', 'run', 'build'
+ inputs.dir rootProject.file('web')
+ inputs.dir rootProject.file('scripts')
+ inputs.file rootProject.file('package-lock.json')
+ outputs.dir project.file('src/main/assets')
+ doFirst { if(!rootProject.file('node_modules').exists()) throw new GradleException('Run npm ci in contract-android first.') }
+}
+tasks.named('preBuild').configure { dependsOn tasks.named('buildOfflineAssets') }
