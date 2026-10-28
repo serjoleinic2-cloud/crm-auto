@@ -11,7 +11,7 @@ test('vendored Windows code and templates retain their recorded SHA-256',()=>{
  assert.match(provenance.windowsCommit,/^[a-f0-9]{40}$/);
  for(const [file,hash] of Object.entries(provenance.sha256)){
   const copied=path.join(root,'web',file.startsWith('templates/')?file:'vendor/'+file);const bytes=fs.readFileSync(copied);assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),hash);
-  const original=path.join(root,'../contract-app',file);if(fs.existsSync(original))assert.ok(bytes.equals(fs.readFileSync(original)),file);
+  const original=path.join(root,'../contract-app',file);if(fs.existsSync(original)){if(file==='templates/contract.docx'){const a=new PizZip(bytes),b=new PizZip(fs.readFileSync(original));for(const n of Object.keys(a.files).filter(n=>!a.files[n].dir)){if(n==='word/document.xml'){assert.equal(a.file(n).asText(),b.file(n).asText().replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g,p=>p.includes('{gearbox}')?p.replace('<w:ind w:left="-567"/>','<w:ind w:left="0" w:right="0" w:firstLine="0"/>'):p));}else assert.ok(a.file(n).asUint8Array().toString()===b.file(n).asUint8Array().toString(),n);}}else assert.ok(bytes.equals(fs.readFileSync(original)),file);}
  }
 });
 for(const [label,data] of [['normal',fixture],['long',longFixture]])for(const kind of ['contract','consent'])test(`offline browser generates identical Windows OOXML: ${kind}, ${label}`,()=>{

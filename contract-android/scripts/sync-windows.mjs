@@ -1,3 +1,4 @@
+import {fixGearboxIndent} from './fix-gearbox-indent.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -9,7 +10,7 @@ for(const name of ['contract.js','consent.js','document-filenames.js','input-for
  const bytes=fs.readFileSync(path.join(source,name));fs.writeFileSync(path.join(root,'web/vendor',name),bytes);entries[name]=crypto.createHash('sha256').update(bytes).digest('hex');
 }
 for(const name of ['contract.docx','consent.docx']){
- const bytes=fs.readFileSync(path.join(source,'templates',name));fs.writeFileSync(path.join(root,'web/templates',name),bytes);entries['templates/'+name]=crypto.createHash('sha256').update(bytes).digest('hex');
+ const original=fs.readFileSync(path.join(source,'templates',name));const bytes=name==='contract.docx'?fixGearboxIndent(original):original;fs.writeFileSync(path.join(root,'web/templates',name),bytes);entries['templates/'+name]=crypto.createHash('sha256').update(bytes).digest('hex');
 }
 const app=fs.readFileSync(path.join(source,'app.js'),'utf8');
 const schema=app.slice(app.indexOf('const stages = '),app.indexOf('\nlet step='));
