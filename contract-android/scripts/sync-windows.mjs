@@ -7,7 +7,7 @@ const root=path.resolve(import.meta.dirname,'..'),source=path.resolve(root,'../c
 fs.mkdirSync(path.join(root,'web/templates'),{recursive:true});
 const entries={};
 for(const name of ['contract.js','consent.js','document-filenames.js','input-formats.js']){
- const bytes=fs.readFileSync(path.join(source,name));fs.writeFileSync(path.join(root,'web/vendor',name),bytes);entries[name]=crypto.createHash('sha256').update(bytes).digest('hex');
+ const bytes=fs.readFileSync(path.join(source,name));fs.writeFileSync(path.join(root,'web/vendor',name),bytes);entries[name]=crypto.createHash('sha256').update(bytes.toString('utf8').replace(/\r\n/g,'\n')).digest('hex');
 }
 for(const name of ['contract.docx','consent.docx']){
  const original=fs.readFileSync(path.join(source,'templates',name));const bytes=name==='contract.docx'?fixGearboxIndent(original):original;fs.writeFileSync(path.join(root,'web/templates',name),bytes);entries['templates/'+name]=crypto.createHash('sha256').update(bytes).digest('hex');
