@@ -21,3 +21,8 @@ test('format is stable across draft restoration and review',()=>{
  for(const [key,value] of [['phone','+7 112 299 33 88'],['passportSeries','00 00'],['passportCode','222-333']])assert.equal(formatValue(key,formatValue(key,value)),value);
  assert.equal(formatValue('fullName','Тестов Тест'),'Тестов Тест');
 });
+
+test('payment formats integer rubles without losing digits',()=>{
+ for(const [raw,expected] of [['1950000','1.950.000 р.'],['1.950.000 р.','1.950.000 р.'],['195000','195.000 р.'],['1 950 000','1.950.000 р.'],['0001950000','1.950.000 р.'],['0','0 р.'],['',''],['1','1 р.'],['999','999 р.'],['1000','1.000 р.']])assert.equal(formatValue('payment',raw),expected);
+ assert.equal(formatValue('payment',formatValue('payment','1950000')),'1.950.000 р.');
+});

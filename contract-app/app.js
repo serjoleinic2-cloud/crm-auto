@@ -12,7 +12,7 @@ const status=document.querySelector('#status');
 function notify(message){ status.textContent=message; }
 function focusStep(){ (fields.querySelector('input') || document.querySelector('#heading')).focus(); }
 try { data=JSON.parse(localStorage.getItem('contract-draft') || '{}'); } catch { data={}; }
-for(const key of ['passportSeries','passportCode','phone','managerPhone']) {
+for(const key of ['passportSeries','passportCode','phone','managerPhone','payment']) {
  if(data[key])data[key]=contractInputFormats.formatValue(key,data[key]);
 }
 const form=document.querySelector('#form'), fields=document.querySelector('#fields');

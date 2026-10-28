@@ -1,6 +1,7 @@
 'use strict';
 (function (root) {
   const formats = {
+    payment: { money:true, placeholder:'1.950.000 р.', pattern:'[0-9]{1,3}(\\.[0-9]{3})* р\\.' },
     passportSeries: { groups:[2,2], separator:' ', placeholder:'00 00', pattern:'[0-9]{2} [0-9]{2}' },
     passportCode: { groups:[3,3], separator:'-', placeholder:'222-333', pattern:'[0-9]{3}-[0-9]{3}' },
     phone: { groups:[3,3,2,2], separator:' ', placeholder:'+7 112 299 33 88', pattern:'\\+7 [0-9]{3} [0-9]{3} [0-9]{2} [0-9]{2}', phone:true }
@@ -12,13 +13,14 @@
     if(spec.phone && (/^\s*\+7/.test(value) || (digits.length>=11 && /^[78]/.test(digits)) || /^[78]$/.test(digits))) {
       digits=digits.slice(1); prefix=1;
     }
-    return {digits:digits.slice(0,spec.groups.reduce((sum,n)=>sum+n,0)),prefix};
+    return {digits:spec.money ? digits.replace(/^0+(?=[0-9])/,'') : digits.slice(0,spec.groups.reduce((sum,n)=>sum+n,0)),prefix};
   }
   function formatValue(key, value) {
     const spec=specFor(key);
     if(!spec)return value;
     const {digits,prefix}=digitsFor(value,spec);
     if(!digits)return spec.phone && prefix ? '+7' : '';
+    if(spec.money)return digits.replace(/\B(?=([0-9]{3})+(?![0-9]))/g,'.')+' р.';
     let offset=0;
     const parts=[];
     for(const length of spec.groups){
@@ -38,7 +40,7 @@
     input.value=formatValue(key,raw);
     if(count!==null){
       let position=spec.phone?Math.min(3,input.value.length):0;
-      let remaining=count;
+      let remaining=Math.min(count,input.value.replace(/\D/g,'').length-(spec.phone?1:0));
       while(position<input.value.length && remaining>0){
         if(/[0-9]/.test(input.value[position]))remaining--;
         position++;

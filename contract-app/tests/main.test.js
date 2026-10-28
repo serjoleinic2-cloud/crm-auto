@@ -43,7 +43,7 @@ const fixture = {
   passportDate:'2010-02-20',passportAuthority:'Тестовый отдел',passportCode:'222-333',
   address:'г. Тестовый, ул. Примерная, д. 1',body:'Седан',brand:'Тест',model:'Пример',
   carYear:'2024',engine:'2000',engineType:'Бензин',drive:'Передний',gearbox:'АКПП',
-  configuration:'Тест',color:'Белый',payment:'100000'
+  configuration:'Тест',color:'Белый',payment:'1.950.000 р.'
 };
 for (const channel of ['contract:save', 'consent:save']) {
   test(`${channel}: parented dialog, real document, restored focus`, async () => {
@@ -54,6 +54,10 @@ for (const channel of ['contract:save', 'consent:save']) {
     assert.equal(app.saved.length, 1);
     assert.equal(app.saved[0].options.flag, 'wx');
     assert.ok(app.saved[0].buffer.length > 1000);
+    if(channel === 'contract:save'){
+      const xml=new (require('pizzip'))(app.saved[0].buffer).file('word/document.xml').asText();
+      assert.ok(xml.replace(/<[^>]*>/g,'').includes('1.950.000 р.'));
+    }
     assert.equal(app.saved[0].buffer.subarray(0, channel === 'contract:save' ? 2 : 4).toString(), channel === 'contract:save' ? 'PK' : '%PDF');
   });
   test(`${channel}: cancel restores focus without writing`, async () => {
