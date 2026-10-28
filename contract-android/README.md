@@ -16,7 +16,7 @@ Node.js, JDK 17+ и Android SDK Platform 35 необходимы для сбор
 
 Сборка: powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 
-Готовый APK копируется в корень проекта и release\Local-Contracts-Android-1.0.0.apk. Открыть APK на телефоне и подтвердить установку.
+Готовый APK копируется в корень проекта и release\Local-Contracts-Android-1.0.1.apk. Открыть APK на телефоне и подтвердить установку.
 
 Сохраняйте .signing\ и signing.properties в защищённом месте: они нужны для выпуска обновлений с той же подписью. Эти файлы, APK, кэши и локальные результаты проверок исключены из Git.
 

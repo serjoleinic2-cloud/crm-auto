@@ -18,7 +18,7 @@ try {
  if($Debug){$task='assembleDebug';$apk='app\build\outputs\apk\debug\app-debug.apk';$name='Local-Contracts-Android-debug.apk'}
  else {
   if(-not(Test-Path signing.properties)){throw 'Run scripts\create-signing.ps1 once, and keep its private files for future updates.'}
-  $task='assembleRelease';$apk='app\build\outputs\apk\release\app-release.apk';$name='Local-Contracts-Android-1.0.0.apk'
+  $task='assembleRelease';$apk='app\build\outputs\apk\release\app-release.apk';$name='Local-Contracts-Android-1.0.1.apk'
  }
  & .\gradlew.bat $task --no-daemon --console plain;if($LASTEXITCODE -ne 0){throw 'Android build failed'}
  New-Item -ItemType Directory -Force release | Out-Null
