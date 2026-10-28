@@ -36,7 +36,7 @@ app.whenReady().then(() => {
       return {ok:true};
     } catch(e) {return {error:e.message || 'Не удалось создать согласие.'};}
   });
-  const window = new BrowserWindow({width:1000,height:760,minWidth:700,minHeight:600,webPreferences:{contextIsolation:true,sandbox:true,nodeIntegration:false,preload:path.join(__dirname,'preload.js')}});
+  const window = new BrowserWindow({width:1000,height:760,minWidth:700,minHeight:600,icon:path.join(__dirname,'assets','icon.png'),webPreferences:{contextIsolation:true,sandbox:true,nodeIntegration:false,preload:path.join(__dirname,'preload.js')}});
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.loadFile(path.join(__dirname,'index.html'));
 });

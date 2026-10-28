@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+<title id="title">Договор и автомобиль</title>
+<defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#173b66"/><stop offset="1" stop-color="#0a1c35"/></linearGradient><linearGradient id="accent" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#8fe4ef"/><stop offset="1" stop-color="#3d9fca"/></linearGradient></defs>
+<rect x="5" y="5" width="246" height="246" rx="58" fill="url(#bg)"/>
+<path d="M66 42h91l33 33v113a24 24 0 0 1-24 24H66a22 22 0 0 1-22-22V64a22 22 0 0 1 22-22Z" fill="#fff"/>
+<path d="M157 42v22a11 11 0 0 0 11 11h22Z" fill="#b7d5e5"/>
+<path d="M69 88h92M69 105h64" fill="none" stroke="#a7bfce" stroke-width="8" stroke-linecap="round"/>
+<path d="M67 153h13l12-25a15 15 0 0 1 14-9h43a15 15 0 0 1 13 8l14 26h8a10 10 0 0 1 10 10v10H57v-10a10 10 0 0 1 10-10Z" fill="url(#accent)"/>
+<path d="m100 153 9-20h38l11 20Z" fill="#173b66" opacity=".92"/>
+<circle cx="83" cy="174" r="10" fill="#173b66"/><circle cx="166" cy="174" r="10" fill="#173b66"/>
+<circle cx="198" cy="198" r="32" fill="#55c6cd" stroke="#fff" stroke-width="5"/>
+<path d="m184 198 9 9 19-20" fill="none" stroke="#0a2d48" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

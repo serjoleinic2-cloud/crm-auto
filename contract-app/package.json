@@ -28,13 +28,17 @@
       "*.js",
       "*.html",
       "*.css",
-      "templates/**/*"
+      "templates/**/*",
+      "assets/**/*"
     ],
     "portable": {
       "artifactName": "Local-Contracts-${version}-portable.exe"
     },
     "nsis": {
       "artifactName": "Local-Contracts-${version}-setup.exe"
+    },
+    "win": {
+      "icon": "assets/icon.ico"
     }
   }
 }
