@@ -58,3 +58,10 @@ test('consent validates dates and required fields',()=>{
  assert.throws(()=>buildConsent(consentTemplate,{}),/Заполните/);
  assert.throws(()=>buildConsent(consentTemplate,{...fixture,passportDate:'2026-02-30'}),/неверная дата/);
 });
+
+test('gearbox value remains inside its table cell',()=>{
+ const xml=documentXml(buildContract(contractTemplate,{...fixture,gearbox:'Вариатор'}));
+ const paragraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.includes('Вариатор'));
+ assert.ok(paragraph);assert.match(paragraph,/<w:ind w:left="0" w:right="0" w:firstLine="0"\/>/);
+ assert.doesNotMatch(paragraph,/<w:ind[^>]*w:left="-/);
+});
