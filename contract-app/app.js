@@ -8,12 +8,15 @@ const stages = [
 ];
 let step=0;
 let data={};
+const status=document.querySelector('#status');
+function notify(message){ status.textContent=message; }
+function focusStep(){ (fields.querySelector('input') || document.querySelector('#heading')).focus(); }
 try { data=JSON.parse(localStorage.getItem('contract-draft') || '{}'); } catch { data={}; }
 const form=document.querySelector('#form'), fields=document.querySelector('#fields');
 function render(){
  document.querySelector('#heading').textContent=stages[step].title;
  const nav=document.querySelector('#steps'); nav.replaceChildren();
- stages.forEach((stage,i)=>{const b=document.createElement('button'); b.type='button'; b.textContent=`${i+1}. ${stage.title}`; b.setAttribute('aria-current', i===step?'step':'false'); b.onclick=()=>{step=i;render()}; nav.append(b)});
+ stages.forEach((stage,i)=>{const b=document.createElement('button'); b.type='button'; b.textContent=`${i+1}. ${stage.title}`; b.setAttribute('aria-current', i===step?'step':'false'); b.onclick=()=>{step=i;render();focusStep()}; nav.append(b)});
  fields.replaceChildren();
  if(step===stages.length-1){
    stages.slice(0,-1).forEach(group=>{const section=document.createElement('section');const h=document.createElement('h3');h.textContent=group.title;section.append(h);group.fields.forEach(([key,label])=>{const row=document.createElement('p');row.textContent=label+': '+(data[key] || 'не заполнено');section.append(row)});fields.append(section)});
@@ -22,9 +25,16 @@ function render(){
  document.querySelector('#back').hidden=step===0;
  document.querySelector('#next').textContent=step===stages.length-1?'Создать договор':'Далее';
 }
-form.addEventListener('submit', async e=>{e.preventDefault(); if(step<stages.length-1){step++;render();return} const button=document.querySelector('#next');button.disabled=true;try{const result=await window.contractApp.saveContract(data);if(result.error) alert(result.error);else if(result.ok) alert('Договор сохранён. Проверьте все страницы и данные перед отправкой.')}catch(err){alert('Не удалось создать договор: '+err.message)}finally{button.disabled=false}});
-document.querySelector('#back').onclick=()=>{step--;render()}; render();
+form.addEventListener('submit', async e=>{e.preventDefault(); if(step<stages.length-1){step++;render();focusStep();return} const button=document.querySelector('#next');button.disabled=true;try{const result=await window.contractApp.saveContract(data);if(result.error) notify(result.error);else if(result.ok) notify('Договор сохранён. Проверьте все страницы и данные перед отправкой.')}catch(err){notify('Не удалось создать договор: '+err.message)}finally{button.disabled=false}});
+document.querySelector('#back').onclick=()=>{step--;render();focusStep()}; render();
 
-document.querySelector('#consent').onclick=async()=>{try{const result=await window.contractApp.saveConsent(data);if(result.error)alert(result.error);else if(result.ok)alert('Согласие сохранено. Проверьте заполнение перед печатью.')}catch(err){alert('Не удалось создать согласие: '+err.message)}};
+document.querySelector('#consent').onclick=async()=>{try{const result=await window.contractApp.saveConsent(data);if(result.error)notify(result.error);else if(result.ok)notify('Согласие сохранено. Проверьте заполнение перед печатью.')}catch(err){notify('Не удалось создать согласие: '+err.message)}};
 
-document.querySelector('#new').onclick=()=>{if(!confirm('Начать новый договор? Данные текущего черновика будут удалены с этого устройства.'))return;data={managerPhone:data.managerPhone||''};localStorage.setItem('contract-draft',JSON.stringify(data));step=0;render()};
+const newDialog=document.querySelector('#new-dialog');
+document.querySelector('#new').onclick=()=>{newDialog.returnValue='cancel';newDialog.showModal()};
+newDialog.addEventListener('close',()=>{
+ if(newDialog.returnValue!=='new')return;
+ data={managerPhone:data.managerPhone||''};
+ localStorage.setItem('contract-draft',JSON.stringify(data));
+ step=0;render();notify('Начат новый договор.');focusStep();
+});

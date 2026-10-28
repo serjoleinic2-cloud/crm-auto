@@ -2,24 +2,35 @@ const { app, BrowserWindow, session, ipcMain, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const {buildContract} = require('./contract');
+async function chooseSavePath(event, options) {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  try {
+    return await dialog.showSaveDialog(owner, options);
+  } finally {
+    if (owner && !owner.isDestroyed()) {
+      owner.focus();
+      owner.webContents.focus();
+    }
+  }
+}
 app.whenReady().then(() => {
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: !details.url.startsWith('file:') && !details.url.startsWith('devtools:') });
   });
-  ipcMain.handle('contract:save', async (_event, data) => {
+  ipcMain.handle('contract:save', async (event, data) => {
     try {
       const buffer=buildContract(path.join(__dirname,'templates','contract.docx'),data);
-      const result=await dialog.showSaveDialog({title:'Сохранить договор',defaultPath:'Договор.docx',filters:[{name:'Документ Word',extensions:['docx']}]});
+      const result=await chooseSavePath(event,{title:'Сохранить договор',defaultPath:'Договор.docx',filters:[{name:'Документ Word',extensions:['docx']}]});
       if(result.canceled || !result.filePath) return {cancelled:true};
       fs.writeFileSync(result.filePath,buffer,{flag:'wx'});
       return {ok:true};
     } catch(e) {return {error:e.message || 'Не удалось создать договор.'};}
   });
-  ipcMain.handle('consent:save', async (_event, data) => {
+  ipcMain.handle('consent:save', async (event, data) => {
     try {
       const {buildConsent} = require('./consent');
       const buffer=await buildConsent(path.join(__dirname,'templates','consent.pdf'),path.join(__dirname,'templates','font.ttf'),data);
-      const result=await dialog.showSaveDialog({title:'Сохранить согласие',defaultPath:'Согласие.pdf',filters:[{name:'PDF',extensions:['pdf']}]});
+      const result=await chooseSavePath(event,{title:'Сохранить согласие',defaultPath:'Согласие.pdf',filters:[{name:'PDF',extensions:['pdf']}]});
       if(result.canceled || !result.filePath) return {cancelled:true};
       fs.writeFileSync(result.filePath,buffer,{flag:'wx'});
       return {ok:true};
