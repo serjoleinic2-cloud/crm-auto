@@ -24,7 +24,7 @@ for(const [label,data] of [['normal',fixture],['long',longFixture]])for(const ki
 });
 test('formatting and filenames use the unchanged Windows rules',()=>{
  const core=browserCore();assert.equal(core.formats.formatValue('payment','1950000'),'1.950.000 р.');assert.equal(core.formats.formatValue('passportSeries','0000'),'00 00');assert.equal(core.formats.formatValue('phone','81122993388'),'+7 112 299 33 88');assert.equal(core.formats.formatValue('passportCode','222333'),'222-333');
- assert.equal(core.generate('contract',{...fixture,number:'123'}).name,'№123_Договор_Тест_Макетович_Испытательный.docx');
+ assert.equal(core.generate('contract',{...fixture,number:'123'}).name,'№123_Договор_Испытательный_Тест_Макетович.docx');
  assert.throws(()=>core.generate('contract',{}),/Заполните/);assert.throws(()=>core.generate('consent',{...fixture,passportDate:'2026-02-30'}),/неверная дата/);
 });
 test('the manifest contains no network permission and opts out of backups',()=>{

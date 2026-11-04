@@ -1,11 +1,11 @@
 {
-  "windowsCommit": "c7d0aca5ab773eefd7cba03deeba0e3f17b42676",
+  "windowsCommit": "966ef5139ba17bdf5d884f16c2245cec74e7a19e",
   "sha256": {
     "contract.js": "89f0c4e77ad97c873ef5bef6832bbb60fe2aeb20b8c1747fa11f0b8b851349fd",
     "consent.js": "05c6fe606dca3b2655a7ac133f55157083ab0deb7d6eff7040dd8a2d212bc6f1",
-    "document-filenames.js": "bda1aae14368d512ee8a92323ee33adbe08851271caebd7104b2703ac11f84fd",
+    "document-filenames.js": "94e4cc9d99a1ef82c677877acb8c69b6135d112a31b6e06da1fb297713556442",
     "input-formats.js": "ecb6de87208c18d9cc314ae48b3cb04efa018f79a88bdd6d28783a6903ce14d6",
-    "templates/contract.docx": "28fb9b3b6533a6b90be8536a5da93b84a5369ca06fcc3eada7638de428491950",
+    "templates/contract.docx": "a54b5771e4cfa405aca935824946dba695f2bf1da883923b23534ac3ae2a52d0",
     "templates/consent.docx": "7109bf9a1dde2db697c1ffda8ea6cdd3f1525fbc7412a4117d90b407ff73c1d0"
   }
 }
