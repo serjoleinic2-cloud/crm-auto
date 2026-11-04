@@ -42,9 +42,12 @@ for(const data of [fixture,longFixture]){
  test(`contract template still fills the introduced client (${data.number})`,()=>{
   const xml=documentXml(buildContract(contractTemplate,data));const text=plain(xml);
   assert.ok(text.includes(data.fullName));assert.ok(text.includes(data.address));assert.ok(text.includes(data.payment));
+  assert.ok(text.includes(data.phone.replace(/^(\+7)\s+/, '$1\u00a0')),'the client phone keeps the +7 prefix with the first digit group');
   assert.match(text,/паспорт .+?, выдан .+?, дата выдачи/);
   assert.match(text,/НДС 5%/);assert.doesNotMatch(text,/НДС не облагается/);
   assert.doesNotMatch(text,/переписку с только с/);
+  assert.match(text,/Принципал ведет переписку только с одного адреса электронной почты:/);
+  assert.match(text,/Агент ведет переписку только с одного адреса электронной почты:/);
   const introParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.includes('Устава'));
   assert.ok(introParagraph,'the agent introduction paragraph is present');
   assert.ok(plain(introParagraph).includes(`с одной стороны, и\u00a0${data.fullName}`),
@@ -52,8 +55,11 @@ for(const data of [fixture,longFixture]){
   const detailsParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
    .find(p=>!p.includes('Устава')&&plain(p).includes(data.address));
   assert.ok(detailsParagraph,'the principal details block is present');
-  assert.match(detailsParagraph,/<w:spacing w:after="240"\/>/,
-   'the INN is separated from the passport and address block by a blank line');
+  const docParagraphs=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g);
+  const detailsIndex=docParagraphs.indexOf(detailsParagraph);
+  assert.equal(plain(docParagraphs[detailsIndex+1]),'',
+   'an explicit blank line separates passport and address from the INN');
+  assert.ok(plain(docParagraphs[detailsIndex+2]).includes(`ИНН/ ${data.inn}`));
   const datedHeadings=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
    .filter(p=>plain(p).includes(`№ ${data.number} от`));
   assert.equal(datedHeadings.length,2,'both appendix headings include the contract number and date');
@@ -64,6 +70,14 @@ for(const data of [fixture,longFixture]){
    assert.match(headingXml,/<w:jc w:val="right"\/>/,'the dated heading does not stretch spaces across the line');
   }
   assert.doesNotMatch(datedHeadings.join(' '),/«\s+\d{2}\s+»/);
+  const reportIntro=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
+   .filter(p=>plain(p).includes('составил настоящий Отчет о нижеследующем:'));
+  assert.equal(reportIntro.length,1,'the appendix report introduction stays in one paragraph');
+  assert.ok(new RegExp(`с одной стороны, и(?: |\\u00a0)${data.fullName}`).test(plain(reportIntro[0])),
+   'the report introduction does not force the client name into a new paragraph');
+  const names=data.fullName.trim().split(/\s+/);
+  const shortName=names.slice(1).map(n=>n[0].toUpperCase()+'.').join('')+' '+names[0];
+  assert.ok(text.includes(`${shortName} /`),'the principal signature keeps a space before the slash');
   const paymentParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.replace(/<[^>]*>/g,'').startsWith('1.12 ')) ;assert.match(paymentParagraph,/<w:jc w:val="left"\/>/);
  });
 }

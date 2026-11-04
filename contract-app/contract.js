@@ -22,7 +22,8 @@ function buildContract(templatePath, data) {
  const shortName=names.slice(1).map(n=>n[0].toUpperCase()+'.').join('')+' '+names[0];
  const passportText=`${normalizeText(data.passportSeries)} ${normalizeText(data.passportNumber)}`;
  const clientDetails=`${normalizeText(data.fullName)}, ${birth.formatted} года рождения, паспорт ${passportText}, выдан ${normalizeText(data.passportAuthority)}, дата выдачи ${passportDate.formatted}, код подразделения: ${normalizeText(data.passportCode)}, зарегистрированный (ая) по адресу: ${normalizeText(data.address)}`;
- const values={...data, day:date.day,month:date.month,year:date.year,monthYear:`${date.month} ${date.year} `,birthDateText:birth.formatted,passportText,passportDateText:passportDate.formatted,clientDetails,shortName,innLine:`ИНН/ ${data.inn.trim()}`,agentEmail:'ZakazLisaRulit@yandex.ru',mileage:data.mileage||'',other:data.other||''};
+ const phoneForDocument=String(data.phone??'').replace(/^(\+7)\s+/, '$1\u00a0');
+ const values={...data, phone:phoneForDocument, day:date.day,month:date.month,year:date.year,monthYear:`${date.month} ${date.year} `,birthDateText:birth.formatted,passportText,passportDateText:passportDate.formatted,clientDetails,shortName,innLine:`ИНН/ ${data.inn.trim()}`,agentEmail:'ZakazLisaRulit@yandex.ru',mileage:data.mileage||'',other:data.other||''};
  const doc=new Docxtemplater(new PizZip(fs.readFileSync(templatePath)), {paragraphLoop:true,linebreaks:true,nullGetter:()=>{throw new Error('В шаблоне обнаружено незаполненное поле.')}});
  doc.render(values);
  return doc.getZip().generate({type:'nodebuffer',compression:'DEFLATE'});
