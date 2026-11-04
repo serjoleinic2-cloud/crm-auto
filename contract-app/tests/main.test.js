@@ -63,7 +63,7 @@ for (const channel of ['contract:save', 'consent:save']) {
     assert.equal(app.saved[0].buffer.subarray(0,2).toString(), 'PK');
     assert.deepEqual(Array.from(app.dialogOptions[0].filters[0].extensions), ['docx']);
     assert.ok(app.dialogOptions[0].defaultPath.endsWith('.docx'));
-    if(channel === 'contract:save') assert.equal(app.dialogOptions[0].defaultPath, '№TEST-001_Договор_Тест_Тестович_Тестов.docx');
+    if(channel === 'contract:save') assert.equal(app.dialogOptions[0].defaultPath, '№TEST-001_Договор_Тестов_Тест_Тестович.docx');
   });
   test(`${channel}: cancel restores focus without writing`, async () => {
     const app = await createApp({canceled:true});
