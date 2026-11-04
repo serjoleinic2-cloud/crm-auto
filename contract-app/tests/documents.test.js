@@ -13,9 +13,9 @@ function documentXml(buffer){return new PizZip(buffer).file('word/document.xml')
 function plain(xml){return xml.replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}
 
 test('contract filename reorders surname-first input and keeps number',()=>{
- assert.equal(contractFilename({...fixture,number:'123'}),'№123_Договор_Тест_Макетович_Испытательный.docx');
- assert.equal(contractFilename({...fixture,number:'№ 123'}),'№123_Договор_Тест_Макетович_Испытательный.docx');
- assert.equal(contractFilename({...fixture,fullName:'Испытательный Тест'}),'№TEST-001_Договор_Тест_Испытательный.docx');
+ assert.equal(contractFilename({...fixture,number:'123'}),'№123_Договор_Испытательный_Тест_Макетович.docx');
+ assert.equal(contractFilename({...fixture,number:'№ 123'}),'№123_Договор_Испытательный_Тест_Макетович.docx');
+ assert.equal(contractFilename({...fixture,fullName:'Испытательный Тест'}),'№TEST-001_Договор_Испытательный_Тест.docx');
 });
 test('contract filename strips forbidden Windows characters and limits length',()=>{
  const name=contractFilename({...longFixture,number:'№12/3:*?<>|"\\\u0001',fullName:longFixture.fullName+' А'.repeat(300)});
@@ -42,6 +42,10 @@ for(const data of [fixture,longFixture]){
  test(`contract template still fills the introduced client (${data.number})`,()=>{
   const text=plain(documentXml(buildContract(contractTemplate,data)));
   assert.ok(text.includes(data.fullName));assert.ok(text.includes(data.address));assert.ok(text.includes(data.payment));
+  assert.match(text,/паспорт .+?, выдан .+?, дата выдачи/);
+  assert.match(text,/НДС 5%/);assert.doesNotMatch(text,/НДС не облагается/);
+  assert.doesNotMatch(text,/переписку с только с/);
+  const xml=documentXml(buildContract(contractTemplate,{...data}));const paymentParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.replace(/<[^>]*>/g,'').startsWith('1.12 ')) ;assert.match(paymentParagraph,/<w:jc w:val="left"\/>/);
  });
 }
 test('generation never reuses a previous client or autofills a signature',()=>{
