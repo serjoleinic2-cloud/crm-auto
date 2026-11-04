@@ -40,12 +40,31 @@ for(const data of [fixture,longFixture]){
   assert.doesNotMatch(text,/\{(?:fullName|address|passport)/);
  });
  test(`contract template still fills the introduced client (${data.number})`,()=>{
-  const text=plain(documentXml(buildContract(contractTemplate,data)));
+  const xml=documentXml(buildContract(contractTemplate,data));const text=plain(xml);
   assert.ok(text.includes(data.fullName));assert.ok(text.includes(data.address));assert.ok(text.includes(data.payment));
   assert.match(text,/паспорт .+?, выдан .+?, дата выдачи/);
   assert.match(text,/НДС 5%/);assert.doesNotMatch(text,/НДС не облагается/);
   assert.doesNotMatch(text,/переписку с только с/);
-  const xml=documentXml(buildContract(contractTemplate,{...data}));const paymentParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.replace(/<[^>]*>/g,'').startsWith('1.12 ')) ;assert.match(paymentParagraph,/<w:jc w:val="left"\/>/);
+  const introParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.includes('Устава'));
+  assert.ok(introParagraph,'the agent introduction paragraph is present');
+  assert.ok(plain(introParagraph).includes(`с одной стороны, и\u00a0${data.fullName}`),
+   'the conjunction stays with the client surname at the beginning of a wrapped line');
+  const detailsParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
+   .find(p=>!p.includes('Устава')&&plain(p).includes(data.address));
+  assert.ok(detailsParagraph,'the principal details block is present');
+  assert.match(detailsParagraph,/<w:spacing w:after="240"\/>/,
+   'the INN is separated from the passport and address block by a blank line');
+  const datedHeadings=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
+   .filter(p=>plain(p).includes(`№ ${data.number} от`));
+  assert.equal(datedHeadings.length,2,'both appendix headings include the contract number and date');
+  for(const headingXml of datedHeadings){
+   const heading=plain(headingXml);
+   assert.ok(heading.includes(`№ ${data.number} от «${data.date.slice(8,10)}» ${['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][Number(data.date.slice(5,7))-1]} ${data.date.slice(0,4)} г.`),
+    'the date inside guillemets has no extra spaces');
+   assert.match(headingXml,/<w:jc w:val="right"\/>/,'the dated heading does not stretch spaces across the line');
+  }
+  assert.doesNotMatch(datedHeadings.join(' '),/«\s+\d{2}\s+»/);
+  const paymentParagraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.replace(/<[^>]*>/g,'').startsWith('1.12 ')) ;assert.match(paymentParagraph,/<w:jc w:val="left"\/>/);
  });
 }
 test('generation never reuses a previous client or autofills a signature',()=>{
@@ -68,4 +87,10 @@ test('gearbox value remains inside its table cell',()=>{
  const paragraph=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).find(p=>p.includes('Вариатор'));
  assert.ok(paragraph);assert.match(paragraph,/<w:ind w:left="0" w:right="0" w:firstLine="0"\/>/);
  assert.doesNotMatch(paragraph,/<w:ind[^>]*w:left="-/);
+});
+test('principal passport details keep punctuation and collapse accidental extra spaces',()=>{
+ const data={...fixture,fullName:'  Испытательный   Тест   Макетович  ',
+  passportAuthority:' Тестовое   отделение   МВД ',address:'г.  Тестовый,   ул. Примерная, д. 1 '};
+ const text=plain(documentXml(buildContract(contractTemplate,data)));
+ assert.ok(text.includes('Испытательный Тест Макетович, 15.01.1990 года рождения, паспорт 00 00 000000, выдан Тестовое отделение МВД, дата выдачи 20.02.2010, код подразделения: 000-000, зарегистрированный (ая) по адресу: г. Тестовый, ул. Примерная, д. 1'));
 });
