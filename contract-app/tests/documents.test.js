@@ -67,7 +67,16 @@ for(const data of [fixture,longFixture]){
    const heading=plain(headingXml);
    assert.ok(heading.includes(`№ ${data.number} от «${data.date.slice(8,10)}» ${['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][Number(data.date.slice(5,7))-1]} ${data.date.slice(0,4)} г.`),
     'the date inside guillemets has no extra spaces');
-   assert.match(headingXml,/<w:jc w:val="right"\/>/,'the dated heading does not stretch spaces across the line');
+   assert.match(headingXml,/<w:jc w:val="left"\/>/,'the dated heading starts with the appendix title instead of shifting right');
+   assert.match(headingXml,/<w:ind w:left="6372"\/>/,'the contract number starts at the same left edge as the appendix title');
+  }
+  const appendixTitles=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g).filter(p=>plain(p).startsWith('Приложение № '));
+  assert.equal(appendixTitles.length,2,'both appendix title lines are present');
+  for(const titleXml of appendixTitles){
+   assert.match(titleXml,/<w:jc w:val="left"\/>/,'appendix title spaces are not stretched');
+   const titleRuns=titleXml.match(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g).filter(run=>/<w:t/.test(run));
+   assert.equal(titleRuns.length,1,'each appendix title uses one text run');
+   assert.match(titleRuns[0],/<w:t xml:space="preserve">Приложение № [12]<\/w:t>/,'the appendix title has one regular space before the number');
   }
   assert.doesNotMatch(datedHeadings.join(' '),/«\s+\d{2}\s+»/);
   const reportIntro=xml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)
@@ -90,6 +99,14 @@ test('generation never reuses a previous client or autofills a signature',()=>{
    assert.doesNotMatch(zip.file(file).asText(),/Первый-Синтетический|Старый-Адрес-Синтетический/);
   }
  }
+});
+test('vehicle details can be left blank and the contract still generates',()=>{
+ const data={...fixture};
+ for(const key of ['body','brand','model','carYear','engine','engineType','drive','gearbox','configuration','color','mileage','payment','other'])data[key]='';
+ const xml=documentXml(buildContract(contractTemplate,data));
+ const text=plain(xml);
+ for(const key of ['body','brand','model','carYear','engine','engineType','drive','gearbox','configuration','color','mileage','payment','other'])assert.doesNotMatch(text,new RegExp(`\\{${key}\\}`));
+ assert.ok(text.includes(data.fullName));
 });
 test('consent validates dates and required fields',()=>{
  assert.throws(()=>buildConsent(consentTemplate,{}),/Заполните/);

@@ -13,7 +13,7 @@ function dateParts(value) {
 }
 function normalizeText(value) { return String(value ?? '').trim().replace(/\s+/g,' '); }
 function buildContract(templatePath, data) {
- const required={number:'номер договора',date:'дату договора',managerPhone:'телефон менеджера',fullName:'ФИО клиента',birthDate:'дату рождения',phone:'телефон клиента',email:'почту клиента',inn:'ИНН',passportSeries:'серию паспорта',passportNumber:'номер паспорта',passportDate:'дату выдачи паспорта',passportAuthority:'кем выдан паспорт',passportCode:'код подразделения',address:'адрес регистрации',body:'тип кузова',brand:'марку',model:'модель',carYear:'год автомобиля',engine:'двигатель',engineType:'тип двигателя',drive:'привод',gearbox:'КПП',configuration:'комплектацию',color:'цвет',payment:'сумму платежа'};
+ const required={number:'номер договора',date:'дату договора',managerPhone:'телефон менеджера',fullName:'ФИО клиента',birthDate:'дату рождения',phone:'телефон клиента',email:'почту клиента',inn:'ИНН',passportSeries:'серию паспорта',passportNumber:'номер паспорта',passportDate:'дату выдачи паспорта',passportAuthority:'кем выдан паспорт',passportCode:'код подразделения',address:'адрес регистрации'};
  const missing=Object.keys(required).filter(k=>!String(data[k]??'').trim()).map(k=>required[k]);
  if(missing.length) throw new Error('Заполните: '+missing.join(', ')+'.');
  const date=dateParts(data.date), birth=dateParts(data.birthDate), passportDate=dateParts(data.passportDate);
@@ -23,7 +23,8 @@ function buildContract(templatePath, data) {
  const passportText=`${normalizeText(data.passportSeries)} ${normalizeText(data.passportNumber)}`;
  const clientDetails=`${normalizeText(data.fullName)}, ${birth.formatted} года рождения, паспорт ${passportText}, выдан ${normalizeText(data.passportAuthority)}, дата выдачи ${passportDate.formatted}, код подразделения: ${normalizeText(data.passportCode)}, зарегистрированный (ая) по адресу: ${normalizeText(data.address)}`;
  const phoneForDocument=String(data.phone??'').replace(/^(\+7)\s+/, '$1\u00a0');
- const values={...data, phone:phoneForDocument, day:date.day,month:date.month,year:date.year,monthYear:`${date.month} ${date.year} `,birthDateText:birth.formatted,passportText,passportDateText:passportDate.formatted,clientDetails,shortName,innLine:`ИНН/ ${data.inn.trim()}`,agentEmail:'ZakazLisaRulit@yandex.ru',mileage:data.mileage||'',other:data.other||''};
+ const optionalVehicleFields=['body','brand','model','carYear','engine','engineType','drive','gearbox','configuration','color','mileage','payment','other'];
+ const values={...data,...Object.fromEntries(optionalVehicleFields.map(key=>[key,data[key]??''])), phone:phoneForDocument, day:date.day,month:date.month,year:date.year,monthYear:`${date.month} ${date.year} `,birthDateText:birth.formatted,passportText,passportDateText:passportDate.formatted,clientDetails,shortName,innLine:`ИНН/ ${data.inn.trim()}`,agentEmail:'ZakazLisaRulit@yandex.ru'};
  const doc=new Docxtemplater(new PizZip(fs.readFileSync(templatePath)), {paragraphLoop:true,linebreaks:true,nullGetter:()=>{throw new Error('В шаблоне обнаружено незаполненное поле.')}});
  doc.render(values);
  return doc.getZip().generate({type:'nodebuffer',compression:'DEFLATE'});

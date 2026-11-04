@@ -51,9 +51,10 @@ public class OfflineFlowTest {
    waitFor(scenario,"!!window.ContractDocuments && !!document.getElementById('consent') && document.getElementById('heading').textContent==='Договор'");
    assertEquals("true",evaluate(scenario,"document.querySelector('[name=managerPhone]').value=== "+JSONObject.quote(data.getString("managerPhone"))));
    evaluate(scenario,"document.querySelectorAll('#steps button')[3].click()");
-   evaluate(scenario,"(()=>{const input=document.querySelector('[name=payment]');input.value='1950000';input.dispatchEvent(new Event('input',{bubbles:true}));return input.value})()");
-   assertEquals(JSONObject.quote("1.950.000 р."),evaluate(scenario,"document.querySelector('[name=payment]').value"));
-   evaluate(scenario,"document.querySelectorAll('#steps button')[4].click();document.getElementById('contract').click()");
+   assertEquals("true",evaluate(scenario,"[...document.querySelectorAll('#fields input')].every(input=>!input.required)"));
+   evaluate(scenario,"document.querySelectorAll('#fields input').forEach(input=>{input.value='';input.dispatchEvent(new Event('input',{bubbles:true}))});document.getElementById('next').click()" );
+   waitFor(scenario,"document.getElementById('heading').textContent==='Проверка'");
+   evaluate(scenario,"document.getElementById('contract').click()");
    waitFor(scenario,"JSON.parse(Android.getState()).documents.length===1 && !document.getElementById('contract').disabled");
    evaluate(scenario,"document.getElementById('consent').click()");
    waitFor(scenario,"JSON.parse(Android.getState()).documents.length===2 && !document.getElementById('consent').disabled");
@@ -62,6 +63,7 @@ public class OfflineFlowTest {
    for(int i=0;i<documents.length();i++){
     JSONObject item=documents.getJSONObject(i);File file=saved.document(item.getString("id"));originals[i]=file;String text=xml(file).replaceAll("<[^>]*>","");
     assertTrue(text.contains(data.getString("fullName")));assertTrue(text.contains(data.getString("address")));
+    if(item.getString("kind").equals("contract")){for(String key:new String[]{"body","brand","model","carYear","engine","engineType","drive","gearbox","configuration","color","payment"})assertFalse("Skipped vehicle field is empty: "+key,text.contains(data.getString(key)));}
     if(item.getString("kind").equals("consent")){assertEquals(1,text.split(java.util.regex.Pattern.quote(data.getString("fullName")),-1).length-1);assertFalse(text.contains("2026"));assertTrue(text.contains("________ г."));}
     copyForHost(file,item.getString("kind"));
    }

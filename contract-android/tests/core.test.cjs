@@ -22,6 +22,15 @@ for(const [label,data] of [['normal',fixture],['long',longFixture]])for(const ki
  const text=new PizZip(result).file('word/document.xml').asText().replace(/<[^>]*>/g,'');assert.ok(text.includes(data.fullName));assert.ok(text.includes(data.address));
  if(kind==='consent'){assert.equal(text.split(data.fullName).length-1,1);assert.ok(text.includes('________ г.'));assert.ok(!text.includes('2026'));}
 });
+test('offline browser generates a contract when all vehicle fields are skipped',()=>{
+ const data={...fixture};for(const key of ['body','brand','model','carYear','engine','engineType','drive','gearbox','configuration','color','mileage','payment','other'])data[key]='';
+ const browser=browserCore(),result=browser.generate('contract',data);assert.ok(result.name.endsWith('.docx'));
+ const expected=windowsContract.buildContract(path.join(root,'web/templates/contract.docx'),data);equalOOXML(Buffer.from(result.base64,'base64'),expected);
+ const text=new PizZip(Buffer.from(result.base64,'base64')).file('word/document.xml').asText().replace(/<[^>]*>/g,'');assert.ok(text.includes(data.fullName));for(const key of ['body','brand','model','carYear','engine','engineType','drive','gearbox','configuration','color','mileage','payment','other'])assert.ok(!text.includes(`{${key}}`),`unfilled ${key}`);
+});
+test('Android marks every vehicle field optional and advances through the step',()=>{
+ const app=fs.readFileSync(path.join(root,'web/app.js'),'utf8');assert.match(app,/input\.required=stages\[step\]\.title!==['"]Автомобиль['"]/);assert.match(app,/if\(step<stages\.length-1\)\{step\+\+;render\(\);focus\(\)\}/);
+});
 test('formatting and filenames use the unchanged Windows rules',()=>{
  const core=browserCore();assert.equal(core.formats.formatValue('payment','1950000'),'1.950.000 р.');assert.equal(core.formats.formatValue('passportSeries','0000'),'00 00');assert.equal(core.formats.formatValue('phone','81122993388'),'+7 112 299 33 88');assert.equal(core.formats.formatValue('passportCode','222333'),'222-333');
  assert.equal(core.generate('contract',{...fixture,number:'123'}).name,'№123_Договор_Испытательный_Тест_Макетович.docx');

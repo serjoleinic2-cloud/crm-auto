@@ -24,6 +24,7 @@ function render(){
  if(step===stages.length-1){
    stages.slice(0,-1).forEach(group=>{const section=document.createElement('section');const h=document.createElement('h3');h.textContent=group.title;section.append(h);group.fields.forEach(([key,label])=>{const row=document.createElement('p');row.textContent=label+': '+(data[key] || 'не заполнено');section.append(row)});fields.append(section)});
  }
+ if(stages[step].title==='Автомобиль'){const hint=document.createElement('p');hint.className='hint';hint.textContent='Если данных об автомобиле нет, этот шаг можно оставить пустым.';fields.append(hint)}
  stages[step].fields.forEach(([key,label,type])=>{const wrapper=document.createElement('label'); wrapper.textContent=label; const input=document.createElement('input'); input.name=key; input.type=type; input.value=data[key]||''; input.autocomplete='off'; contractInputFormats.attach(input,key); input.addEventListener('input',()=>{data[key]=input.value;localStorage.setItem('contract-draft',JSON.stringify(data))}); wrapper.append(input); fields.append(wrapper)});
  document.querySelector('#back').hidden=step===0;
  document.querySelector('#next').textContent=step===stages.length-1?'Создать договор':'Далее';
